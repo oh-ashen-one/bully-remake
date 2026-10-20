@@ -325,6 +325,17 @@ def cmd_world(a) -> int:
     return 0 if report["models_converted"] else 1
 
 
+def cmd_townlife(a) -> int:
+    from .townlife import build_townlife
+    install = resolve_install(a.install)
+    res = build_townlife(install, a.out, only=a.districts, evidence_dir=a.evidence, raster_parking=a.raster_parking)
+    for d in res["districts"]:
+        print(f"{d['name']:20s} loops {len(d['loops'])}  parking {len(d['parking'])}  "
+              f"(sidewalk nodes {d['stats']['sidewalk_nodes']}, road nodes {d['stats']['road_nodes']})"
+              + ("  NOTE: " + "; ".join(d["notes"]) if d["notes"] else ""))
+    return 0
+
+
 def cmd_trigger(a) -> int:
     from . import trigger as T
     install = resolve_install(a.install)
@@ -449,6 +460,13 @@ def main(argv=None) -> int:
     p.add_argument("--file-space", action="store_true", help="keep root/model node transforms in models")
     p.add_argument("--convert-invisible", action="store_true", help="also convert nogo/walkable/_nd markers")
     p.set_defaults(fn=cmd_world)
+
+    p = sub.add_parser("townlife", help="town pedestrian loops + kerbside parking spots from GRIDS.DAT and terrain -> <out>/townlife.json")
+    p.add_argument("--districts", nargs="*", help="only these districts (output name or IPB stem), default all 8")
+    p.add_argument("--evidence", help="directory for per-district top-down PNGs")
+    p.add_argument("--raster-parking", action="store_true",
+                   help="also derive parking from road-textured ground in districts with no road graph (low confidence)")
+    p.set_defaults(fn=cmd_townlife)
 
     p = sub.add_parser("trigger", help="DAT/Trigger.img mission points, paths, trigger volumes -> JSON (always writes day_one.json)")
     p.add_argument("--list", action="store_true", help="list every .dat with entity counts and warnings, write nothing")

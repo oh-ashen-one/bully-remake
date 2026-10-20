@@ -1,0 +1,51 @@
+{
+ "_format": "bully-remake.townlife/1",
+ "_note": "Town life (UBullyTownLifeSubsystem). Loops + parking spots come from the game's WALKABLE ped-area meshes (python3 -m tools.importers townlife -> imported/townlife.json; tools/ue/run_import.sh --models ... --townlife copies it to Content/Imported/TownLife/). Districts within active_radius_m of the player spawn walkers_per_loop townspeople per loop (random from 'peds', only those imported on this machine: tools/ue/run_import_npc.sh --peds ...) and fill parked_fraction of the parking spots with rides from 'parked_vehicles' (Vehicles.json ids; you can get in them). -BRTownLife forces it in a harness run, -BRNoTownLife turns it off.",
+ "enabled": true,
+ "active_radius_m": 260,
+ "despawn_margin_m": 80,
+ "walkers_per_loop": 2,
+ "walk_speed_cm_s": [
+  140,
+  185
+ ],
+ "parked_fraction": 0.65,
+ "parked_vehicles": [
+  "car",
+  "police",
+  "limo",
+  "pickup"
+ ],
+ "peds": [
+  {
+   "model": "TO_Business1"
+  },
+  {
+   "model": "TO_Business2"
+  },
+  {
+   "model": "TO_BusinessW1"
+  },
+  {
+   "model": "TO_RichW1"
+  },
+  {
+   "model": "TO_RichM1"
+  },
+  {
+   "model": "TO_Mailman"
+  },
+  {
+   "model": "TO_Poorwoman"
+  },
+  {
+   "model": "TO_NH_Res_01"
+  },
+  {
+   "model": "TO_Construct01"
+  },
+  {
+   "model": "TO_Cop"
+  }
+ ]
+}

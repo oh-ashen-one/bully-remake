@@ -5,7 +5,8 @@
 #   tools/ue/run_import.sh [--scenes core|all|a,b,c] [--steps textures,materials,meshes,level]
 #                          [--limit N] [--imported DIR]
 #   tools/ue/run_import.sh --models bike,GoCart,wheel_van,... [--sfx]   # standalone rides/props (no level step);
-#                                                     --sfx also imports Config/Sfx.json waves + the effects material
+#                                                     --sfx also imports Config/Sfx.json waves + the effects material,
+#                                                     --townlife copies imported/townlife.json for the town walkers
 #
 # Runs UnrealEditor-Cmd as the pythonscript commandlet with -nullrhi -unattended -nosplash (no window,
 # no GPU device), wrapped in the shared GPU slot. Exit code = the engine's; the script then checks
@@ -25,6 +26,7 @@ while [ $# -gt 0 ]; do
     --limit) LIMIT="$2"; shift 2 ;;
     --models) MODELS="$2"; STEPS=textures,materials,meshes; shift 2 ;;
     --sfx) export BR_SFX=1; shift ;;
+    --townlife) export BR_TOWNLIFE=1; shift ;;
     --imported) IMPORTED="$2"; shift 2 ;;
     *) br_die "unknown argument $1" ;;
   esac

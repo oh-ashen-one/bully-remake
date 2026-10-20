@@ -12,6 +12,8 @@ applies the GPU-slot wrapper and the headless flags. Configuration comes from en
   BR_MODELS     comma list of standalone models (imported/models/<name>.gltf: rides, wheels, hand props)
                 instead of the manifest's scenes; the level step is skipped. Vehicle rigs
                 (imported/vehicles/*.json) are copied to Content/Imported/VehicleRigs/ for the runtime.
+  BR_TOWNLIFE   1 = copy imported/townlife.json (town walker loops + parking, from the game's WALKABLE meshes)
+                to Content/Imported/TownLife/ for UBullyTownLifeSubsystem.
   BR_SFX        1 = also import the waves named in Config/Sfx.json (from imported/audio/manifest.json, decoded by
                 `python3 -m tools.importers audio extract`) to /Game/Imported/Audio/<bank>/<wave>, and build the
                 weapon-effects material /Game/Imported/Fx/M_BullyFx (translucent unlit: Color, Opacity, soft edge).
@@ -883,6 +885,15 @@ def main():
         gltf_paths, gltfs = collect_models(imported, models)
         steps = [s for s in steps if s != "level"]
         REPORT["steps"]["vehicle_rigs"] = copy_vehicle_rigs(imported)
+    if os.environ.get("BR_TOWNLIFE") == "1":
+        src = os.path.join(imported, "townlife.json")
+        dst = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir()), "Imported", "TownLife")
+        if os.path.isfile(src):
+            os.makedirs(dst, exist_ok=True)
+            shutil.copyfile(src, os.path.join(dst, "townlife.json"))
+            REPORT["steps"]["townlife"] = {"copied": os.path.join(dst, "townlife.json")}
+        else:
+            err("BR_TOWNLIFE: %s missing (python3 -m tools.importers townlife)" % src)
     if os.environ.get("BR_SFX") == "1":
         try:
             REPORT["steps"]["sfx"] = import_sfx(imported)

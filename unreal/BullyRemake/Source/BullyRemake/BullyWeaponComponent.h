@@ -64,6 +64,8 @@ public:
 	bool Fire();
 	/** Fire the equipped weapon at a world point (smoke tests, scripted throws). */
 	bool FireAt(const FVector& Target);
+	/** Fire at an actor's chest; the shot re-aims at where it is on the release frame. */
+	bool FireAtActor(AActor* Target);
 	void RefillAll();
 	/** Tests / captures: drop the cooldown and any shot waiting for its release frame. */
 	void ResetCooldown() { NextFireAt = 0.0; bPending = false; }
@@ -98,6 +100,7 @@ private:
 	double PendingAt = 0.0;
 	FVector PendingTarget = FVector::ZeroVector;
 	bool bPendingHasTarget = false;
+	TWeakObjectPtr<AActor> PendingActor;   // locked-on / given target: re-aimed at release
 	int32 HeldShownFor = -2;       // Equipped index the held model shows (-2 = not set up yet)
 	double HideHeldUntil = 0.0;    // thrown: the hand is empty for a moment after the throw
 

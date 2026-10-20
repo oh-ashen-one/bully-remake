@@ -249,7 +249,7 @@ void UBullyShowcaseShots::Tick(float Dt)
 		const FVector Aim = E ? E->GetActorLocation() + FVector(0, 0, 40.f) : P + Me->GetActorForwardVector() * 650.f;
 		Frame(P - Me->GetActorForwardVector() * 120.f + Me->GetActorRightVector() * 330.f + FVector(0, 0, 60.f), (P * 0.7f + Aim * 0.3f), 62.f);
 		DetonationsBefore = ABullyProjectile::TotalDetonations;
-		if (!Weapons->FireAt(Aim)) { UE_LOG(LogBullyShowcase, Warning, TEXT("BR_SHOWCASE %s did not fire"), *D.Name); }
+		if (!(E ? Weapons->FireAtActor(E) : Weapons->FireAt(Aim))) { UE_LOG(LogBullyShowcase, Warning, TEXT("BR_SHOWCASE %s did not fire"), *D.Name); }
 		Next(WeaponRelease);
 		break;
 	}

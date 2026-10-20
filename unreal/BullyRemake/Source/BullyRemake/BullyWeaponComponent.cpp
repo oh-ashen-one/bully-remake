@@ -222,12 +222,23 @@ bool UBullyWeaponComponent::Fire()
 {
 	FVector Target;
 	const bool bHasTarget = AimPoint(Target);
+	const ABullyCharacter* C = Cast<ABullyCharacter>(GetOwner());
+	UBullyCombatComponent* Combat = C ? C->GetCombat() : nullptr;
+	PendingActor = Combat && Combat->IsLockedOn() && Combat->GetLockTarget() ? Combat->GetLockTarget()->GetOwner() : nullptr;
 	return LaunchEquipped(Target, bHasTarget);
 }
 
 bool UBullyWeaponComponent::FireAt(const FVector& Target)
 {
+	PendingActor.Reset();
 	return LaunchEquipped(Target, true);
+}
+
+bool UBullyWeaponComponent::FireAtActor(AActor* Target)
+{
+	if (!Target) { return false; }
+	PendingActor = Target;
+	return LaunchEquipped(Target->GetActorLocation() + FVector(0.f, 0.f, 40.f), true);
 }
 
 UStaticMesh* UBullyWeaponComponent::VisualFor(const FBullyWeaponDef& D, bool& bIsFallback)
@@ -389,7 +400,12 @@ void UBullyWeaponComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	const APawn* P = Cast<APawn>(GetOwner());
 	if (P && P->IsPlayerControlled() && P->IsLocallyControlled()) { LocalArmed = this; }
-	if (bPending && GetWorld()->GetTimeSeconds() >= PendingAt) { LaunchNow(PendingTarget, bPendingHasTarget); }
+	if (bPending && GetWorld()->GetTimeSeconds() >= PendingAt)
+	{
+		// a locked-on target may have moved during the wind-up: throw where it is now
+		if (const AActor* A = PendingActor.Get()) { PendingTarget = A->GetActorLocation() + FVector(0.f, 0.f, 40.f); bPendingHasTarget = true; }
+		LaunchNow(PendingTarget, bPendingHasTarget);
+	}
 	UpdateHeld();
 	if (Smoke.bEnabled && P && P->IsPlayerControlled()) { TickSmoke(); }
 }
@@ -447,7 +463,7 @@ void UBullyWeaponComponent::TickSmoke()
 		Smoke.HitsBefore = ABullyProjectile::TotalFighterHits;
 		Smoke.DetonationsBefore = ABullyProjectile::TotalDetonations;
 		Smoke.HealthBefore = E->GetCombat()->Health;
-		if (!Equip(D.Id) || !FireAt(E->GetActorLocation() + FVector(0.f, 0.f, 40.f)))
+		if (!Equip(D.Id) || !FireAtActor(E))
 		{
 			Fail(FString::Printf(TEXT("%s: did not fire"), *D.Name));
 			++Smoke.Weapon;

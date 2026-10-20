@@ -35,6 +35,7 @@ DEFINE_LOG_CATEGORY_STATIC(LogBullyVehicle, Log, All);
 int32 ABullyVehicle::TotalMounts = 0;
 int32 ABullyVehicle::TotalDismounts = 0;
 int32 ABullyVehicle::TotalRunOvers = 0;
+int32 ABullyVehicle::TotalRescues = 0;
 
 namespace
 {
@@ -707,22 +708,44 @@ void ABullyVehicle::SettleOnGround(float Dt, bool bSnap)
 	UWorld* W = GetWorld();
 	FVector Loc = GetActorLocation();
 	FRotator Rot = GetActorRotation();
-	FHitResult Hit;
 	FCollisionQueryParams Q(SCENE_QUERY_STAT(BullyVehicleGround), true, this);
 	if (Rider.IsValid()) { Q.AddIgnoredActor(Rider.Get()); }
-	const bool bHit = W->LineTraceSingleByObjectType(Hit, Loc + FVector(0, 0, Def.HalfExtent.Z + 60.f),
-		Loc - FVector(0, 0, Def.RideHeight + 400.f), FCollisionObjectQueryParams(ECC_WorldStatic), Q);
+
+	// Ground under the whole footprint, not just the centre: a seam between road pieces or a kerb face under the middle
+	// must not read as "airborne". Probes start above the box (never inside the ground) and the highest walkable hit wins.
+	const FVector Fwd = FRotator(0.f, Rot.Yaw, 0.f).Vector();
+	const FVector Side = FRotationMatrix(FRotator(0.f, Rot.Yaw, 0.f)).GetUnitAxis(EAxis::Y);
+	const FVector2D E(Def.HalfExtent.X * 0.8f, Def.HalfExtent.Y * 0.8f);
+	const FVector Probes[5] = { FVector::ZeroVector, Fwd * E.X + Side * E.Y, Fwd * E.X - Side * E.Y, -Fwd * E.X + Side * E.Y, -Fwd * E.X - Side * E.Y };
+	const float Top = Loc.Z + Def.HalfExtent.Z + StepUp + 80.f;
+	const float Bottom = Loc.Z - Def.RideHeight - 600.f;
+	bool bHit = false;
+	float GroundZ = -BIG_NUMBER;
+	FVector Normal = FVector::ZeroVector;
+	for (const FVector& O : Probes)
+	{
+		FHitResult H;
+		const FVector XY(Loc.X + O.X, Loc.Y + O.Y, 0.f);
+		if (W->LineTraceSingleByObjectType(H, FVector(XY.X, XY.Y, Top), FVector(XY.X, XY.Y, Bottom), FCollisionObjectQueryParams(ECC_WorldStatic), Q)
+			&& H.ImpactNormal.Z > 0.6f)
+		{
+			bHit = true;
+			GroundZ = FMath::Max(GroundZ, H.ImpactPoint.Z);
+			Normal += H.ImpactNormal;
+		}
+	}
 
 	FRotator Target = FRotator(0.f, Rot.Yaw, 0.f);
-	if (bHit && Hit.ImpactNormal.Z > 0.6f)
+	if (bHit)
 	{
-		const float TargetZ = Hit.ImpactPoint.Z + Def.RideHeight;
+		Normal = Normal.GetSafeNormal();
+		const float TargetZ = GroundZ + Def.RideHeight;
 		if (bSnap || Loc.Z - TargetZ < 45.f)
 		{
 			Loc.Z = Loc.Z < TargetZ ? TargetZ : FMath::FInterpTo(Loc.Z, TargetZ, Dt, 18.f);
 			VerticalSpeed = 0.f;
 			bGrounded = true;
-			Target = FRotationMatrix::MakeFromXZ(FRotator(0.f, Rot.Yaw, 0.f).Vector(), Hit.ImpactNormal).Rotator();
+			Target = FRotationMatrix::MakeFromXZ(FRotator(0.f, Rot.Yaw, 0.f).Vector(), Normal).Rotator();
 			Target.Yaw = Rot.Yaw;
 		}
 		else
@@ -736,12 +759,38 @@ void ABullyVehicle::SettleOnGround(float Dt, bool bSnap)
 	else
 	{
 		VerticalSpeed -= 980.f * Dt;
-		Loc.Z += VerticalSpeed * Dt;
 		bGrounded = false;
+		// fall with collision so a gap in one probe can never carry the box through solid ground
+		FHitResult Stop;
+		SetActorLocation(FVector(Loc.X, Loc.Y, Loc.Z + VerticalSpeed * Dt), true, &Stop);
+		if (Stop.bBlockingHit && Stop.ImpactNormal.Z > 0.5f) { VerticalSpeed = 0.f; bGrounded = true; }
+		Loc = GetActorLocation();
 	}
 	Rot.Pitch = FMath::FInterpTo(Rot.Pitch, Target.Pitch, Dt, 10.f);
 	Rot.Roll = FMath::FInterpTo(Rot.Roll, Target.Roll, Dt, 10.f);
 	SetActorLocationAndRotation(Loc, Rot);
+
+	// safety net: remember where it last stood on solid ground; if it drops under the map, put it back there
+	const double Now = W->GetTimeSeconds();
+	if (bGrounded)
+	{
+		AirSince = -1.0;
+		if (Now - LastGoodAt > 0.25) { LastGood = FTransform(FRotator(0.f, Rot.Yaw, 0.f), Loc); LastGoodAt = Now; bHasLastGood = true; }
+	}
+	else if (AirSince < 0.0)
+	{
+		AirSince = Now;
+	}
+	const bool bLost = !bGrounded && AirSince >= 0.0 && ((Now - AirSince > 2.5 && bHasLastGood && Loc.Z < LastGood.GetLocation().Z - 300.f)
+		|| (bHasLastGood && Loc.Z < LastGood.GetLocation().Z - 2500.f));
+	if (bLost)
+	{
+		UE_LOG(LogBullyVehicle, Warning, TEXT("BR_VEHICLE %s fell under the map at %s: back to %s"), *Def.Name, *Loc.ToCompactString(), *LastGood.GetLocation().ToCompactString());
+		SetActorTransform(LastGood, false, nullptr, ETeleportType::TeleportPhysics);
+		ResetMotion();
+		AirSince = -1.0;
+		++TotalRescues;
+	}
 }
 
 void ABullyVehicle::UpdateCamera(float Dt)

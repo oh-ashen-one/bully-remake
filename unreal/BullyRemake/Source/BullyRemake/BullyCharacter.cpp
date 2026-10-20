@@ -1,6 +1,11 @@
 // OWNER: builder-B3 (jimmy)
 #include "BullyCharacter.h"
 
+#include "BullyLanding.h"
+#include "TimerManager.h"
+#include "Misc/Parse.h"
+#include "Misc/CommandLine.h"
+
 #include "BullyAnimInstance.h"
 #include "BullyCombatAnimInstance.h"
 #include "BullyCombatComponent.h"
@@ -187,6 +192,7 @@ void ABullyCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	ApplyTuning();
+	if (IsPlayerControlled() && FParse::Param(FCommandLine::Get(), TEXT("BRTeleportSmoke"))) { StartTeleportSmoke(); }
 	if (bSnapToGroundOnBeginPlay)
 	{
 		// The PlayerStart is placed above the ground on purpose; drop the capsule onto the first surface below it.
@@ -815,16 +821,76 @@ void ABullyCharacter::BRGo(const FString& Name)
 	if (!(*Spot)->TryGetArrayField(TEXT("location_cm"), L) || L->Num() < 3) { return; }
 	FVector Dest(float((*L)[0]->AsNumber()), float((*L)[1]->AsNumber()), float((*L)[2]->AsNumber()));
 
-	// floor-snap: trace down from well above the spot; fall back to the raw point
-	FCollisionQueryParams P(SCENE_QUERY_STAT(BRGo), true, this);
-	FHitResult Hit;
-	if (GetWorld()->LineTraceSingleByChannel(Hit, Dest + FVector(0, 0, 2000.f), Dest - FVector(0, 0, 2000.f), ECC_Visibility, P))
+	// land on real, open ground near the spot (never a roof / upper floor / gap between walls); interiors search a
+	// tighter radius so you stay in the room you picked
+	FString Scene;
+	(*Spot)->TryGetStringField(TEXT("scene"), Scene);
+	const bool bInterior = Scene.StartsWith(TEXT("i"), ESearchCase::IgnoreCase);
+	const float HalfH = GetCapsuleComponent() ? GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 88.f;
+	FVector Ground;
+	if (FBullyLanding::Find(GetWorld(), Dest, bInterior ? 2500.f : 8000.f, Ground, this, bInterior ? 90.f : 150.f)
+		|| FBullyLanding::Find(GetWorld(), Dest, bInterior ? 2500.f : 8000.f, Ground, this, 45.f))   // tight rooms: a capsule's worth
 	{
-		Dest = Hit.Location + FVector(0, 0, 96.f);
+		Dest = Ground + FVector(0, 0, HalfH + 3.f);
+	}
+	else
+	{
+		FCollisionQueryParams P(SCENE_QUERY_STAT(BRGo), true, this);
+		FHitResult Hit;
+		if (GetWorld()->LineTraceSingleByChannel(Hit, Dest + FVector(0, 0, 300.f), Dest - FVector(0, 0, 2000.f), ECC_Visibility, P))
+		{
+			Dest = Hit.Location + FVector(0, 0, HalfH + 8.f);
+		}
 	}
 	SetActorLocation(Dest, false, nullptr, ETeleportType::TeleportPhysics);
 	GetCharacterMovement()->StopMovementImmediately();
 	SnapCamera();
 	UE_LOG(LogTemp, Display, TEXT("BR_GO %s -> %s"), *Name, *Dest.ToCompactString());
 	if (GEngine) { GEngine->AddOnScreenDebugMessage(INDEX_NONE, 4.f, FColor::Green, FString::Printf(TEXT("BRGo: %s"), *Name)); }
+}
+
+void ABullyCharacter::StartTeleportSmoke()
+{
+	// every spot in turn: warp, let the capsule settle 1.5 s, then it must be walking on the ground near where it landed
+	TArray<FString> Keys;
+	FString Raw;
+	TSharedPtr<FJsonObject> Root;
+	const TSharedPtr<FJsonObject>* Spots = nullptr;
+	if (FFileHelper::LoadFileToString(Raw, *(FPaths::ProjectConfigDir() / TEXT("InteriorSpots.json")))
+		&& FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Raw), Root) && Root.IsValid() && Root->TryGetObjectField(TEXT("spots"), Spots))
+	{
+		for (const auto& It : (*Spots)->Values) { Keys.Add(FString(It.Key)); }
+	}
+	struct FState { int32 Index = -1; int32 Pass = 0; TArray<FString> Fails; FVector Landed = FVector::ZeroVector; };
+	TSharedRef<FState> St = MakeShared<FState>();
+	TSharedRef<FTimerHandle> Handle = MakeShared<FTimerHandle>();
+	TWeakObjectPtr<ABullyCharacter> WeakThis = this;
+	GetWorldTimerManager().SetTimer(*Handle, FTimerDelegate::CreateLambda([WeakThis, Keys, St, Handle]()
+	{
+		ABullyCharacter* C = WeakThis.Get();
+		if (!C) { return; }
+		if (St->Index >= 0)
+		{
+			const FString& K = Keys[St->Index];
+			const FVector P = C->GetActorLocation();
+			const bool bOnGround = C->GetCharacterMovement()->IsMovingOnGround();
+			const float Drop = St->Landed.Z - P.Z;
+			if (bOnGround && Drop < 150.f) { ++St->Pass; UE_LOG(LogTemp, Display, TEXT("BR_TELEPORT_SMOKE PASS %s: standing at %s"), *K, *P.ToCompactString()); }
+			else
+			{
+				St->Fails.Add(K);
+				UE_LOG(LogTemp, Error, TEXT("BR_TELEPORT_SMOKE FAIL %s: on ground %d, dropped %.0f cm after landing (now %s)"), *K, bOnGround, Drop, *P.ToCompactString());
+			}
+		}
+		if (++St->Index >= Keys.Num())
+		{
+			UE_LOG(LogTemp, Display, TEXT("BR_TELEPORT_SMOKE RESULT %s: %d/%d spots land on open ground; failed: %s"),
+				St->Fails.Num() == 0 ? TEXT("PASS") : TEXT("FAIL"), St->Pass, Keys.Num(), *FString::Join(St->Fails, TEXT(", ")));
+			C->GetWorldTimerManager().ClearTimer(*Handle);
+			GEngine->Exec(C->GetWorld(), TEXT("quit"));
+			return;
+		}
+		C->BRGo(Keys[St->Index]);
+		St->Landed = C->GetActorLocation();
+	}), 1.5f, true, 4.f);
 }

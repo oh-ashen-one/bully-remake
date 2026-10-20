@@ -90,6 +90,7 @@ public:
 	static int32 TotalMounts;
 	static int32 TotalDismounts;
 	static int32 TotalRunOvers;
+	static int32 TotalRescues;     // fell under the map and was put back on solid ground
 
 private:
 	struct FWheelRig { FVector Hub = FVector::ZeroVector; bool bFront = false; bool bLeft = false; };
@@ -153,6 +154,10 @@ private:
 	TArray<FWheelRig> RigWheels;
 	float LoopLevel = 0.f;         // 0..1 smoothed loudness of the ride loop
 	double NextSkidAt = 0.0;
+	FTransform LastGood;           // last place it stood on solid ground
+	double LastGoodAt = -100.0;
+	double AirSince = -1.0;
+	bool bHasLastGood = false;
 	TMap<TWeakObjectPtr<AActor>, double> RecentRunOvers;
 
 	bool bScripted = false;

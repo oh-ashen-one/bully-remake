@@ -241,6 +241,8 @@ public:
 
 	/** Console: teleport into an imported interior pocket by name (Config/InteriorSpots.json); "BRGo list" lists them. */
 	UFUNCTION(Exec) void BRGo(const FString& Name);
+	/** -BRTeleportSmoke: warp to every spot in InteriorSpots.json, check each landing stands on open ground, log PASS/FAIL, quit. */
+	void StartTeleportSmoke();
 	/** Console: refill every weapon to max ammo. */
 	UFUNCTION(Exec) void BRGiveWeapons();
 	/** Console: spawn a ride (bike / skateboard / gokart / car, Config/Vehicles.json) a few metres ahead. */

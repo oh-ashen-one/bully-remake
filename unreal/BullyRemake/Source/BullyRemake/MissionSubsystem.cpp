@@ -1372,7 +1372,9 @@ void UMissionSubsystem::TickSmoke(float Dt)
 			}
 			Why += FString::Printf(TEXT("; wrong-way: skipped ahead on %d stage(s), %d stuck [%s]"), Smoke.WrongWayTested, Smoke.WrongWayStuck.Num(), *Ids);
 		}
-		Quit(bAll && (!Smoke.bWantFailTest || Smoke.bFailTested) && (!Smoke.bWantFailTest || Attempt >= 2) && Smoke.WrongWayStuck.Num() == 0, Why);
+		// the fail -> retry exercise belongs to the normal run; the wrong-way run only judges the skips
+		const bool bFailOk = Smoke.bWrongWay || !Smoke.bWantFailTest || (Smoke.bFailTested && Attempt >= 2);
+		Quit(bAll && bFailOk && Smoke.WrongWayStuck.Num() == 0, Why);
 		return;
 	}
 	if (State != EState::Running || !Mission.IsValid()) { return; }

@@ -129,6 +129,8 @@ public:
 	/** One-shot on the upper body (Root-Spine down) over whatever the legs are doing: throws, shots, reloads.
 	 *  False if the clip is missing. */
 	bool PlayUpperBody(FName Clip, float Rate = 1.f);
+	/** Upper-body loop while nothing else plays on the upper body (holding a launcher); NAME_None fades it out. */
+	void SetUpperHold(FName Clip);
 	/** Seconds into the playing upper-body clip, or -1 when none plays. */
 	float GetUpperBodyTime() const { return UpperActive ? Upper.Time : -1.f; }
 	/** Cached clip lookup in this mesh's Anims folder (null + one warning if missing). */
@@ -213,6 +215,9 @@ private:
 	float SpeedHistory = 0.f;        // speed held over the last ~0.25 s
 	float PrevLocoSpeed = 0.f;
 	void UpdateTransition(float Dt, float Speed, bool bFree);
+	FName HoldClip;
+	FBullyAnimLayer Hold;
+	float HoldWeight = 0.f;
 	FBullyAnimLayer Upper;
 	float UpperRate = 1.f;
 	float UpperWeight = 0.f;

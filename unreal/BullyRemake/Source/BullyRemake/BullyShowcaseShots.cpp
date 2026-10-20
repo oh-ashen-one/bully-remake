@@ -85,8 +85,18 @@ void UBullyShowcaseShots::Frame(const FVector& Eye, const FVector& LookAt, float
 	if (APlayerController* PC = W->GetFirstPlayerController()) { PC->SetViewTarget(Cam.Get()); }
 }
 
+void UBullyShowcaseShots::Follow(AActor* Target, const FVector& LocalEye, const FVector& LocalLook, float Fov)
+{
+	FollowTarget = Target;
+	FollowEye = LocalEye;
+	FollowLook = LocalLook;
+	const FTransform T(FRotator(0.f, Target->GetActorRotation().Yaw, 0.f), Target->GetActorLocation());
+	Frame(T.TransformPosition(LocalEye), T.TransformPosition(LocalLook), Fov);
+}
+
 void UBullyShowcaseShots::UseGameCamera()
 {
+	FollowTarget.Reset();
 	UWorld* W = GetWorld();
 	if (APlayerController* PC = W->GetFirstPlayerController()) { PC->SetViewTarget(PC->GetPawn()); }
 }
@@ -103,6 +113,11 @@ void UBullyShowcaseShots::Tick(float Dt)
 	for (TActorIterator<ABullyCharacter> It(W); It; ++It) { if (It->IsPlayerControlled() || It->GetAttachParentActor()) { Me = *It; break; } }
 	if (!PC || !Me) { return; }
 	UBullyWeaponComponent* Weapons = Me->GetWeapons();
+	if (AActor* F = FollowTarget.Get())
+	{
+		const FTransform T(FRotator(0.f, F->GetActorRotation().Yaw, 0.f), F->GetActorLocation());
+		if (Cam.IsValid()) { Cam->SetActorLocationAndRotation(T.TransformPosition(FollowEye), (T.TransformPosition(FollowLook) - T.TransformPosition(FollowEye)).Rotation()); }
+	}
 
 	switch (Step)
 	{
@@ -141,9 +156,15 @@ void UBullyShowcaseShots::Tick(float Dt)
 		if (T < 1.8) { break; }
 		V->SetScriptedInput(true, 0.25f, 0.15f);   // keep rolling, a slight lean into a turn
 		const FVector E = V->GetDef().HalfExtent;
-		const float D = E.X * 2.4f + 260.f;
-		const FVector P = V->GetActorLocation();
-		Frame(P + V->GetActorForwardVector() * D * 0.75f + V->GetActorRightVector() * D * 0.85f + FVector(0, 0, E.Z + 90.f), P + FVector(0, 0, 50.f), 55.f);
+		const float D = E.X * 2.0f + 240.f;
+		// 3/4 front view that rides along; take whichever side has a clear line of sight
+		FVector Eye(D * 0.6f, D * 0.8f, E.Z + 80.f);
+		FHitResult Hit;
+		FCollisionQueryParams Q(SCENE_QUERY_STAT(BullyShowcase), false, V);
+		Q.AddIgnoredActor(Me);
+		const FTransform VT(FRotator(0.f, V->GetActorRotation().Yaw, 0.f), V->GetActorLocation());
+		if (W->LineTraceSingleByChannel(Hit, V->GetActorLocation() + FVector(0, 0, 60.f), VT.TransformPosition(Eye), ECC_Visibility, Q)) { Eye.Y = -Eye.Y; }
+		Follow(V, Eye, FVector(0.f, 0.f, 40.f), 55.f);
 		Next(RideSide);
 		break;
 	}
@@ -181,6 +202,7 @@ void UBullyShowcaseShots::Tick(float Dt)
 	case WeaponSetup:
 	{
 		if (T < 0.6) { break; }
+		FollowTarget.Reset();
 		if (!Weapons || Weapons->GetDefs().Num() == 0) { Next(Done); break; }
 		if (Me->GetCombat()) { Me->GetCombat()->bInvulnerable = true; }
 		for (const TWeakObjectPtr<ABullyVehicle>& V : Rides) { if (V.IsValid()) { V->SetActorHiddenInGame(true); V->SetActorEnableCollision(false); } }

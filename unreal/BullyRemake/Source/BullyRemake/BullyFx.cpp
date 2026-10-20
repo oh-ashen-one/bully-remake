@@ -68,7 +68,11 @@ ABullyFx::FPart& ABullyFx::AddSphere(const FVector& Loc, const FLinearColor& Col
 	if (UMaterialInterface* M = FxMaterial(bSoft))
 	{
 		P.MID = UMaterialInstanceDynamic::Create(M, this);
-		P.MID->SetVectorParameterValue(bSoft ? TEXT("Color") : TEXT("Color"), Color);
+		// colours above 1 mean "glowing" (fire, flash, sparks): base colour normalised, the excess drives the emissive
+		const float Peak = FMath::Max3(Color.R, Color.G, Color.B);
+		const bool bGlow = Peak > 1.01f;
+		P.MID->SetVectorParameterValue(TEXT("Color"), bGlow ? FLinearColor(Color.R / Peak, Color.G / Peak, Color.B / Peak) : Color);
+		P.MID->SetScalarParameterValue(TEXT("Glow"), bGlow ? Peak * 12.f : 0.f);
 		P.MID->SetScalarParameterValue(TEXT("Opacity"), Opacity0);
 		C->SetMaterial(0, P.MID);
 	}

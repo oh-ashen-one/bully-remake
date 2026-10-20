@@ -31,6 +31,7 @@ private:
 	void Shot(const FString& Name);
 	void Frame(const FVector& Eye, const FVector& LookAt, float Fov = 60.f);
 	void UseGameCamera();
+	void Follow(AActor* Target, const FVector& LocalEye, const FVector& LocalLook, float Fov);
 
 	bool bActive = false;
 	FString Dir;
@@ -45,4 +46,6 @@ private:
 	TArray<TWeakObjectPtr<ABullyVehicle>> Rides;
 	TWeakObjectPtr<ABullyCombatPawn> Target;
 	TWeakObjectPtr<ACameraActor> Cam;
+	TWeakObjectPtr<AActor> FollowTarget;     // camera rides along (offsets in the target's frame)
+	FVector FollowEye = FVector::ZeroVector, FollowLook = FVector::ZeroVector;
 };

@@ -34,6 +34,7 @@ struct FBullyWeaponDef
 	FRotator HeldRot = FRotator::ZeroRotator;
 	float HeldScale = 1.f;
 	FName FireClip;                // Jimmy clip, upper body
+	FName HoldClip;                // upper-body loop while equipped (launchers carried at the ready)
 	float FireRate = 1.f;
 	float ReleaseSeconds = 0.f;    // into the clip (at rate 1)
 	FName SfxFire;

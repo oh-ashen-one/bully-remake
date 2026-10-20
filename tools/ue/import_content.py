@@ -16,7 +16,7 @@ applies the GPU-slot wrapper and the headless flags. Configuration comes from en
                 to Content/Imported/TownLife/ for UBullyTownLifeSubsystem.
   BR_SFX        1 = also import the waves named in Config/Sfx.json (from imported/audio/manifest.json, decoded by
                 `python3 -m tools.importers audio extract`) to /Game/Imported/Audio/<bank>/<wave>, and build the
-                weapon-effects material /Game/Imported/Fx/M_BullyFx (translucent unlit: Color, Opacity, soft edge).
+                weapon-effects material /Game/Imported/Fx/M_BullyFx (translucent lit: Color, Glow, Opacity, soft edge).
   BR_REPORT     where to write the JSON report        [<project>/Saved/BullyImport/report.json]
 
 Idempotent: textures and meshes carry a "br_src_sha1" metadata tag; an asset whose tag equals the
@@ -189,12 +189,13 @@ def import_sfx(imported):
     return stats
 
 
-FX_VERSION = "1"
+FX_VERSION = "2"
 
 
 def ensure_fx_material():
-    """/Game/Imported/Fx/M_BullyFx: translucent, unlit, two-sided; Color (emissive) x Opacity, edges fade out
-    (1 - fresnel) so a scaled engine sphere reads as a soft puff of smoke / gas / dust / flash."""
+    """/Game/Imported/Fx/M_BullyFx: translucent, lit by the scene (smoke / gas / dust / splats read at any exposure),
+    two-sided. Color = base colour, Opacity x soft edge (1 - fresnel), Glow = emissive multiplier on Color for fire,
+    flashes and sparks (0 = plain lit smoke)."""
     root = ROOT + "/Fx"
     path = root + "/M_BullyFx"
     if EAL.does_asset_exist(path):
@@ -205,22 +206,33 @@ def ensure_fx_material():
     else:
         mat = AT.create_asset("M_BullyFx", root, unreal.Material, unreal.MaterialFactoryNew())
     mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
-    mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_DEFAULT_LIT)
+    mat.set_editor_property("translucency_lighting_mode", unreal.TranslucencyLightingMode.TLM_SURFACE_PER_PIXEL_LIGHTING)
     mat.set_editor_property("two_sided", True)
-    color = MEL.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -600, -200)
+    color = MEL.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -700, -250)
     color.set_editor_property("parameter_name", "Color")
     color.set_editor_property("default_value", unreal.LinearColor(1, 1, 1, 1))
-    opacity = MEL.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -600, 100)
+    glow = MEL.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -700, -50)
+    glow.set_editor_property("parameter_name", "Glow")
+    glow.set_editor_property("default_value", 0.0)
+    emis = MEL.create_material_expression(mat, unreal.MaterialExpressionMultiply, -400, -100)
+    rough = MEL.create_material_expression(mat, unreal.MaterialExpressionConstant, -400, 0)
+    rough.set_editor_property("r", 1.0)
+    opacity = MEL.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -700, 150)
     opacity.set_editor_property("parameter_name", "Opacity")
     opacity.set_editor_property("default_value", 0.6)
-    fres = MEL.create_material_expression(mat, unreal.MaterialExpressionFresnel, -600, 250)
+    fres = MEL.create_material_expression(mat, unreal.MaterialExpressionFresnel, -700, 300)
     fres.set_editor_property("exponent", 1.5)
-    inv = MEL.create_material_expression(mat, unreal.MaterialExpressionOneMinus, -400, 250)
-    mul = MEL.create_material_expression(mat, unreal.MaterialExpressionMultiply, -200, 150)
+    inv = MEL.create_material_expression(mat, unreal.MaterialExpressionOneMinus, -500, 300)
+    mul = MEL.create_material_expression(mat, unreal.MaterialExpressionMultiply, -300, 200)
+    MEL.connect_material_expressions(color, "", emis, "A")
+    MEL.connect_material_expressions(glow, "", emis, "B")
     MEL.connect_material_expressions(fres, "", inv, "")
     MEL.connect_material_expressions(opacity, "", mul, "A")
     MEL.connect_material_expressions(inv, "", mul, "B")
-    MEL.connect_material_property(color, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    MEL.connect_material_property(color, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    MEL.connect_material_property(emis, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    MEL.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     MEL.connect_material_property(mul, "", unreal.MaterialProperty.MP_OPACITY)
     MEL.recompile_material(mat)
     EAL.set_metadata_tag(mat, "br_fx_version", FX_VERSION)

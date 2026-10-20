@@ -96,6 +96,7 @@ bool UBullyWeaponComponent::LoadDefs()
 		if (O->TryGetStringField(TEXT("sfx_impact"), S)) { D.Spec.SfxImpact = FName(*S); }
 		if (O->TryGetStringField(TEXT("sfx_fire"), S)) { D.SfxFire = FName(*S); }
 		if (O->TryGetStringField(TEXT("fire_clip"), S)) { D.FireClip = FName(*S); }
+		if (O->TryGetStringField(TEXT("hold_clip"), S)) { D.HoldClip = FName(*S); }
 		if (O->TryGetNumberField(TEXT("fire_rate"), N)) { D.FireRate = FMath::Max(0.1f, float(N)); }
 		if (O->TryGetNumberField(TEXT("release_s"), N)) { D.ReleaseSeconds = FMath::Max(0.f, float(N)); }
 		O->TryGetStringField(TEXT("held_mesh"), D.HeldMeshPath);
@@ -271,6 +272,7 @@ void UBullyWeaponComponent::UpdateHeld()
 	if (HeldShownFor != Equipped)
 	{
 		HeldShownFor = Equipped;
+		if (UBullyAnimInstance* AI = Cast<UBullyAnimInstance>(SK->GetAnimInstance())) { AI->SetUpperHold(HasEquipped() ? Defs[Equipped].HoldClip : NAME_None); }
 		UStaticMesh* M = HasEquipped() ? LoadMesh(Defs[Equipped].HeldMeshPath) : nullptr;
 		Held->SetStaticMesh(M);
 		if (M)

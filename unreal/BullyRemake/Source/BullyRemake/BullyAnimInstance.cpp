@@ -537,6 +537,19 @@ void UBullyAnimInstance::SetRideClip(FName ClipName, float Rate)
 	}
 }
 
+void UBullyAnimInstance::SetUpperHold(FName ClipName)
+{
+	if (ClipName == HoldClip) { return; }
+	HoldClip = ClipName;
+	if (UAnimSequence* S = FindClip(ClipName))
+	{
+		Hold = FBullyAnimLayer();
+		Hold.Seq = S;
+		Hold.bLoop = true;
+		Hold.bUpper = true;
+	}
+}
+
 bool UBullyAnimInstance::PlayUpperBody(FName ClipName, float Rate)
 {
 	UAnimSequence* S = FindClip(ClipName);
@@ -637,6 +650,17 @@ void UBullyAnimInstance::ApplyOverlays(float Dt)
 	else if (!bRide)
 	{
 		Ride = FBullyAnimLayer();
+	}
+
+	// hold loop (launcher carried at the ready): under any one-shot, not while riding
+	const bool bHold = !HoldClip.IsNone() && Hold.Seq && RideClip.IsNone();
+	HoldWeight = bHold ? FMath::Min(1.f, HoldWeight + Dt / 0.2f) : FMath::Max(0.f, HoldWeight - Dt / 0.2f);
+	if (HoldWeight > 0.f && Hold.Seq)
+	{
+		AdvanceLayer(Hold, Dt);
+		FBullyAnimLayer H = Hold;
+		H.Weight = HoldWeight * (1.f - (UpperActive ? UpperWeight : 0.f));
+		if (H.Weight > 0.f) { P.Layers.Add(H); }
 	}
 
 	// upper body: in over 0.08 s, out over the last 0.15 s of the clip

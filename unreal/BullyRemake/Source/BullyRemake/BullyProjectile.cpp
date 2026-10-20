@@ -197,6 +197,17 @@ void ABullyProjectile::Detonate(const FVector& At, UBullyCombatComponent* Direct
 		if (V.IsValid()) { V->ApplyWeaponHit(Reaction, Spec.Damage); ++TotalFighterHits; }
 	}
 
+	if (Victims.Num() == 0 && Spec.AoeRadius > 0.f)
+	{
+		for (const TWeakObjectPtr<UBullyCombatComponent>& C : UBullyCombatComponent::Registry())
+		{
+			if (C.IsValid() && C->GetOwner() && C.Get() != Shooter.Get())
+			{
+				UE_LOG(LogBullyWeapon, Display, TEXT("BR_WEAPON %s missed %s at %.0f cm (aoe %.0f, same world %d)"), *Spec.WeaponId.ToString(),
+					*C->GetOwner()->GetName(), FVector::Dist(C->GetOwner()->GetActorLocation(), At), Spec.AoeRadius, C->GetWorld() == W);
+			}
+		}
+	}
 	UE_LOG(LogBullyWeapon, Display, TEXT("BR_WEAPON %s detonated at %s: %d fighter(s) hit, effect=%s %.1fs"),
 		*Spec.WeaponId.ToString(), *At.ToCompactString(), Victims.Num(), FBullyProjectileSpec::EffectName(Spec.Effect), Spec.EffectSeconds);
 

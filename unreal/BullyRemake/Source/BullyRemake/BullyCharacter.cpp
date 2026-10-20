@@ -834,8 +834,8 @@ void ABullyCharacter::BRGo(const FString& Name)
 	{
 		// outdoor: a sidewalk node of the game's own ped network; stay within a storey of it (terrain here is stacked)
 		const FVector Node((*G)[0]->AsNumber(), (*G)[1]->AsNumber(), (*G)[2]->AsNumber());
-		bFound = FBullyLanding::Find(GetWorld(), Node, 2500.f, Ground, this, 150.f, 250.f, 300.f)
-			|| FBullyLanding::Find(GetWorld(), Node, 2500.f, Ground, this, 60.f, 250.f, 300.f);
+		bFound = FBullyLanding::Find(GetWorld(), Node, 2500.f, Ground, this, 150.f, 200.f, 120.f)
+			|| FBullyLanding::Find(GetWorld(), Node, 2500.f, Ground, this, 60.f, 200.f, 120.f);
 	}
 	if (!bFound)
 	{

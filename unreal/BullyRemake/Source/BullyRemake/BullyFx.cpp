@@ -210,8 +210,8 @@ ABullyFx* ABullyFx::Blast(UWorld* W, const FVector& At, float Radius, const FLin
 {
 	ABullyFx* F = Make(W, At);
 	if (!F) { return nullptr; }
-	F->AddSphere(At, FireColor * 6.f, Radius * 0.3f, Radius * 1.4f, 0.22f, 0.95f);                     // fireball
-	F->AddSphere(At, FLinearColor(1.f, 0.95f, 0.8f) * 12.f, Radius * 0.2f, Radius * 0.7f, 0.1f, 1.f);   // core flash
+	F->AddSphere(At, FireColor * 6.f, Radius * 0.25f, Radius * 0.9f, 0.18f, 0.7f);                      // fireball
+	F->AddSphere(At, FLinearColor(1.f, 0.95f, 0.8f) * 12.f, Radius * 0.15f, Radius * 0.45f, 0.08f, 0.9f); // core flash
 	for (int32 i = 0; i < 6; ++i)                                                                         // smoke
 	{
 		const FVector Off = FMath::VRand() * Radius * 0.3f;
@@ -234,10 +234,10 @@ ABullyFx* ABullyFx::Splat(UWorld* W, const FVector& At, const FVector& Normal, c
 	ABullyFx* F = Make(W, At);
 	if (!F) { return nullptr; }
 	const FVector N = Normal.IsNearlyZero() ? FVector::UpVector : Normal.GetSafeNormal();
-	FPart& Disc = F->AddSphere(At + N * 1.5f, Color, Radius * 0.6f, Radius * 2.f, Seconds, 0.95f, 0.f);
+	FPart& Disc = F->AddSphere(At + N * 0.6f, Color, Radius * 0.5f, Radius * 1.1f, Seconds, 0.85f, 0.f);
 	Disc.Comp->SetWorldRotation(FRotationMatrix::MakeFromZ(N).Rotator());
-	Disc.Scale0 = FVector(Radius * 0.6f / 100.f, Radius * 0.6f / 100.f, 0.03f);
-	Disc.Scale1 = FVector(Radius * 2.f / 100.f, Radius * 2.f / 100.f, 0.03f);
+	Disc.Scale0 = FVector(Radius * 0.5f / 100.f, Radius * 0.5f / 100.f, 0.008f);   // a thin smear on the surface
+	Disc.Scale1 = FVector(Radius * 1.1f / 100.f, Radius * 1.1f / 100.f, 0.008f);
 	for (int32 i = 0; i < 6; ++i)                                                                         // droplets
 	{
 		FPart& P = F->AddSphere(At, Color, 5.f, 4.f, FMath::FRandRange(0.35f, 0.6f), 1.f, 0.8f);

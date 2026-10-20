@@ -10,6 +10,7 @@
 #include "Dom/JsonObject.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "GameFramework/PlayerController.h"
 #include "Misc/CommandLine.h"
 #include "Misc/FileHelper.h"
@@ -87,6 +88,7 @@ void UBullySandboxSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 			if (S.Split(TEXT("="), nullptr, &Key) && !Key.IsEmpty()) { StartKey = Key; }
 		}
 		else if (S.Equals(TEXT("BRNoSandbox"), ESearchCase::IgnoreCase)) { bOff = true; }
+		else if (S.Equals(TEXT("BRRideStress"), ESearchCase::IgnoreCase)) { bStress = true; }
 		else if (S.StartsWith(TEXT("BR"), ESearchCase::IgnoreCase)) { bHarness = true; }   // a test harness run
 	}
 	const UMissionSubsystem* M = UMissionSubsystem::Get(&InWorld);
@@ -243,6 +245,74 @@ void UBullySandboxSubsystem::Tick(float DeltaTime)
 		return;
 	}
 	if (bSmoke) { TickSmoke(DeltaTime); }
+	if (bStress) { TickStress(DeltaTime); }
+}
+
+void UBullySandboxSubsystem::TickStress(float Dt)
+{
+	UWorld* W = GetWorld();
+	const double Now = W->GetTimeSeconds();
+	APlayerController* PC = W->GetFirstPlayerController();
+	ABullyCharacter* Me = nullptr;
+	for (TActorIterator<ABullyCharacter> It(W); It; ++It) { if (It->IsPlayerControlled() || It->GetAttachParentActor()) { Me = *It; break; } }
+	auto Pick = [this](const TCHAR* Id) -> ABullyVehicle*
+	{
+		for (const TWeakObjectPtr<ABullyVehicle>& V : Lineup) { if (V.IsValid() && V->GetDef().Id == FName(Id)) { return V.Get(); } }
+		return nullptr;
+	};
+	static const TCHAR* Rides[2] = { TEXT("car"), TEXT("gokart") };
+	ABullyVehicle* V = Stress.Ride >= 0 && Stress.Ride < 2 ? Pick(Rides[Stress.Ride]) : nullptr;
+	if (Stress.Ride < 0 || (V && Now - Stress.RideStart > 60.0))
+	{
+		if (V)
+		{
+			const int32 Rescues = ABullyVehicle::TotalRescues - Stress.RescuesBefore;
+			Stress.Lines.Add(FString::Printf(TEXT("%s: %.0f m driven, %d/%d checks under the ground, %d rescue(s)"), Rides[Stress.Ride], Stress.Dist / 100.f, Stress.Under, Stress.Checks, Rescues));
+			UE_LOG(LogBullySandbox, Display, TEXT("BR_RIDE_STRESS %s"), *Stress.Lines.Last());
+			V->SetScriptedInput(false);
+			V->Dismount();
+		}
+		if (++Stress.Ride >= 2)
+		{
+			const bool bOk = !Stress.Lines.ContainsByPredicate([](const FString& L) { return !L.Contains(TEXT(" 0/")); });
+			UE_LOG(LogBullySandbox, Display, TEXT("BR_RIDE_STRESS RESULT %s: %s"), bOk ? TEXT("PASS") : TEXT("FAIL"), *FString::Join(Stress.Lines, TEXT(" | ")));
+			bStress = false;
+			GEngine->Exec(W, TEXT("quit"));
+			return;
+		}
+		V = Pick(Rides[Stress.Ride]);
+		if (!V || !Me) { UE_LOG(LogBullySandbox, Error, TEXT("BR_RIDE_STRESS no %s"), Rides[Stress.Ride]); return; }
+		V->Mount(Me);
+		Stress.RideStart = Now; Stress.Under = 0; Stress.Checks = 0; Stress.Dist = 0.f; Stress.Last = V->GetActorLocation();
+		Stress.RescuesBefore = ABullyVehicle::TotalRescues;
+		Stress.NextInput = 0.0;
+	}
+	if (!V) { return; }
+	if (Now >= Stress.NextInput)   // a new random line every 1.5-3 s: mostly flat out, some hard turns and handbrakes
+	{
+		V->SetScriptedInput(true, FMath::FRandRange(0.5f, 1.f), FMath::FRandRange(-1.f, 1.f), FMath::FRand() < 0.12f);
+		Stress.NextInput = Now + FMath::FRandRange(1.5f, 3.f);
+	}
+	if (Now >= Stress.NextCheck)
+	{
+		Stress.NextCheck = Now + 0.25;
+		++Stress.Checks;
+		const FVector P = V->GetActorLocation();
+		Stress.Dist += FVector::Dist2D(P, Stress.Last);
+		Stress.Last = P;
+		// under the map = a ground surface above the ride's centre right where it is
+		FHitResult H;
+		FCollisionQueryParams Q(SCENE_QUERY_STAT(BullyRideStress), true, V);
+		Q.AddIgnoredActor(Me);
+		const bool bRoofOver = W->LineTraceSingleByObjectType(H, P + FVector(0, 0, 1500.f), P, FCollisionObjectQueryParams(ECC_WorldStatic), Q);
+		FHitResult Down;
+		const bool bGround = W->LineTraceSingleByObjectType(Down, P, P - FVector(0, 0, 3000.f), FCollisionObjectQueryParams(ECC_WorldStatic), Q);
+		if (!bGround || (bRoofOver && H.ImpactNormal.Z > 0.8f && H.ImpactPoint.Z - P.Z < 400.f && !bGround))
+		{
+			++Stress.Under;
+			UE_LOG(LogBullySandbox, Warning, TEXT("BR_RIDE_STRESS %s under the map at %s"), Rides[Stress.Ride], *P.ToCompactString());
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------

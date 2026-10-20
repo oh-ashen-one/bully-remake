@@ -32,10 +32,16 @@ private:
 	bool SpotLocation(const FString& Key, FVector& Out) const;
 	void Setup(ABullyCharacter* Player);
 	void TickSmoke(float Dt);
+	/** -BRRideStress (with -BRSandbox): drive the car and the go-kart around town for a minute each with random input; count
+	 *  every moment the ride is under the ground surface and every rescue; PASS = never under the map. */
+	void TickStress(float Dt);
 
 	bool bActive = false;
 	bool bDone = false;
 	bool bSmoke = false;
+	bool bStress = false;
+	struct FStress { int32 Ride = -1; double RideStart = 0.0; double NextInput = 0.0; double NextCheck = 0.0; int32 Under = 0; int32 Checks = 0;
+		float Dist = 0.f; FVector Last = FVector::ZeroVector; int32 RescuesBefore = 0; TArray<FString> Lines; } Stress;
 	double StartedAt = 0.0;
 	FString StartKey = TEXT("town");
 	TArray<FName> VehicleIds;

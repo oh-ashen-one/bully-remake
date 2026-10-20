@@ -269,7 +269,7 @@ ABullyFx* ABullyFx::Scatter(UWorld* W, const FVector& At, UStaticMesh* Mesh, int
 	for (int32 i = 0; i < Count; ++i)
 	{
 		const FVector Dir = FVector(FMath::FRandRange(-1.f, 1.f), FMath::FRandRange(-1.f, 1.f), 0.f).GetSafeNormal();
-		FPart& P = F->AddMesh(Mesh, At + FVector(0, 0, 10.f), FRotator(FMath::FRandRange(0, 360), FMath::FRandRange(0, 360), 0), Seconds);
+		FPart& P = F->AddMesh(Mesh, At + FVector(0, 0, 10.f), FRotator(FMath::FRandRange(0.f, 360.f), FMath::FRandRange(0.f, 360.f), 0.f), Seconds);
 		P.Velocity = Dir * Radius * FMath::FRandRange(1.5f, 3.f) + FVector(0, 0, 120.f);
 		P.Gravity = 980.f;
 		P.bGroundStop = true;

@@ -45,20 +45,6 @@ struct FBullyAnimInstanceProxy : public FAnimInstanceProxy
 	int32 RootMeshBoneIndex = INDEX_NONE;
 	int32 RootUpAxis = 2;
 	float RootMaxUp = 0.f;
-	TArray<bool> UpperMask;
-
-	// overlays
-	FName RideClip;
-	FBullyAnimLayer Ride;            // current ride loop
-	FBullyAnimLayer RidePrev;        // previous ride loop while cross-fading
-	float RideRate = 1.f;
-	float RideWeight = 0.f;          // over locomotion
-	float RideSwap = 1.f;            // 0 -> 1 cross-fade from RidePrev to Ride
-	FBullyAnimLayer Upper;
-	float UpperRate = 1.f;
-	float UpperWeight = 0.f;
-	bool UpperActive = false;
-	TSet<FName> MissingClips;
 };
 
 /**

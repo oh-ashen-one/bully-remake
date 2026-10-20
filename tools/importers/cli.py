@@ -96,6 +96,25 @@ def cmd_nif(a) -> int:
     return rc
 
 
+def cmd_vehicle(a) -> int:
+    from .ide import ModelDefs
+    from .props import export_prop, export_vehicle
+    install = resolve_install(a.install)
+    rc = 0
+    with _archive(install, "Stream/World.img") as img:
+        defs = ModelDefs.load_install(install)
+        for name in a.names:
+            try:
+                if a.cmd == "vehicle":
+                    export_vehicle(img, defs, install, name, a.out)
+                else:
+                    export_prop(img, defs, name, a.out)
+            except (KeyError, ValueError, FormatError) as ex:
+                print(f"{name}: FAILED {ex}", file=sys.stderr)
+                rc = 1
+    return rc
+
+
 def cmd_ped(a) -> int:
     from .convert import TextureStore
     from .ide import ModelDefs
@@ -350,6 +369,14 @@ def main(argv=None) -> int:
     p.add_argument("--txd", help="override the texture dictionary (default: from the IDE)")
     p.add_argument("--file-space", action="store_true", help="keep root/model node transforms")
     p.set_defaults(fn=cmd_nif)
+
+    p = sub.add_parser("vehicle", help="ride body (damage parts + helpers dropped) + its wheel model + rig JSON (imported/vehicles/)")
+    p.add_argument("names", nargs="+", help="World.img model stems, e.g. bike SK8Board GoCart taxicab")
+    p.set_defaults(fn=cmd_vehicle, cmd="vehicle")
+
+    p = sub.add_parser("prop", help="hand prop / projectile model, helper shapes and damage parts dropped")
+    p.add_argument("names", nargs="+", help="World.img model stems, e.g. slingshot spudg EGGPROJ")
+    p.set_defaults(fn=cmd_vehicle, cmd="prop")
 
     p = sub.add_parser("ped", help="skinned character (e.g. PLAYER) to glTF with skeleton and .agr clips")
     p.add_argument("name", help="World.img model stem, e.g. PLAYER")

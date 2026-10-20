@@ -120,6 +120,7 @@ class ModelResult:
     vertices: int = 0
     triangles: int = 0
     skipped_hidden: int = 0
+    skipped_untextured: int = 0
     skipped_empty: int = 0
     skinned_shapes: int = 0
     winding_agree: int = 0
@@ -312,7 +313,11 @@ def _check_winding(pos, nrm, tris) -> tuple:
 
 
 def convert_model(name: str, data, txd: str | None, store: TextureStore, out_dir: str,
-                  entity_space: bool = True) -> ModelResult:
+                  entity_space: bool = True, skip_node=None, drop_untextured: bool = False,
+                  origin=(0.0, 0.0, 0.0)) -> ModelResult:
+    """skip_node(name) -> True prunes that NiNode subtree (props: damage states); drop_untextured skips shapes
+    without a base texture (props: helper/marker geometry); origin (game metres) is subtracted from every
+    vertex (recentring a prop that rotates about its own centre, e.g. a wheel)."""
     res = ModelResult(name)
     try:
         nif = parse_nif(data)
@@ -343,6 +348,9 @@ def convert_model(name: str, data, txd: str | None, store: TextureStore, out_dir
             if d["flags"] & 1:
                 res.skipped_hidden += 1
                 return
+            if skip_node is not None and depth > 1 and skip_node(nif.string(d["name"]) or ""):
+                res.skipped_hidden += 1
+                return
             local = coords.Xform.from_av(d)
             if entity_space and depth <= 1:
                 if depth == 1:
@@ -369,6 +377,11 @@ def convert_model(name: str, data, txd: str | None, store: TextureStore, out_dir
         local = coords.Xform.from_av(d)
         xf = parent if (entity_space and depth <= 1) else parent.compose(local)
         props = _effective_props(nif, inherited, d["properties"])
+        if drop_untextured:
+            tp = props.get("NiTexturingProperty")
+            if not tp or "base" not in tp.get("slots", {}):
+                res.skipped_untextured += 1
+                return
         nv = gd["num_vertices"]
         tris = gd["triangles"]
         if max(tris) >= nv:
@@ -382,7 +395,7 @@ def convert_model(name: str, data, txd: str | None, store: TextureStore, out_dir
         rs = [[c * xf.s for c in row] for row in xf.r]
         for i in range(nv):
             v = coords.mat_vec(rs, src_p[3 * i:3 * i + 3])
-            g = (v[0] + xf.t[0], v[1] + xf.t[1], v[2] + xf.t[2])
+            g = (v[0] + xf.t[0] - origin[0], v[1] + xf.t[1] - origin[1], v[2] + xf.t[2] - origin[2])
             for k in range(3):
                 bmin[k] = min(bmin[k], g[k])
                 bmax[k] = max(bmax[k], g[k])

@@ -8,6 +8,8 @@ applies the GPU-slot wrapper and the headless flags. Configuration through envir
   BR_CHAR_MODEL  ped model name in imported/models                                           [PLAYER]
   BR_CHAR_NAME   UE-side character name (asset folder + SK_/SKEL_/PHYS_ prefixes)            [Jimmy]
   BR_CHAR_ANIMS  "all", or a comma list of glTF animation names (HXD clip names)             [all]
+  BR_CHAR_ANIMS_ONLY  1 = keep the existing SK_<Name> / skeleton and only add the source's clips (extra
+                 animation groups exported with `ped PLAYER --group V_Bike,Go_Cart,... --out <dir>`)  [0]
   BR_REPORT      JSON report path                         [<project>/Saved/BullyImport/character_report.json]
 
 Two Interchange passes, both through an override InterchangeGenericAssetsPipeline:
@@ -365,7 +367,14 @@ def main():
     # ---- pass 1: skeletal mesh
     mesh_sig = gltf_sig(src, {"buffers": g.get("buffers", [])}, "mesh" + CHAR_VERSION)
     sk = EAL.load_asset(sk_path) if EAL.does_asset_exist(sk_path) else None
-    if sk is not None and EAL.get_metadata_tag(sk, ic.TAG) == mesh_sig:
+    anims_only = os.environ.get("BR_CHAR_ANIMS_ONLY") == "1"
+    if anims_only and sk is None:
+        err("BR_CHAR_ANIMS_ONLY: %s does not exist; import the character first" % sk_path)
+        return finish(report_path)
+    if anims_only:
+        log("anims only: keeping %s" % sk_path)
+        REPORT["mesh"] = {"skipped_anims_only": True}
+    elif sk is not None and EAL.get_metadata_tag(sk, ic.TAG) == mesh_sig:
         log("mesh unchanged: %s" % sk_path)
         REPORT["mesh"] = {"skipped_same": True}
     else:
@@ -396,7 +405,8 @@ def main():
         EAL.set_metadata_tag(sk, ic.TAG, mesh_sig)
         REPORT["mesh"] = {"imported": sk_path}
     skel = sk.get_editor_property("skeleton")
-    REPORT["mesh"]["material_slots_bound"] = bind_materials(sk, g, src, imported, char_dir)
+    if not anims_only:
+        REPORT["mesh"]["material_slots_bound"] = bind_materials(sk, g, src, imported, char_dir)
     EAL.save_loaded_asset(sk, only_if_is_dirty=False)
     if skel:
         EAL.save_loaded_asset(skel, only_if_is_dirty=False)

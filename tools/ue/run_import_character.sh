@@ -4,6 +4,7 @@
 #
 #   python3 -m tools.importers ped PLAYER --anims '*' --root-motion inplace     # first (writes imported/models/PLAYER.gltf)
 #   tools/ue/run_import_character.sh [--model PLAYER] [--name Jimmy] [--anims all|IDLE,PLAYERRUN,...] [--imported DIR]
+#   tools/ue/run_import_character.sh --imported imported/extra_anims --anims-only    # add ride/weapon clip groups
 #
 # Same envelope as run_import.sh: UnrealEditor-Cmd pythonscript commandlet, -nullrhi -unattended -nosplash, inside
 # the shared GPU slot (label bully-jimmy), no retries. Log + report in unreal/BullyRemake/Saved/BullyImport/.
@@ -20,6 +21,7 @@ while [ $# -gt 0 ]; do
     --name) NAME="$2"; shift 2 ;;
     --anims) ANIMS="$2"; shift 2 ;;
     --imported) IMPORTED="$2"; shift 2 ;;
+    --anims-only) export BR_CHAR_ANIMS_ONLY=1; shift ;;
     *) br_die "unknown argument $1" ;;
   esac
 done

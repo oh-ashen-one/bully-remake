@@ -133,7 +133,32 @@ def cmd_ped(a) -> int:
         if a.no_anims:
             names = []
         try:
-            reqs = clip_requests(install, img, a.group, names) if names else []
+            reqs = []
+            groups = [g for g in a.group.split(",") if g]
+            if names and len(groups) == 1:
+                reqs = clip_requests(install, img, groups[0], names)
+            elif names:
+                # several groups (rides, weapons): "*" takes every clip of every group, otherwise each name
+                # resolves in the first group that holds it
+                from .ped import load_hxd
+                hxd = load_hxd(install)
+                left = list(names)
+                for g in groups:
+                    if names == ["*"]:
+                        reqs += clip_requests(install, img, g, ["*"], hxd=hxd)
+                        continue
+                    have = {x for r in hxd.group_anims(g) for x in (r.name.lower(), r.short_name.lower())}
+                    mine = [n for n in left if n.lower() in have]
+                    left = [n for n in left if n.lower() not in have]
+                    if mine:
+                        reqs += clip_requests(install, img, g, mine, hxd=hxd)
+                if left and names != ["*"]:
+                    raise FormatError(f"clips not in {groups}: {left}")
+                seen = set()
+                for r in reqs:   # a later group must not overwrite an earlier clip of the same name
+                    if r.label in seen:
+                        raise FormatError(f"clip name {r.label} appears in two of {groups}; ask for fewer clips")
+                    seen.add(r.label)
             head = None
             if a.head:
                 he = img.find(a.head + ".nif")
@@ -380,7 +405,8 @@ def main(argv=None) -> int:
 
     p = sub.add_parser("ped", help="skinned character (e.g. PLAYER) to glTF with skeleton and .agr clips")
     p.add_argument("name", help="World.img model stem, e.g. PLAYER")
-    p.add_argument("--group", default="C_Player", help="animation group (.agr) for the clips (default C_Player)")
+    p.add_argument("--group", default="C_Player", help="animation group (.agr) for the clips (default C_Player); "
+                   "a comma list (V_Bike,Go_Cart,...) resolves each clip in the first group holding it")
     p.add_argument("--anims", nargs="*", help="clip names (IDLE, C_PLAYER\\RUN, or * for all); "
                                                "default: Jimmy's locomotion set")
     p.add_argument("--no-anims", action="store_true", help="skeleton and skin only")

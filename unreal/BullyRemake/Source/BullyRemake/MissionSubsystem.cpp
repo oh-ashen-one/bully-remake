@@ -1462,6 +1462,14 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		return;
 	}
 	if (St.Complete.Type == FMissionCondition::EType::Event) { Smoke.LastDrive = Smoke.Elapsed; FireEvent(St.Complete.Name); return; }
+	// any-of over events only (free_fight: enemy_beaten OR enemy_knocked_out): fire the first one, like a plain event stage
+	if (St.Complete.Type == FMissionCondition::EType::Any && !SkippablePositional(St.Complete))
+	{
+		for (const FMissionCondition& K : St.Complete.Children)
+		{
+			if (K.Type == FMissionCondition::EType::Event) { Smoke.LastDrive = Smoke.Elapsed; FireEvent(K.Name); return; }
+		}
+	}
 	FVector Target;
 	if (PrimaryGoal(St.Complete, Target))
 	{

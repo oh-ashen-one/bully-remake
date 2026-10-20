@@ -64,6 +64,8 @@ public:
 	/** Fire the equipped weapon at a world point (smoke tests, scripted throws). */
 	bool FireAt(const FVector& Target);
 	void RefillAll();
+	/** Tests / captures: drop the cooldown and any shot waiting for its release frame. */
+	void ResetCooldown() { NextFireAt = 0.0; bPending = false; }
 
 	/** "WEAPON  Slingshot  30/40" for the local player's HUD (empty if there is no local armed player). */
 	static FString HudLine();

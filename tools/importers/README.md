@@ -20,6 +20,7 @@ Set one of these. The path is never hard-coded.
     python3 -m tools.importers world                      # academy: tschool, ischool, isc_*, zone_school1-6
     python3 -m tools.importers world --preset core        # tschool + ischool only
     python3 -m tools.importers world --ipb tschool tGlobal
+    python3 -m tools.importers exits [--previews DIR]      # ExitLocs.dat + areabbox.dat -> imported/door_links_game.json (+ exits_report.json); see tools/ue/README.md
     python3 -m tools.importers validate                   # structural check of every imported glTF
     python3 -m tools.importers preview tschool --view oblique   # CPU render to imported/previews/
     python3 -m tools.importers img list Stream/World.img --ext ipb

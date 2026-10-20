@@ -402,3 +402,23 @@ passes lobby -> office -> out at walk, run and sprint gait; risers (20.6 cm) are
 does not complete after the skip-ahead teleport is a soft-lock candidate (`BR_MISSION_SMOKE wrongway STUCK`) and fails the run.
 Fix such a stage by adding an `any` fallback for the far side, as `use_door` / `leave_office` do. Findings and the per-stage audit:
 `docs/re-notes/mission-robustness.md`. Not yet run against the engine (written on a machine without Unreal).
+
+## Generated door links (`exits`, `run_place_doors.sh --generated`)
+
+Doors for the interiors come from the game's own `Config/dat/ExitLocs.dat` + `areabbox.dat`:
+
+    export BULLY_INSTALL=<install path>
+    python3 -m tools.importers exits --previews ~/bully-remake-evidence/phase2/doors/final   # writes imported/door_links_game.json + exits_report.json
+    tools/ue/run_place_doors.sh --generated        # hand-made door_links.json first (authoritative), then the generated file
+
+`--links FILE` (repeatable) places exactly those files instead; merge order = argument order, first link id wins, partner
+links must exist (`door_links_lib.py`). The default (no flags) is still `door_links.json` only. `import_content.py` honours
+the same `BR_DOOR_LINKS` env var (colon list) if you want a full re-import to include them.
+
+Arrival side (`exit`, 2.5 m from the trigger, less in cramped rooms): the four world axes are tested on the imported
+geometry (floor under every 0.5 m, no wall in the body band); preference = walkable run, outdoor: building side behind is a
+walled-in entry passage, wall/void directly behind, longer run, then the prior (interior: toward the area box centre;
+outdoor: away from nearby buildings, else the open side). Links whose facing could not be separated are flagged
+`warnings: facing uncertain` in the file and in the report. Pairs whose interior exit point is outside its area box or its
+imported pocket are rejected, not emitted (ExitLocs has stale/copy-pasted coordinates for some rooms); see
+`imported/exits_report.json` and `tools/importers/exits.py`.

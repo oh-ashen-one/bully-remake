@@ -77,7 +77,7 @@ def load_model(path, texcache):
     return prims
 
 
-def render(out_dir, scenes, view="top", size=1600, cut=None, out_path=None, log=print):
+def render(out_dir, scenes, view="top", size=1600, cut=None, out_path=None, log=print, crop=None):
     with open(os.path.join(out_dir, "scenes", "academy.json")) as f:
         manifest = json.load(f)
     texcache = _TexCache()
@@ -93,9 +93,22 @@ def render(out_dir, scenes, view="top", size=1600, cut=None, out_path=None, log=
         t = np.array(pl["game"]["position"])
         for p in models[pl["gltf"]]:
             w = (r @ (p["pos"] * s).T).T + t
+            if crop is not None and (w[:, 0].max() < crop[0] or w[:, 0].min() > crop[1]
+                                     or w[:, 1].max() < crop[2] or w[:, 1].min() > crop[3]):
+                continue
             tri = w[p["idx"]]
-            uv = p["uv"][p["idx"]] if p["uv"] is not None else None
-            col = p["col"][p["idx"]] if p["col"] is not None else None
+            if crop is not None:  # keep only triangles touching the crop window (game XY)
+                keep = ((tri[:, :, 0].max(1) >= crop[0]) & (tri[:, :, 0].min(1) <= crop[1])
+                        & (tri[:, :, 1].max(1) >= crop[2]) & (tri[:, :, 1].min(1) <= crop[3]))
+                if not keep.any():
+                    continue
+                tri = tri[keep]
+                w = None
+                uv_idx = p["idx"][keep]
+            else:
+                uv_idx = p["idx"]
+            uv = p["uv"][uv_idx] if p["uv"] is not None else None
+            col = p["col"][uv_idx] if p["col"] is not None else None
             tris_world.append((tri, uv, col, p["tex"], p["factor"], p["mask"], p["cutoff"], p["additive"],
                                p["translucent"]))
     if not tris_world:
@@ -118,6 +131,8 @@ def render(out_dir, scenes, view="top", size=1600, cut=None, out_path=None, log=
     plo, phi = pv.min(0), pv.max(0)
     if view == "top":
         plo, phi = proj(lo[None])[0], proj(hi[None])[0]
+        if crop is not None:  # exact window, so callers can map game XY to pixels (see exits_preview.pixel_map)
+            plo, phi = np.array([crop[0], crop[2], 0.0]), np.array([crop[1], crop[3], 0.0])
     span = max(phi[0] - plo[0], phi[1] - plo[1])
     scale = (size - 20) / span
     W = int((phi[0] - plo[0]) * scale) + 20

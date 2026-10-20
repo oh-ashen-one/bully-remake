@@ -784,17 +784,24 @@ def spawn(cls, loc, rot=None, label=None, folder=None):
 def place_door_links(eas):
     """Spawn one ABullyDoorLink per entry of tools/ue/door_links.json (C++ class in Source/BullyRemake).
     Our own data: trigger box + exit point per door side, in UE cm (see the file's _note)."""
-    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "door_links.json")
-    if not os.path.exists(path):
+    here = os.path.dirname(os.path.abspath(__file__))
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("door_links_lib", os.path.join(here, "door_links_lib.py"))
+    dll = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(dll)
+    files = dll.resolve_files(here)  # env BR_DOOR_LINKS, else door_links.json only
+    if not all(os.path.exists(f) for f in files):
+        warn("door link file(s) missing: %s" % [f for f in files if not os.path.exists(f)])
         return 0
     cls = getattr(unreal, "BullyDoorLink", None)
     if cls is None:
         warn("unreal.BullyDoorLink missing (build the editor module first): door links skipped")
         return 0
-    with open(path, encoding="utf-8") as f:
-        data = json.load(f)
+    links, notes = dll.load_links(files)
+    for line in notes:
+        log("door links: " + line)
     n = 0
-    for d in data["links"]:
+    for d in links:
         c = d["trigger"]["center_cm"]
         h = d["trigger"]["half_extent_cm"]
         a = spawn(cls, unreal.Vector(*c), None, "BR_Door_" + d["id"], "Gameplay/Doors")

@@ -366,6 +366,53 @@ def cmd_trigger(a) -> int:
     return 0
 
 
+def cmd_exits(a) -> int:
+    """Config/dat/ExitLocs.dat + areabbox.dat -> imported/door_links_game.json (+ exits_report.json, optional previews)."""
+    from . import exits_build as E
+    install = resolve_install(a.install)
+    dat = os.path.join(install, "Config", "dat")
+
+    def read(name):
+        with open(os.path.join(dat, name), encoding="latin-1") as f:
+            return f.read()
+
+    manifest = None
+    mpath = a.manifest or os.path.join(a.out, "scenes", "academy.json")
+    if os.path.exists(mpath):
+        with open(mpath) as f:
+            manifest = json.load(f)
+    else:
+        print(f"note: no scene manifest at {mpath}: pocket checks and geometry are skipped", file=sys.stderr)
+    hand_path = a.handmade or os.path.join(os.path.dirname(os.path.dirname(HERE)), "tools", "ue", "door_links.json")
+    handmade = []
+    if os.path.exists(hand_path):
+        with open(hand_path, encoding="utf-8") as f:
+            handmade = json.load(f)["links"]
+    world = None
+    if manifest and not a.no_geometry:
+        from .exits_geom import World
+        world = World(a.out, manifest)
+    doc, report, sides = E.build(read("ExitLocs.dat"), read("areabbox.dat"), manifest, handmade, world, step=a.step)
+    out = a.links_out or os.path.join(a.out, "door_links_game.json")
+    os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
+    with open(out, "w", encoding="utf-8") as f:
+        json.dump(doc, f, indent=1)
+    rep = a.report or os.path.join(a.out, "exits_report.json")
+    with open(rep, "w", encoding="utf-8") as f:
+        json.dump(report, f, indent=1)
+    print(E.format_report(report))
+    print(f"links -> {out}\nreport -> {rep}")
+    if a.previews:
+        from .exits_preview import make_previews
+        if manifest is None:
+            sys.exit("--previews needs the scene manifest")
+        areas = set(a.preview_areas.split(",")) if a.preview_areas else None
+        for p in make_previews(a.out, manifest, doc, report, sides, os.path.expanduser(a.previews), handmade,
+                               areas=areas, outdoor_n=a.preview_outdoor):
+            print("preview", p)
+    return 0
+
+
 def cmd_validate(a) -> int:
     t = time.time()
     folder = os.path.join(a.out, "models")
@@ -473,6 +520,18 @@ def main(argv=None) -> int:
     p.add_argument("--files", nargs="*", help="also write <out>/triggers/<stem>.json for these .dat stems")
     p.add_argument("--all", action="store_true", help="also write all.json with every .dat file")
     p.set_defaults(fn=cmd_trigger)
+
+    p = sub.add_parser("exits", help="Config/dat/ExitLocs.dat + areabbox.dat -> paired door links (imported/door_links_game.json)")
+    p.add_argument("--manifest", help="scene manifest (default <out>/scenes/academy.json); without it no pocket/geometry checks")
+    p.add_argument("--no-geometry", action="store_true", help="skip the imported-geometry walkability check (heuristic prior only)")
+    p.add_argument("--handmade", help="hand-made links that stay authoritative (default tools/ue/door_links.json)")
+    p.add_argument("--links-out", help="output (default <out>/door_links_game.json)")
+    p.add_argument("--report", help="JSON report (default <out>/exits_report.json)")
+    p.add_argument("--step", type=float, default=2.5, help="arrival distance from the trigger in metres (default 2.5)")
+    p.add_argument("--previews", metavar="DIR", help="also write CPU top-down evidence PNGs into DIR")
+    p.add_argument("--preview-areas", help="comma list of interior area ids to render (default all emitted)")
+    p.add_argument("--preview-outdoor", type=int, default=999, help="how many outdoor close-ups (default all)")
+    p.set_defaults(fn=cmd_exits)
 
     p = sub.add_parser("validate", help="structurally validate every glTF under --out/models")
     p.set_defaults(fn=cmd_validate)

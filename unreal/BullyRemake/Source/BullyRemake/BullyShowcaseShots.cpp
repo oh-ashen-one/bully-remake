@@ -85,12 +85,12 @@ void UBullyShowcaseShots::Frame(const FVector& Eye, const FVector& LookAt, float
 	if (APlayerController* PC = W->GetFirstPlayerController()) { PC->SetViewTarget(Cam.Get()); }
 }
 
-void UBullyShowcaseShots::Follow(AActor* Target, const FVector& LocalEye, const FVector& LocalLook, float Fov)
+void UBullyShowcaseShots::Follow(AActor* What, const FVector& LocalEye, const FVector& LocalLook, float Fov)
 {
-	FollowTarget = Target;
+	FollowTarget = What;
 	FollowEye = LocalEye;
 	FollowLook = LocalLook;
-	const FTransform T(FRotator(0.f, Target->GetActorRotation().Yaw, 0.f), Target->GetActorLocation());
+	const FTransform T(FRotator(0.f, What->GetActorRotation().Yaw, 0.f), What->GetActorLocation());
 	Frame(T.TransformPosition(LocalEye), T.TransformPosition(LocalLook), Fov);
 }
 
@@ -115,8 +115,8 @@ void UBullyShowcaseShots::Tick(float Dt)
 	UBullyWeaponComponent* Weapons = Me->GetWeapons();
 	if (AActor* F = FollowTarget.Get())
 	{
-		const FTransform T(FRotator(0.f, F->GetActorRotation().Yaw, 0.f), F->GetActorLocation());
-		if (Cam.IsValid()) { Cam->SetActorLocationAndRotation(T.TransformPosition(FollowEye), (T.TransformPosition(FollowLook) - T.TransformPosition(FollowEye)).Rotation()); }
+		const FTransform FT(FRotator(0.f, F->GetActorRotation().Yaw, 0.f), F->GetActorLocation());
+		if (Cam.IsValid()) { Cam->SetActorLocationAndRotation(FT.TransformPosition(FollowEye), (FT.TransformPosition(FollowLook) - FT.TransformPosition(FollowEye)).Rotation()); }
 	}
 
 	switch (Step)

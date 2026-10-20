@@ -12,6 +12,9 @@ applies the GPU-slot wrapper and the headless flags. Configuration comes from en
   BR_MODELS     comma list of standalone models (imported/models/<name>.gltf: rides, wheels, hand props)
                 instead of the manifest's scenes; the level step is skipped. Vehicle rigs
                 (imported/vehicles/*.json) are copied to Content/Imported/VehicleRigs/ for the runtime.
+  BR_SFX        1 = also import the waves named in Config/Sfx.json (from imported/audio/manifest.json, decoded by
+                `python3 -m tools.importers audio extract`) to /Game/Imported/Audio/<bank>/<wave>, and build the
+                weapon-effects material /Game/Imported/Fx/M_BullyFx (translucent unlit: Color, Opacity, soft edge).
   BR_REPORT     where to write the JSON report        [<project>/Saved/BullyImport/report.json]
 
 Idempotent: textures and meshes carry a "br_src_sha1" metadata tag; an asset whose tag equals the
@@ -136,6 +139,91 @@ def copy_vehicle_rigs(imported):
             shutil.copyfile(os.path.join(src, f), os.path.join(dst, f))
             copied.append(f[:-5])
     return {"rigs": copied, "dest": dst}
+
+
+def audio_asset_name(s):
+    return re.sub(r"[^A-Za-z0-9_]+", "_", s).strip("_") or "unnamed"
+
+
+def import_sfx(imported):
+    """Config/Sfx.json events -> SoundWaves (same naming as import_ambient.py, so footsteps and SFX share assets)."""
+    cfg_path = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_config_dir()), "Sfx.json")
+    with open(cfg_path) as f:
+        cfg = json.load(f)
+    with open(os.path.join(imported, "audio", "manifest.json")) as f:
+        by_key = {(r["bank"], r["name"]): r for r in json.load(f)["entries"]}
+    stats = {"imported": 0, "skipped_same": 0, "missing": []}
+    for ev, row in sorted(cfg["events"].items()):
+        for w in row["waves"]:
+            src_row = by_key.get((w["bank"], w["name"]))
+            if src_row is None:
+                stats["missing"].append("%s/%s" % (w["bank"], w["name"]))
+                warn("sfx %s: %s/%s not decoded (python3 -m tools.importers audio extract %s --names ...)" % (ev, w["bank"], w["name"], w["bank"]))
+                continue
+            src = os.path.join(imported, "audio", src_row["wav"])
+            dest_dir = "/Game/Imported/Audio/%s" % w["bank"]
+            name = audio_asset_name(w["name"])
+            path = "%s/%s" % (dest_dir, name)
+            sig = sha1_file(src, b"sfx1" + (b"L" if row.get("loop") else b"S"))
+            if tag_matches(path, sig):
+                stats["skipped_same"] += 1
+                continue
+            task = unreal.AssetImportTask()
+            task.set_editor_property("filename", src)
+            task.set_editor_property("destination_path", dest_dir)
+            task.set_editor_property("destination_name", name)
+            task.set_editor_property("automated", True)
+            task.set_editor_property("replace_existing", True)
+            task.set_editor_property("save", False)
+            AT.import_asset_tasks([task])
+            sw = EAL.load_asset(path) if EAL.does_asset_exist(path) else None
+            if not isinstance(sw, unreal.SoundWave):
+                err("sfx import failed: %s -> %s" % (src, path))
+                continue
+            sw.set_editor_property("looping", bool(row.get("loop")))
+            EAL.set_metadata_tag(sw, TAG, sig)
+            EAL.save_loaded_asset(sw, only_if_is_dirty=False)
+            stats["imported"] += 1
+    return stats
+
+
+FX_VERSION = "1"
+
+
+def ensure_fx_material():
+    """/Game/Imported/Fx/M_BullyFx: translucent, unlit, two-sided; Color (emissive) x Opacity, edges fade out
+    (1 - fresnel) so a scaled engine sphere reads as a soft puff of smoke / gas / dust / flash."""
+    root = ROOT + "/Fx"
+    path = root + "/M_BullyFx"
+    if EAL.does_asset_exist(path):
+        mat = EAL.load_asset(path)
+        if EAL.get_metadata_tag(mat, "br_fx_version") == FX_VERSION:
+            return {"material": path, "built": False}
+        MEL.delete_all_material_expressions(mat)
+    else:
+        mat = AT.create_asset("M_BullyFx", root, unreal.Material, unreal.MaterialFactoryNew())
+    mat.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    mat.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    mat.set_editor_property("two_sided", True)
+    color = MEL.create_material_expression(mat, unreal.MaterialExpressionVectorParameter, -600, -200)
+    color.set_editor_property("parameter_name", "Color")
+    color.set_editor_property("default_value", unreal.LinearColor(1, 1, 1, 1))
+    opacity = MEL.create_material_expression(mat, unreal.MaterialExpressionScalarParameter, -600, 100)
+    opacity.set_editor_property("parameter_name", "Opacity")
+    opacity.set_editor_property("default_value", 0.6)
+    fres = MEL.create_material_expression(mat, unreal.MaterialExpressionFresnel, -600, 250)
+    fres.set_editor_property("exponent", 1.5)
+    inv = MEL.create_material_expression(mat, unreal.MaterialExpressionOneMinus, -400, 250)
+    mul = MEL.create_material_expression(mat, unreal.MaterialExpressionMultiply, -200, 150)
+    MEL.connect_material_expressions(fres, "", inv, "")
+    MEL.connect_material_expressions(opacity, "", mul, "A")
+    MEL.connect_material_expressions(inv, "", mul, "B")
+    MEL.connect_material_property(color, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    MEL.connect_material_property(mul, "", unreal.MaterialProperty.MP_OPACITY)
+    MEL.recompile_material(mat)
+    EAL.set_metadata_tag(mat, "br_fx_version", FX_VERSION)
+    EAL.save_loaded_asset(mat, only_if_is_dirty=False)
+    return {"material": path, "built": True}
 
 
 def collect(manifest, imported, scenes, limit):
@@ -795,6 +883,13 @@ def main():
         gltf_paths, gltfs = collect_models(imported, models)
         steps = [s for s in steps if s != "level"]
         REPORT["steps"]["vehicle_rigs"] = copy_vehicle_rigs(imported)
+    if os.environ.get("BR_SFX") == "1":
+        try:
+            REPORT["steps"]["sfx"] = import_sfx(imported)
+            REPORT["steps"]["fx_material"] = ensure_fx_material()
+            log("sfx: %s fx: %s" % (json.dumps(REPORT["steps"]["sfx"]), json.dumps(REPORT["steps"]["fx_material"])))
+        except Exception as e:
+            err("sfx/fx: %s\n%s" % (e, traceback.format_exc()))
     else:
         manifest = load_manifest(imported)
         scenes = select_scenes(manifest, os.environ.get("BR_SCENES", "all"))

@@ -44,15 +44,15 @@ bool FBullyAnimInstanceProxy::Evaluate(FPoseContext& Output)
 	TArray<UE::Anim::FStackAttributeContainer, TInlineAllocator<8>> Attrs;
 	TArray<float, TInlineAllocator<8>> Weights;
 
-	float Total = 0.f;
+	float Total = 0.f, UpperTotal = 0.f;
 	for (const FBullyAnimLayer& L : Layers)
 	{
-		if (L.Seq && L.Weight > ZERO_ANIMWEIGHT_THRESH) { Total += L.Weight; }
+		if (L.Seq && L.Weight > ZERO_ANIMWEIGHT_THRESH) { (L.bUpper ? UpperTotal : Total) += L.Weight; }
 	}
 	if (Total <= ZERO_ANIMWEIGHT_THRESH)
 	{
 		Output.ResetToRefPose();
-		return true;
+		if (UpperTotal <= ZERO_ANIMWEIGHT_THRESH) { return true; }
 	}
 
 	FCompactPoseBoneIndex RootIdx(INDEX_NONE);
@@ -63,7 +63,7 @@ bool FBullyAnimInstanceProxy::Evaluate(FPoseContext& Output)
 
 	for (const FBullyAnimLayer& L : Layers)
 	{
-		if (!L.Seq || L.Weight <= ZERO_ANIMWEIGHT_THRESH) { continue; }
+		if (!L.Seq || L.bUpper || L.Weight <= ZERO_ANIMWEIGHT_THRESH) { continue; }
 		FPoseContext PoseContext(Output);
 		FAnimationPoseData PoseData(PoseContext);
 		L.Seq->GetAnimationPose(PoseData, FAnimExtractContext(double(L.Time), false, {}, L.bLoop));
@@ -87,9 +87,47 @@ bool FBullyAnimInstanceProxy::Evaluate(FPoseContext& Output)
 		Output.Curve.CopyFrom(Curves[0]);
 		Output.CustomAttributes.CopyFrom(Attrs[0]);
 	}
-	else
+	else if (Poses.Num() > 1)
 	{
 		FAnimationRuntime::BlendPosesTogether(Poses, Curves, Attrs, Weights, OutData);
+		Output.Pose.NormalizeRotations();
+	}
+
+	// Upper-body overlay: blend the upper layers among themselves, then lay them over the spine chain and arms.
+	if (UpperTotal > ZERO_ANIMWEIGHT_THRESH && UpperMask.Num() > 0)
+	{
+		const float Alpha = FMath::Min(1.f, UpperTotal);
+		TArray<FCompactPose, TInlineAllocator<4>> UPoses;
+		TArray<FBlendedCurve, TInlineAllocator<4>> UCurves;
+		TArray<UE::Anim::FStackAttributeContainer, TInlineAllocator<4>> UAttrs;
+		TArray<float, TInlineAllocator<4>> UWeights;
+		for (const FBullyAnimLayer& L : Layers)
+		{
+			if (!L.Seq || !L.bUpper || L.Weight <= ZERO_ANIMWEIGHT_THRESH) { continue; }
+			FPoseContext PoseContext(Output);
+			FAnimationPoseData PoseData(PoseContext);
+			L.Seq->GetAnimationPose(PoseData, FAnimExtractContext(double(L.Time), false, {}, L.bLoop));
+			UPoses.AddDefaulted_GetRef().MoveBonesFrom(PoseContext.Pose);
+			UCurves.AddDefaulted_GetRef().MoveFrom(PoseContext.Curve);
+			UAttrs.AddDefaulted_GetRef().MoveFrom(PoseContext.CustomAttributes);
+			UWeights.Add(L.Weight / UpperTotal);
+		}
+		FPoseContext UpperCtx(Output);
+		if (UPoses.Num() == 1) { UpperCtx.Pose.CopyBonesFrom(UPoses[0]); }
+		else
+		{
+			FAnimationPoseData UpperData(UpperCtx);
+			FAnimationRuntime::BlendPosesTogether(UPoses, UCurves, UAttrs, UWeights, UpperData);
+		}
+		FCompactPose& UpperPose = UpperCtx.Pose;
+		const FBoneContainer& BC = Output.Pose.GetBoneContainer();
+		for (FCompactPoseBoneIndex I : Output.Pose.ForEachBoneIndex())
+		{
+			const int32 Mesh = BC.MakeMeshPoseIndex(I).GetInt();
+			if (!UpperMask.IsValidIndex(Mesh) || !UpperMask[Mesh]) { continue; }
+			UpperPose[I].NormalizeRotation();
+			Output.Pose[I].BlendWith(UpperPose[I], Alpha);
+		}
 		Output.Pose.NormalizeRotations();
 	}
 	return true;
@@ -187,6 +225,13 @@ void UBullyAnimInstance::NativeInitializeAnimation()
 		if (const USkeletalMesh* SK = SMC->GetSkeletalMeshAsset())
 		{
 			const FReferenceSkeleton& Ref = SK->GetRefSkeleton();
+			// upper-body overlay mask: Root-Spine and every bone below it (neck, head, both arms)
+			UpperMask.Init(false, Ref.GetNum());
+			const int32 Spine = Ref.FindBoneIndex(TEXT("Root-Spine"));
+			for (int32 B = 0; Spine != INDEX_NONE && B < Ref.GetNum(); ++B)
+			{
+				for (int32 A = B; A != INDEX_NONE; A = Ref.GetParentIndex(A)) { if (A == Spine) { UpperMask[B] = true; break; } }
+			}
 			RootMeshBoneIndex = Ref.FindBoneIndex(TEXT("Root"));
 			if (RootMeshBoneIndex != INDEX_NONE)
 			{
@@ -452,7 +497,103 @@ void UBullyAnimInstance::NativeUpdateAnimation(float Dt)
 
 	FBullyAnimInstanceProxy& P = GetProxyOnGameThread<FBullyAnimInstanceProxy>();
 	P.Layers = Final;
+	P.UpperMask = UpperMask;
 	P.RootMeshBoneIndex = RootMeshBoneIndex;
 	P.RootUpAxis = RootUpAxis;
 	P.RootMaxUp = RootMaxUp;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// overlays: ride pose (full body) + upper-body one-shots
+
+UAnimSequence* UBullyAnimInstance::FindClip(FName Name)
+{
+	if (Name.IsNone()) { return nullptr; }
+	if (TObjectPtr<UAnimSequence>* F = Clips.Find(Name)) { return F->Get(); }
+	if (MissingClips.Contains(Name)) { return nullptr; }
+	UAnimSequence* S = Clip(*Name.ToString());
+	if (!S) { MissingClips.Add(Name); }
+	return S;
+}
+
+void UBullyAnimInstance::SetRideClip(FName ClipName, float Rate)
+{
+	RideRate = Rate;
+	if (ClipName == RideClip) { return; }
+	UAnimSequence* S = FindClip(ClipName);
+	if (!ClipName.IsNone() && !S) { return; }
+	if (Ride.Seq && S)
+	{
+		RidePrev = Ride;      // cross-fade between two ride loops (coast -> pedal -> turn)
+		RideSwap = 0.f;
+	}
+	RideClip = ClipName;
+	if (S)
+	{
+		Ride = FBullyAnimLayer();
+		Ride.Seq = S;
+		Ride.bLoop = true;
+	}
+}
+
+bool UBullyAnimInstance::PlayUpperBody(FName ClipName, float Rate)
+{
+	UAnimSequence* S = FindClip(ClipName);
+	if (!S) { return false; }
+	Upper = FBullyAnimLayer();
+	Upper.Seq = S;
+	Upper.bUpper = true;
+	UpperRate = Rate;
+	UpperActive = true;
+	return true;
+}
+
+void UBullyAnimInstance::ApplyOverlays(float Dt)
+{
+	FBullyAnimInstanceProxy& P = GetProxyOnGameThread<FBullyAnimInstanceProxy>();
+
+	// ride: fade in over 0.2 s, out over 0.25 s; consecutive ride loops cross-fade over 0.2 s
+	const bool bRide = !RideClip.IsNone() && Ride.Seq;
+	RideWeight = bRide ? FMath::Min(1.f, RideWeight + Dt / 0.2f) : FMath::Max(0.f, RideWeight - Dt / 0.25f);
+	if (RideWeight > 0.f && Ride.Seq)
+	{
+		AdvanceLayer(Ride, Dt, RideRate);
+		RideSwap = FMath::Min(1.f, RideSwap + Dt / 0.2f);
+		for (FBullyAnimLayer& L : P.Layers) { L.Weight *= (1.f - RideWeight); }
+		FBullyAnimLayer A = Ride;
+		A.Weight = RideWeight * RideSwap;
+		P.Layers.Add(A);
+		if (RideSwap < 1.f && RidePrev.Seq)
+		{
+			AdvanceLayer(RidePrev, Dt, RideRate);
+			FBullyAnimLayer B = RidePrev;
+			B.Weight = RideWeight * (1.f - RideSwap);
+			P.Layers.Add(B);
+		}
+	}
+	else if (!bRide)
+	{
+		Ride = FBullyAnimLayer();
+	}
+
+	// upper body: in over 0.08 s, out over the last 0.15 s of the clip
+	if (UpperActive && Upper.Seq)
+	{
+		AdvanceLayer(Upper, Dt, UpperRate);
+		const float Len = Upper.Seq->GetPlayLength();
+		const float Left = (Len - Upper.Time) / FMath::Max(0.01f, UpperRate);
+		UpperWeight = FMath::Min(FMath::Min(1.f, UpperWeight + Dt / 0.08f), FMath::Clamp(Left / 0.15f, 0.f, 1.f));
+		if (Upper.Time >= Len - KINDA_SMALL_NUMBER) { UpperActive = false; UpperWeight = 0.f; }
+		if (UpperWeight > 0.f)
+		{
+			FBullyAnimLayer U = Upper;
+			U.Weight = UpperWeight;
+			P.Layers.Add(U);
+		}
+	}
+	else
+	{
+		UpperWeight = 0.f;
+	}
+	Final = P.Layers;   // DescribeLayers() shows what is actually evaluated
 }

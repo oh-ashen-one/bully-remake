@@ -32,6 +32,7 @@ protected:
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
 
 private:
+	void UpdateCombat(float Dt);
 	UAnimSequence* Strafe(const TCHAR* Name);
 
 	FBullyAnimLayer Cur;

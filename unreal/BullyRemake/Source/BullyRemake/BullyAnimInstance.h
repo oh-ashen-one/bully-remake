@@ -19,6 +19,7 @@ struct FBullyAnimLayer
 	float Weight = 0.f;
 	bool bClampRootRise = false;     // standing jump: the clip lifts the pelvis; the capsule already does the jump
 	bool bLoop = false;
+	bool bUpper = false;             // upper-body overlay: only Root-Spine and its children, over the blended rest
 };
 
 UENUM()
@@ -40,9 +41,24 @@ struct FBullyAnimInstanceProxy : public FAnimInstanceProxy
 	virtual bool Evaluate(FPoseContext& Output) override;
 
 	TArray<FBullyAnimLayer, TInlineAllocator<8>> Layers;
+	TArray<bool> UpperMask;          // by mesh bone index: true for Root-Spine and everything below it
 	int32 RootMeshBoneIndex = INDEX_NONE;
 	int32 RootUpAxis = 2;
 	float RootMaxUp = 0.f;
+	TArray<bool> UpperMask;
+
+	// overlays
+	FName RideClip;
+	FBullyAnimLayer Ride;            // current ride loop
+	FBullyAnimLayer RidePrev;        // previous ride loop while cross-fading
+	float RideRate = 1.f;
+	float RideWeight = 0.f;          // over locomotion
+	float RideSwap = 1.f;            // 0 -> 1 cross-fade from RidePrev to Ride
+	FBullyAnimLayer Upper;
+	float UpperRate = 1.f;
+	float UpperWeight = 0.f;
+	bool UpperActive = false;
+	TSet<FName> MissingClips;
 };
 
 /**
@@ -111,6 +127,18 @@ public:
 	FString DescribeLayers() const;
 	bool HasClips() const { return bClipsOk; }
 
+	// --- overlays (rides, weapons) -------------------------------------------------------------------------
+	/** Full-body loop that replaces locomotion and combat while set (the rider's pose on a bike / kart / board).
+	 *  Switching clips cross-fades; NAME_None fades back to locomotion. */
+	void SetRideClip(FName Clip, float Rate = 1.f);
+	FName GetRideClip() const { return RideClip; }
+	/** One-shot on the upper body (Root-Spine down) over whatever the legs are doing: throws, shots, reloads.
+	 *  False if the clip is missing. */
+	bool PlayUpperBody(FName Clip, float Rate = 1.f);
+	/** Seconds into the playing upper-body clip, or -1 when none plays. */
+	float GetUpperBodyTime() const { return UpperActive ? Upper.Time : -1.f; }
+	/** Cached clip lookup in this mesh's Anims folder (null + one warning if missing). */
+	UAnimSequence* FindClip(FName Name);
 protected:
 	virtual void NativeInitializeAnimation() override;
 	virtual void NativeUpdateAnimation(float DeltaSeconds) override;
@@ -124,6 +152,10 @@ private:
 	void LoadClips();
 	void BuildLoco(float Dt, float Speed, TArray<FBullyAnimLayer, TInlineAllocator<8>>& Out);
 	void EnterState(EBullyAnimState NewState, float BlendTime);
+protected:
+	/** Ride pose + upper-body one-shot on top of the proxy's layers; call last in NativeUpdateAnimation. */
+	void ApplyOverlays(float Dt);
+private:
 	float ClipLength(const UAnimSequence* S) const;
 
 	UPROPERTY(Transient) TMap<FName, TObjectPtr<UAnimSequence>> Clips;
@@ -169,4 +201,18 @@ private:
 	int32 RootMeshBoneIndex = INDEX_NONE;
 	int32 RootUpAxis = 2;
 	float RootMaxUp = 0.f;
+	TArray<bool> UpperMask;
+
+	// overlays
+	FName RideClip;
+	FBullyAnimLayer Ride;            // current ride loop
+	FBullyAnimLayer RidePrev;        // previous ride loop while cross-fading
+	float RideRate = 1.f;
+	float RideWeight = 0.f;          // over locomotion
+	float RideSwap = 1.f;            // 0 -> 1 cross-fade from RidePrev to Ride
+	FBullyAnimLayer Upper;
+	float UpperRate = 1.f;
+	float UpperWeight = 0.f;
+	bool UpperActive = false;
+	TSet<FName> MissingClips;
 };

@@ -28,6 +28,12 @@ UAnimSequence* UBullyCombatAnimInstance::Strafe(const TCHAR* Name)
 void UBullyCombatAnimInstance::NativeUpdateAnimation(float Dt)
 {
 	Super::NativeUpdateAnimation(Dt);   // locomotion layers -> proxy
+	UpdateCombat(Dt);
+	ApplyOverlays(Dt);                  // ride pose / upper-body weapon clips over everything
+}
+
+void UBullyCombatAnimInstance::UpdateCombat(float Dt)
+{
 	const APawn* Owner = TryGetPawnOwner();
 	UBullyCombatComponent* CC = Owner ? Owner->FindComponentByClass<UBullyCombatComponent>() : nullptr;
 	if (!CC)

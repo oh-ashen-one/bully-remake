@@ -1,6 +1,7 @@
 // OWNER: slice-vehicles
 #include "BullyVehicle.h"
 
+#include "BullyAnimInstance.h"
 #include "BullyCharacter.h"
 #include "BullyCombatComponent.h"
 #include "Camera/CameraComponent.h"
@@ -102,6 +103,17 @@ const TArray<FBullyVehicleDef>& FBullyVehicleDef::All()
 		ReadVec(O, TEXT("mesh_scale"), D.MeshScale);
 		ReadVec(O, TEXT("mesh_offset_cm"), D.MeshOffset);
 		D.MeshYaw = Num(O, TEXT("mesh_yaw"), 0.f);
+		O->TryGetStringField(TEXT("model"), D.Model);
+		const TSharedPtr<FJsonObject>* RC = nullptr;
+		if (O->TryGetObjectField(TEXT("rider"), RC))
+		{
+			for (const auto& KV : (*RC)->Values)
+			{
+				FString ClipName;
+				if (KV.Value.IsValid() && KV.Value->TryGetString(ClipName)) { D.RiderClips.Add(FName(FString(KV.Key)), FName(*ClipName)); }
+			}
+		}
+		D.RiderClipSpeed = FMath::Max(1.f, Num(O, TEXT("rider_clip_speed"), D.RiderClipSpeed));
 		Cache.Add(D);
 	}
 	UE_LOG(LogBullyVehicle, Display, TEXT("BR_VEHICLE %d ride type(s) loaded from %s"), Cache.Num(), *Path);
@@ -190,7 +202,8 @@ void ABullyVehicle::Configure(const FBullyVehicleDef& D)
 	Boom->SocketOffset = FVector(0.f, 0.f, D.CameraHeight);
 	Boom->SetRelativeRotation(FRotator(-10.f, 0.f, 0.f));
 
-	// A local model replaces the primitive look entirely.
+	// The imported game model (rig) replaces the primitive look entirely; else a plain local mesh.
+	if (!D.Model.IsEmpty() && ConfigureFromRig(D)) { return; }
 	if (!D.MeshPath.IsEmpty())
 	{
 		if (UStaticMesh* M = LoadObject<UStaticMesh>(nullptr, *D.MeshPath, nullptr, LOAD_NoWarn | LOAD_Quiet))
@@ -251,6 +264,88 @@ void ABullyVehicle::Configure(const FBullyVehicleDef& D)
 	}
 }
 
+bool ABullyVehicle::ConfigureFromRig(const FBullyVehicleDef& D)
+{
+	// Content/Imported/VehicleRigs/<model>.json (git-ignored, from the importer): mesh paths, wheel hubs, ground offset,
+	// bounds, all in the model's own UE space (cm; the model faces -Y because the game's forward is +y).
+	const FString Path = FPaths::ProjectContentDir() / TEXT("Imported/VehicleRigs") / (D.Model + TEXT(".json"));
+	FString Text;
+	TSharedPtr<FJsonObject> Rig;
+	if (!FFileHelper::LoadFileToString(Text, *Path) || !FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), Rig) || !Rig.IsValid())
+	{
+		UE_LOG(LogBullyVehicle, Warning, TEXT("BR_VEHICLE %s: no rig %s (run the vehicle import), using the fallback look"), *D.Name, *Path);
+		return false;
+	}
+	FString MeshPath, WheelPath;
+	Rig->TryGetStringField(TEXT("mesh"), MeshPath);
+	UStaticMesh* M = LoadObject<UStaticMesh>(nullptr, *MeshPath, nullptr, LOAD_NoWarn | LOAD_Quiet);
+	if (!M)
+	{
+		UE_LOG(LogBullyVehicle, Warning, TEXT("BR_VEHICLE %s: rig mesh %s not imported, using the fallback look"), *D.Name, *MeshPath);
+		return false;
+	}
+	auto Vec = [](const TSharedPtr<FJsonValue>& V)
+	{
+		const TArray<TSharedPtr<FJsonValue>>& A = V->AsArray();
+		return A.Num() == 3 ? FVector(A[0]->AsNumber(), A[1]->AsNumber(), A[2]->AsNumber()) : FVector::ZeroVector;
+	};
+	const FVector Scale = D.MeshScale;
+	RigBaseYaw = 90.f + D.MeshYaw;   // model -Y -> actor +X
+	const FRotator R(0.f, RigBaseYaw, 0.f);
+	FVector Lo = FVector::ZeroVector, Hi = FVector::ZeroVector;
+	const TArray<TSharedPtr<FJsonValue>>* B = nullptr;
+	if (Rig->TryGetArrayField(TEXT("body_bounds_cm"), B) && B->Num() == 2) { Lo = Vec((*B)[0]); Hi = Vec((*B)[1]); }
+	double GroundZ = Lo.Z;
+	Rig->TryGetNumberField(TEXT("ground_z_cm"), GroundZ);
+	// centre the body's footprint on the actor, its wheels on the ground plane (actor z = -RideHeight)
+	const FVector Centre = FVector((Lo.X + Hi.X) * 0.5f, (Lo.Y + Hi.Y) * 0.5f, 0.f) * Scale;
+	const FVector Offset = -R.RotateVector(Centre) + FVector(0.f, 0.f, -D.RideHeight - float(GroundZ) * Scale.Z) + D.MeshOffset;
+
+	Body->SetStaticMesh(M);
+	Body->SetMaterial(0, nullptr);
+	Body->SetRelativeScale3D(Scale);
+	Body->SetRelativeLocationAndRotation(Offset, R);
+	Body->SetVisibility(true);
+	Cabin->SetVisibility(false);
+
+	RigWheels.Reset();
+	UStaticMesh* WM = Rig->TryGetStringField(TEXT("wheel_mesh"), WheelPath) ? LoadObject<UStaticMesh>(nullptr, *WheelPath, nullptr, LOAD_NoWarn | LOAD_Quiet) : nullptr;
+	const TArray<TSharedPtr<FJsonValue>>* Wheels = nullptr;
+	double WScale = 1.0, WRadius = 30.0;
+	Rig->TryGetNumberField(TEXT("wheel_scale"), WScale);
+	Rig->TryGetNumberField(TEXT("wheel_radius_cm"), WRadius);
+	RigWheelRadius = FMath::Max(1.f, float(WRadius) * Scale.X);
+	if (WM && Rig->TryGetArrayField(TEXT("wheels"), Wheels))
+	{
+		for (const TSharedPtr<FJsonValue>& WV : *Wheels)
+		{
+			const TSharedPtr<FJsonObject> WO = WV->AsObject();
+			const TArray<TSharedPtr<FJsonValue>>* Hub = nullptr;
+			if (!WO.IsValid() || !WO->TryGetArrayField(TEXT("hub_cm"), Hub) || Hub->Num() != 3) { continue; }
+			FWheelRig W;
+			W.Hub = R.RotateVector(FVector((*Hub)[0]->AsNumber(), (*Hub)[1]->AsNumber(), (*Hub)[2]->AsNumber()) * Scale) + Offset;
+			WO->TryGetBoolField(TEXT("front"), W.bFront);
+			WO->TryGetBoolField(TEXT("left"), W.bLeft);
+			RigWheels.Add(W);
+		}
+	}
+	for (int32 i = 0; i < WheelMeshes.Num(); ++i)
+	{
+		UStaticMeshComponent* WC = WheelMeshes[i];
+		const bool bUsed = RigWheels.IsValidIndex(i);
+		WC->SetVisibility(bUsed);
+		if (!bUsed) { continue; }
+		WC->SetStaticMesh(WM);
+		WC->SetMaterial(0, nullptr);
+		WC->SetRelativeScale3D(FVector(float(WScale)) * Scale);
+		WC->SetRelativeLocation(RigWheels[i].Hub);
+	}
+	bRigLook = true;
+	UE_LOG(LogBullyVehicle, Display, TEXT("BR_VEHICLE %s: game model %s, %d wheel(s) (%s), ground %.1f cm"),
+		*D.Name, *MeshPath, RigWheels.Num(), WM ? *WheelPath : TEXT("in the body"), GroundZ);
+	return true;
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // get on / off
 
@@ -296,6 +391,7 @@ bool ABullyVehicle::Mount(ABullyCharacter* NewRider)
 
 	Rider = NewRider;
 	DriverPC = PC;
+	UpdateRiderPose(0.f);
 	Throttle = Steer = 0.f;
 	bHandbrake = false;
 	LookOffset = FRotator::ZeroRotator;
@@ -314,6 +410,7 @@ bool ABullyVehicle::Dismount()
 	APlayerController* PC = DriverPC.IsValid() ? DriverPC.Get() : Cast<APlayerController>(GetController());
 
 	C->DetachFromActor(FDetachmentTransformRules::KeepWorldTransform);
+	if (UBullyAnimInstance* AI = C->GetMesh() ? Cast<UBullyAnimInstance>(C->GetMesh()->GetAnimInstance()) : nullptr) { AI->SetRideClip(NAME_None); }
 	// step off to the left, else right / behind / ahead, wherever a standing capsule fits
 	const float HalfH = C->GetCapsuleComponent() ? C->GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 88.f;
 	const float Rad = C->GetCapsuleComponent() ? C->GetCapsuleComponent()->GetScaledCapsuleRadius() : 34.f;
@@ -463,6 +560,7 @@ void ABullyVehicle::Tick(float DeltaSeconds)
 	if (IsOccupied())
 	{
 		UpdateCamera(Dt);
+		UpdateRiderPose(Dt);
 		ShowStatus();
 	}
 	UpdateWheels(Dt);
@@ -605,8 +703,42 @@ void ABullyVehicle::UpdateCamera(float Dt)
 	Boom->SetRelativeRotation(FRotator(-10.f + LookOffset.Pitch, LookOffset.Yaw, 0.f));
 }
 
+void ABullyVehicle::UpdateRiderPose(float Dt)
+{
+	ABullyCharacter* C = Rider.Get();
+	UBullyAnimInstance* AI = C && C->GetMesh() ? Cast<UBullyAnimInstance>(C->GetMesh()->GetAnimInstance()) : nullptr;
+	if (!AI || Def.RiderClips.Num() == 0) { return; }
+	auto Pick = [this](const TCHAR* Key, FName Fallback) { const FName* F = Def.RiderClips.Find(FName(Key)); return F ? *F : Fallback; };
+	const FName RideC = Pick(TEXT("ride"), NAME_None);
+	const float S = bScripted ? ScriptSteer : Steer;
+	const float T = bScripted ? ScriptThrottle : Throttle;
+	const float AbsSpeed = FMath::Abs(Speed);
+	FName Want = RideC;
+	float Rate = FMath::Clamp(AbsSpeed / Def.RiderClipSpeed, 0.35f, 1.6f);
+	if (!bGrounded) { Want = Pick(TEXT("air"), RideC); Rate = 1.f; }
+	else if (AbsSpeed < 40.f && FMath::Abs(T) < 0.05f) { Want = Pick(TEXT("idle"), RideC); Rate = 1.f; }
+	else if (S < -0.35f) { Want = Pick(TEXT("turn_l"), RideC); Rate = 1.f; }
+	else if (S > 0.35f) { Want = Pick(TEXT("turn_r"), RideC); Rate = 1.f; }
+	else if (T < 0.05f && AbsSpeed > 150.f) { Want = Pick(TEXT("coast"), RideC); Rate = 1.f; }
+	else if (AbsSpeed > Def.MaxSpeed * 0.7f) { Want = Pick(TEXT("fast"), RideC); }
+	AI->SetRideClip(Want, Rate);
+}
+
 void ABullyVehicle::UpdateWheels(float Dt)
 {
+	if (bRigLook)
+	{
+		// roll with the ground speed; the front pair also turns with the steering
+		WheelSpin = FMath::Fmod(WheelSpin + FMath::RadiansToDegrees(Speed * Dt / RigWheelRadius), 360.f);
+		const float SteerVis = (bScripted ? ScriptSteer : Steer) * 28.f;
+		for (int32 i = 0; i < RigWheels.Num() && i < WheelMeshes.Num(); ++i)
+		{
+			const FWheelRig& W = RigWheels[i];
+			const float Yaw = RigBaseYaw + (W.bLeft ? 180.f : 0.f) + (W.bFront ? SteerVis : 0.f);
+			WheelMeshes[i]->SetRelativeRotation(FRotator(0.f, Yaw, W.bLeft ? WheelSpin : -WheelSpin));
+		}
+		return;
+	}
 	if (!Def.MeshPath.IsEmpty() || Def.Wheels == 0) { return; }
 	const float SteerVis = (bScripted ? ScriptSteer : Steer) * 25.f;
 	for (int32 i = 0; i < Def.Wheels && i < WheelMeshes.Num(); ++i)

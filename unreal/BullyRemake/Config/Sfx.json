@@ -1,0 +1,316 @@
+{
+ "_format": "bully-remake.sfx/1",
+ "_note": "Gameplay sound events -> original-game waves (bank + wave name in audio/xact/*.SEA). The waves are decoded from your own install (python3 -m tools.importers audio extract <bank> ...) and imported by tools/ue/run_import.sh --sfx into /Game/Imported/Audio/<bank>/<wave>; nothing of the game is in the repo. Several waves = a random variant per play. loop = played on a looping audio component (engines, rolling). volume/pitch_jitter optional.",
+ "events": {
+  "weapon_fire_slingshot": {
+   "waves": [
+    {
+     "bank": "Slingsht",
+     "name": "SLINGSHOT_FIRE"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "weapon_fire_spudgun": {
+   "waves": [
+    {
+     "bank": "Spudgun",
+     "name": "SPUDGUN_FIRE_02A"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "weapon_fire_bottlerocket": {
+   "waves": [
+    {
+     "bank": "Btlrokt",
+     "name": "BTL_ROCKET_FIRE_03"
+    },
+    {
+     "bank": "Btlrokt",
+     "name": "BTL_ROCKET_FIRE_01"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "weapon_throw": {
+   "waves": [
+    {
+     "bank": "Fight",
+     "name": "GENERIC_THROW_03"
+    },
+    {
+     "bank": "Fight",
+     "name": "GENERIC_THROW_04"
+    },
+    {
+     "bank": "Fight",
+     "name": "GENERIC_THROW_05"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "hit_slingshot": {
+   "waves": [
+    {
+     "bank": "Slingsht",
+     "name": "SLINGBODYHIT02"
+    },
+    {
+     "bank": "Slingsht",
+     "name": "StoneHit01"
+    },
+    {
+     "bank": "Slingsht",
+     "name": "SLINGBODYHIT03"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "hit_spudgun": {
+   "waves": [
+    {
+     "bank": "Spudgun",
+     "name": "SPUD_BODYHIT_02"
+    },
+    {
+     "bank": "Spudgun",
+     "name": "SPUD_BODYHIT_01"
+    },
+    {
+     "bank": "Spudgun",
+     "name": "SPUD_BODYHIT_03"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "explode_bottlerocket": {
+   "waves": [
+    {
+     "bank": "Btlrokt",
+     "name": "BTLROCKET_IMPACT_01a"
+    },
+    {
+     "bank": "Btlrokt",
+     "name": "BTLROCKET_IMPACT_02a"
+    },
+    {
+     "bank": "Btlrokt",
+     "name": "BTLROCKET_IMPACT_03a"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "splat_egg": {
+   "waves": [
+    {
+     "bank": "Egg",
+     "name": "EGG_IMPACT_01"
+    },
+    {
+     "bank": "Egg",
+     "name": "EGG_IMPACT_02"
+    },
+    {
+     "bank": "Egg",
+     "name": "EGG_IMPACT_03"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "break_stinkbomb": {
+   "waves": [
+    {
+     "bank": "Stinkbmb",
+     "name": "STINKBOMB_EXPLODE_01b"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "gas_stinkbomb": {
+   "waves": [
+    {
+     "bank": "Stinkbmb",
+     "name": "STINKBOMB_HISS_02a11SML"
+    }
+   ],
+   "loop": true
+  },
+  "bang_firecracker": {
+   "waves": [
+    {
+     "bank": "Chrybmb",
+     "name": "CHERRYBOMB_EXPLODE_01a"
+    },
+    {
+     "bank": "Chrybmb",
+     "name": "CHERRYBOMB_EXPLODE_02a"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "scatter_marbles": {
+   "waves": [
+    {
+     "bank": "Marbles",
+     "name": "MarbleDrops1"
+    },
+    {
+     "bank": "Marbles",
+     "name": "MarbleDrops2"
+    },
+    {
+     "bank": "Marbles",
+     "name": "MarbleDrops3"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "puff_itchpowder": {
+   "waves": [
+    {
+     "bank": "Itch",
+     "name": "PowderHit1"
+    },
+    {
+     "bank": "Itch",
+     "name": "PowderHit2"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "punch_light": {
+   "waves": [
+    {
+     "bank": "Fight",
+     "name": "Punch_Hit_07"
+    },
+    {
+     "bank": "Fight",
+     "name": "BodyDamage03_L1MAX_22x"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "punch_heavy": {
+   "waves": [
+    {
+     "bank": "Fight",
+     "name": "Punch_Hit_08"
+    },
+    {
+     "bank": "Fight",
+     "name": "BodyPunch03_L1_8va"
+    },
+    {
+     "bank": "Fight",
+     "name": "BodyPunch02_L1_8va"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "body_fall": {
+   "waves": [
+    {
+     "bank": "Fight",
+     "name": "Bodyfall_01"
+    },
+    {
+     "bank": "Fight",
+     "name": "Bodyfall_Dirt_07"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "block": {
+   "waves": [
+    {
+     "bank": "Fight",
+     "name": "Chest_Hit_02"
+    },
+    {
+     "bank": "PedRats",
+     "name": "Clinch Hit Block 14"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "bike_ride_loop": {
+   "waves": [
+    {
+     "bank": "BikeBMX",
+     "name": "BIKE_PEDAL_LOOP_01a"
+    }
+   ],
+   "loop": true,
+   "volume": 0.5
+  },
+  "bike_brake": {
+   "waves": [
+    {
+     "bank": "BikeBMX",
+     "name": "BikeBrakeTireCement-8va22k"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "skate_roll_loop": {
+   "waves": [
+    {
+     "bank": "SkateBrd",
+     "name": "SkateB Cement Loop02a_8vaSML"
+    }
+   ],
+   "loop": true,
+   "volume": 0.6
+  },
+  "skate_ollie": {
+   "waves": [
+    {
+     "bank": "SkateBrd",
+     "name": "SkateB OllieUp01_8va"
+    }
+   ],
+   "pitch_jitter": 0.06
+  },
+  "gokart_engine_loop": {
+   "waves": [
+    {
+     "bank": "GoKart01",
+     "name": "K1_EngIdle"
+    }
+   ],
+   "loop": true,
+   "volume": 0.6
+  },
+  "car_engine_loop": {
+   "waves": [
+    {
+     "bank": "Engine",
+     "name": "dod_crz"
+    }
+   ],
+   "loop": true,
+   "volume": 0.6
+  },
+  "car_horn": {
+   "waves": [
+    {
+     "bank": "Engine",
+     "name": "Auto Horn Loop_Mustang"
+    }
+   ],
+   "loop": true,
+   "volume": 0.7
+  },
+  "tire_skid": {
+   "waves": [
+    {
+     "bank": "Scooter",
+     "name": "ScooterTireSqueal"
+    }
+   ],
+   "pitch_jitter": 0.06
+  }
+ }
+}

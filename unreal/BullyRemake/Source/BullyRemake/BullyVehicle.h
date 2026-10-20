@@ -6,7 +6,10 @@
 // Get on: walk up to an empty ride and press E (gamepad Y); the player controller possesses the ride and the rider is
 // seated on it. Drive: W/S or RT/LT throttle/brake-reverse, A/D or left stick steer, Space/X handbrake, mouse/right
 // stick look. Get off: E/Y.
-// Look: engine primitives (body, wheels, cabin) tinted by 'color', or a local static mesh from the 'mesh' path.
+// Look: the imported game model when 'model' names a rig (Content/Imported/VehicleRigs/<model>.json, written by
+// `tools/ue/run_import.sh --models`): body mesh, wheel meshes on the hubs (spinning, front pair steering); else a local
+// static mesh from 'mesh'; else engine primitives (body, wheels, cabin) tinted by 'color'.
+// Rider: the 'rider' clips (ride / fast / coast / idle / turn_l / turn_r / air) replace Jimmy's locomotion while mounted.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -43,6 +46,9 @@ struct FBullyVehicleDef
 	FVector MeshScale = FVector(1.f);
 	FVector MeshOffset = FVector::ZeroVector;
 	float MeshYaw = 0.f;
+	FString Model;                 // rig name (imported game model), preferred over MeshPath
+	TMap<FName, FName> RiderClips; // ride / fast / coast / idle / turn_l / turn_r / air -> Jimmy clip
+	float RiderClipSpeed = 800.f;  // cm/s at which the pedal/pump clips play at rate 1
 
 	/** Parse Config/Vehicles.json (cached after the first call). */
 	static const TArray<FBullyVehicleDef>& All();
@@ -84,7 +90,11 @@ public:
 	static int32 TotalRunOvers;
 
 private:
+	struct FWheelRig { FVector Hub = FVector::ZeroVector; bool bFront = false; bool bLeft = false; };
+
 	void Configure(const FBullyVehicleDef& D);
+	bool ConfigureFromRig(const FBullyVehicleDef& D);
+	void UpdateRiderPose(float Dt);
 	void BuildInput();
 	void Drive(float Dt);
 	void SettleOnGround(float Dt, bool bSnap);
@@ -128,7 +138,11 @@ private:
 	bool bGrounded = false;
 	FRotator LookOffset = FRotator::ZeroRotator;
 	double LastLookTime = -100.0;
-	float WheelSpin = 0.f;
+	float WheelSpin = 0.f;         // degrees
+	bool bRigLook = false;
+	float RigWheelRadius = 30.f;
+	float RigBaseYaw = 90.f;
+	TArray<FWheelRig> RigWheels;
 	TMap<TWeakObjectPtr<AActor>, double> RecentRunOvers;
 
 	bool bScripted = false;

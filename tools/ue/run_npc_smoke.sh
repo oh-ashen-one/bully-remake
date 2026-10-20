@@ -69,7 +69,7 @@ trap 'stop_engine; exit 130' INT TERM
 TIMER=$!
 wait "$WRAP"
 RC=$?
-kill "$TIMER" 2>/dev/null
+pkill -P "$TIMER" 2>/dev/null; kill "$TIMER" 2>/dev/null
 wait "$WATCH" 2>/dev/null
 br_reap_crash_reporters
 echo "engine exit $RC after $(( $(date +%s) - START ))s"

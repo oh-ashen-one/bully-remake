@@ -35,6 +35,7 @@ Set one of these. The path is never hard-coded.
     python3 -m tools.importers anim                       # list MAINPED.HXD animation groups
     python3 -m tools.importers anim C_Player              # clips: play duration, travel, speed
     python3 -m tools.importers ped GN_Boy01 --anims IDLE PLAYERWALK PLAYERRUN RUNFAST ...   # any student ped (same 36-joint skeleton)
+    python3 -m tools.importers townlife --evidence ~/evidence/townlife   # town pedestrian loops + parked-car spots -> imported/townlife.json (needs the scene manifest from `world --preset town`)
     python3 -m tools.importers audio survey               # .SEA sound banks + PLAYLIST streams: counts, codecs
     python3 -m tools.importers audio list FeetAll         # wave names, durations, rates
     python3 -m tools.importers audio extract FeetAll Wind # MS-ADPCM -> 16-bit WAV in imported/audio/<bank>/ + manifest.json
@@ -117,3 +118,34 @@ Formats and confidence: `docs/re-notes/anim-formats.md`. `ped <MODEL>` writes `m
 the movement code), `raw` (as stored), `dummy` (travel on the root joint, for root-motion extraction).
 Forward in every clip is game +y = glTF -Z; the bind pose itself faces the other way (see the notes).
 `--sheet` renders a CPU contact sheet (bind pose + frames of every clip) as evidence.
+
+## Town life (`townlife`)
+
+`townlife` writes `imported/townlife.json` (`bully-remake.townlife/1`, UE cm): per outdoor district (`business_strip`
+= tbusines, `old_bullworth_vale` = trich, `new_coventry` = tindust, `carnival` = tcarni, `junkyard` = tjyard,
+`bmx_park` = tBMX, `go_kart_track` = tgokart, `tglobal`) a list of `loops` (`id`, `kind`, `source`, `waypoints_cm`,
+`length_m`; closed, 4-10 waypoints, 25-120 m) and `parking` (`location_cm`, `yaw_deg` = UE yaw, `source`). It needs
+the scene manifest + models (`world --preset town`), the install (`Config/GRIDS.DAT`), and numpy + Pillow.
+
+**The `WALKABLE_*OP` markers carry no geometry.** Every one is a 2 KB NIF holding one 2 m triangle (and so is every
+`NOGO_*OP` except `NOGO_SHOREA_B`, a 22-triangle vertical wall), so a walkable surface cannot be built from them.
+The game's own pedestrian/road navigation lives in `Config/GRIDS.DAT` (1234 sidewalk nodes / 1365 links, 476 road
+nodes / 507 links with lane counts, world metres), and its node heights match the converted terrain (median 0.0-0.1 m).
+`townlife` uses:
+
+- sidewalk graph -> walkable network (a segment is on the surface when every 0.5 m sample is within 1.75 m of a
+  sidewalk link). Loops are graph cycles (`kind` `cycle`) or out-and-back loops offset 0.9 m each way
+  (`out_and_back`); `source` `sidewalk_graph`.
+- districts with no sidewalk data (junkyard, BMX park, go-kart track, tGlobal): rings / thin racetracks on flat,
+  non-road, above-water terrain without tall blockers (`source` `terrain_ring`, `kind` `ring`/`racetrack`). Synthetic:
+  they are valid walkable ground but not authored paths.
+- parking: road-graph links, kerb = edge of road-textured terrain (street/asphalt/cobroad), spot centre 1.6 m out from
+  the kerb, heading parallel to it with the kerb on the car's right, 5 x 2.4 m footprint wholly on road and clear of the
+  sidewalk corridor, >= 6 m apart, >= 7 m from junctions (`source` `road_graph`). The game has road links only in
+  business strip, Old Bullworth Vale and New Coventry (plus the BMX race line); other districts get none unless
+  `--raster-parking` is given (road raster alone, low confidence).
+- `nogo_`/`walkable_` marker models are converted to `imported/markers/` (separate from `imported/models`); stubs are
+  ignored and counted in `source.markers`; real NOGO geometry becomes keep-out walls/polygons.
+
+`--evidence DIR` writes `<district>.png` top-down renders (terrain, cyan = walkable corridor, dark lines = road graph,
+colour = loops, orange = parked cars).

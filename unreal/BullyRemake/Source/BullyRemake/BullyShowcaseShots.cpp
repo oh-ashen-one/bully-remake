@@ -32,8 +32,8 @@ namespace
 {
 	enum EStep : int32
 	{
-		WaitCompile, RideMount, RideDrive, RideSide, RideChase, RideOff,
-		WeaponSetup, WeaponHeld, WeaponFire, WeaponRelease, WeaponImpact, WeaponNext, Done, Quit
+		WaitCompile, RideMount, RideDrive, RideSide, RideToChase, RideChase, RideOff,
+		WeaponSetup, WeaponHeld, WeaponHeldShot, WeaponFire, WeaponRelease, WeaponImpact, WeaponNext, Done, Quit
 	};
 }
 
@@ -150,11 +150,15 @@ void UBullyShowcaseShots::Tick(float Dt)
 	case RideSide:
 		if (T < 0.5) { break; }
 		Shot(FString::Printf(TEXT("ride_%s_side"), *Rides[Index]->GetDef().Id.ToString()));
+		Next(RideToChase);
+		break;
+	case RideToChase:   // the shot renders on a later frame: never move the camera in the same tick
+		if (T < 0.4) { break; }
 		UseGameCamera();
 		Next(RideChase);
 		break;
 	case RideChase:
-		if (T < 1.0) { break; }
+		if (T < 1.2) { break; }
 		Shot(FString::Printf(TEXT("ride_%s_chase"), *Rides[Index]->GetDef().Id.ToString()));
 		Next(RideOff);
 		break;
@@ -179,6 +183,7 @@ void UBullyShowcaseShots::Tick(float Dt)
 		if (T < 0.6) { break; }
 		if (!Weapons || Weapons->GetDefs().Num() == 0) { Next(Done); break; }
 		if (Me->GetCombat()) { Me->GetCombat()->bInvulnerable = true; }
+		for (const TWeakObjectPtr<ABullyVehicle>& V : Rides) { if (V.IsValid()) { V->SetActorHiddenInGame(true); V->SetActorEnableCollision(false); } }
 		if (ABullyCombatPawn* E = UBullyCombatTest::SpawnEnemyInFront(W, Me, 650.f, 0.f))
 		{
 			E->bAttackAllowed = false;
@@ -205,14 +210,18 @@ void UBullyShowcaseShots::Tick(float Dt)
 		}
 		const FVector P = Me->GetActorLocation();
 		Frame(P + Me->GetActorForwardVector() * 170.f + Me->GetActorRightVector() * 110.f + FVector(0, 0, 35.f), P + Me->GetActorRightVector() * 15.f + FVector(0, 0, 20.f), 50.f);
-		Next(WeaponFire);
+		Next(WeaponHeldShot);
 		break;
 	}
+	case WeaponHeldShot:
+		if (T < 0.6) { break; }
+		Shot(FString::Printf(TEXT("held_%s"), *Weapons->GetDefs()[Index].Id.ToString()));
+		Next(WeaponFire);
+		break;
 	case WeaponFire:
 	{
-		if (T < 0.6) { break; }
+		if (T < 0.4) { break; }
 		const FBullyWeaponDef& D = Weapons->GetDefs()[Index];
-		Shot(FString::Printf(TEXT("held_%s"), *D.Id.ToString()));
 		ABullyCombatPawn* E = Target.Get();
 		const FVector P = Me->GetActorLocation();
 		const FVector Aim = E ? E->GetActorLocation() + FVector(0, 0, 40.f) : P + Me->GetActorForwardVector() * 650.f;
@@ -234,7 +243,7 @@ void UBullyShowcaseShots::Tick(float Dt)
 	{
 		const FBullyWeaponDef& D = Weapons->GetDefs()[Index];
 		const bool bBoom = ABullyProjectile::TotalDetonations > DetonationsBefore;
-		if (!bBoom && T < 4.0) { break; }
+		if ((!bBoom && T < 4.0) || T < 0.3) { break; }
 		if (ABullyCombatPawn* E = Target.Get())
 		{
 			const FVector P = E->GetActorLocation();

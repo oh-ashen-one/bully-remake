@@ -49,6 +49,8 @@ struct FBullyVehicleDef
 	FString Model;                 // rig name (imported game model), preferred over MeshPath
 	TMap<FName, FName> RiderClips; // ride / fast / coast / idle / turn_l / turn_r / air -> Jimmy clip
 	float RiderClipSpeed = 800.f;  // cm/s at which the pedal/pump clips play at rate 1
+	FName SfxLoop, SfxBrake, SfxHorn;   // Config/Sfx.json events: engine / pedal / rolling loop (pitched by speed), skid, horn
+	bool bSfxLoopIdle = false;     // the loop runs while someone is on it even when stopped (engines idle; pedals don't)
 
 	/** Parse Config/Vehicles.json (cached after the first call). */
 	static const TArray<FBullyVehicleDef>& All();
@@ -111,6 +113,9 @@ private:
 	void OnHandbrakeEnd(const FInputActionValue& V) { bHandbrake = false; }
 	void OnLook(const FInputActionValue& V);
 	void OnExit(const FInputActionValue& V);
+	void OnHorn(const FInputActionValue& V);
+	void OnHornEnd(const FInputActionValue& V);
+	void UpdateSound(float Dt);
 
 	UPROPERTY() TObjectPtr<UBoxComponent> Box;
 	UPROPERTY() TObjectPtr<UStaticMeshComponent> Body;
@@ -125,6 +130,9 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UInputAction> HandbrakeAction;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> LookAction;
 	UPROPERTY(Transient) TObjectPtr<UInputAction> ExitAction;
+	UPROPERTY(Transient) TObjectPtr<UInputAction> HornAction;
+	UPROPERTY(Transient) TObjectPtr<class UAudioComponent> LoopAudio;
+	UPROPERTY(Transient) TObjectPtr<class UAudioComponent> HornAudio;
 
 	FBullyVehicleDef Def;
 	TWeakObjectPtr<ABullyCharacter> Rider;
@@ -143,6 +151,8 @@ private:
 	float RigWheelRadius = 30.f;
 	float RigBaseYaw = 90.f;
 	TArray<FWheelRig> RigWheels;
+	float LoopLevel = 0.f;         // 0..1 smoothed loudness of the ride loop
+	double NextSkidAt = 0.0;
 	TMap<TWeakObjectPtr<AActor>, double> RecentRunOvers;
 
 	bool bScripted = false;

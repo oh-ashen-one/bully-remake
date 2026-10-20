@@ -1,6 +1,8 @@
 // OWNER: slice-combat
 #include "BullyCombatComponent.h"
 
+#include "BullySfx.h"
+
 #include "Animation/AnimSequence.h"
 #include "BullyCharacter.h"
 #include "Components/CapsuleComponent.h"
@@ -737,6 +739,15 @@ void UBullyCombatComponent::ApplyHitTo(UBullyCombatComponent* V, const FBullyCom
 	}
 	StartHitStop(M.HitStop);
 	V->StartHitStop(M.HitStop);
+	// the game's own impact sounds: guard thud, light / heavy punch by how hard the move lands
+	const FVector Where = V->GetOwner() ? V->GetOwner()->GetActorLocation() + FVector(0.f, 0.f, 40.f) : FVector::ZeroVector;
+	if (R == EHitResult::Blocked) { FBullySfx::Play(this, TEXT("block"), Where); }
+	else
+	{
+		const bool bHeavy = M.Reaction == EBullyHitReaction::Stagger || M.Reaction == EBullyHitReaction::Knockdown
+			|| M.Reaction == EBullyHitReaction::KO || M.Reaction == EBullyHitReaction::GroundHit;
+		FBullySfx::Play(this, bHeavy ? TEXT("punch_heavy") : TEXT("punch_light"), Where);
+	}
 	if (R == EHitResult::Blocked)
 	{
 		Note(FString::Printf(TEXT("attack %s blocked by %s guard=%.0f hp=%.0f"), *M.Name.ToString(), *GetNameSafe(V->GetOwner()), V->Guard, V->Health));
@@ -951,6 +962,7 @@ void UBullyCombatComponent::EnterReaction(EBullyHitReaction R, UBullyCombatCompo
 		React(Victim.IsNone() ? KnockdownClip : Victim, DownedLoopClip);
 		Push(Away, FMath::Max(Knock, 100.f), 0.3f);
 		Fire(TEXT("knocked_down"));
+		if (AActor* O = GetOwner()) { FBullySfx::Play(this, TEXT("body_fall"), O->GetActorLocation() - FVector(0.f, 0.f, 60.f)); }
 		break;
 	case EBullyHitReaction::GroundHit:
 	{

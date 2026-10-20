@@ -4,6 +4,8 @@
 #include "BullyAnimInstance.h"
 #include "BullyCharacter.h"
 #include "BullyCombatComponent.h"
+#include "BullySfx.h"
+#include "Components/AudioComponent.h"
 #include "Camera/CameraComponent.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -114,6 +116,10 @@ const TArray<FBullyVehicleDef>& FBullyVehicleDef::All()
 			}
 		}
 		D.RiderClipSpeed = FMath::Max(1.f, Num(O, TEXT("rider_clip_speed"), D.RiderClipSpeed));
+		if (O->TryGetStringField(TEXT("sfx_loop"), S)) { D.SfxLoop = FName(*S); }
+		if (O->TryGetStringField(TEXT("sfx_brake"), S)) { D.SfxBrake = FName(*S); }
+		if (O->TryGetStringField(TEXT("sfx_horn"), S)) { D.SfxHorn = FName(*S); }
+		O->TryGetBoolField(TEXT("sfx_loop_idle"), D.bSfxLoopIdle);
 		Cache.Add(D);
 	}
 	UE_LOG(LogBullyVehicle, Display, TEXT("BR_VEHICLE %d ride type(s) loaded from %s"), Cache.Num(), *Path);
@@ -470,6 +476,7 @@ void ABullyVehicle::BuildInput()
 	HandbrakeAction = Make(TEXT("IA_VehHandbrake"), EInputActionValueType::Boolean);
 	LookAction = Make(TEXT("IA_VehLook"), EInputActionValueType::Axis2D);
 	ExitAction = Make(TEXT("IA_VehExit"), EInputActionValueType::Boolean);
+	HornAction = Make(TEXT("IA_VehHorn"), EInputActionValueType::Boolean);
 
 	auto Negate = [this]() { UInputModifierNegate* M = NewObject<UInputModifierNegate>(this); return M; };
 	auto Dead = [this]() { UInputModifierDeadZone* M = NewObject<UInputModifierDeadZone>(this); M->LowerThreshold = 0.15f; return M; };
@@ -487,6 +494,8 @@ void ABullyVehicle::BuildInput()
 	Imc->MapKey(LookAction, EKeys::Gamepad_Right2D).Modifiers.Add(Dead());
 	Imc->MapKey(ExitAction, EKeys::E);
 	Imc->MapKey(ExitAction, EKeys::Gamepad_FaceButton_Top);
+	Imc->MapKey(HornAction, EKeys::H);
+	Imc->MapKey(HornAction, EKeys::Gamepad_LeftThumbstick);
 }
 
 void ABullyVehicle::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -503,6 +512,8 @@ void ABullyVehicle::SetupPlayerInputComponent(UInputComponent* PlayerInputCompon
 		EIC->BindAction(HandbrakeAction, ETriggerEvent::Completed, this, &ABullyVehicle::OnHandbrakeEnd);
 		EIC->BindAction(LookAction, ETriggerEvent::Triggered, this, &ABullyVehicle::OnLook);
 		EIC->BindAction(ExitAction, ETriggerEvent::Started, this, &ABullyVehicle::OnExit);
+		EIC->BindAction(HornAction, ETriggerEvent::Started, this, &ABullyVehicle::OnHorn);
+		EIC->BindAction(HornAction, ETriggerEvent::Completed, this, &ABullyVehicle::OnHornEnd);
 	}
 }
 
@@ -548,6 +559,46 @@ void ABullyVehicle::OnExit(const FInputActionValue& V)
 	if (GetWorld()->GetRealTimeSeconds() - GLastRideToggle > 0.4) { Dismount(); }
 }
 
+void ABullyVehicle::OnHorn(const FInputActionValue& V)
+{
+	if (Def.SfxHorn.IsNone()) { return; }
+	if (!HornAudio) { HornAudio = FBullySfx::Loop(this, Box, Def.SfxHorn); }
+	else { HornAudio->Play(); }
+}
+
+void ABullyVehicle::OnHornEnd(const FInputActionValue& V)
+{
+	if (HornAudio) { HornAudio->Stop(); }
+}
+
+void ABullyVehicle::UpdateSound(float Dt)
+{
+	// ride loop: engines idle while someone is on; pedals / wheels only sound when rolling. Pitch climbs with speed.
+	if (Def.SfxLoop.IsNone()) { return; }
+	const float Frac = FMath::Clamp(FMath::Abs(Speed) / FMath::Max(1.f, Def.MaxSpeed), 0.f, 1.f);
+	const float Want = bGrounded || Def.bSfxLoopIdle
+		? (Def.bSfxLoopIdle ? (IsOccupied() ? 0.45f + 0.55f * Frac : 0.f) : FMath::Clamp(Frac * 2.5f, 0.f, 1.f))
+		: 0.f;
+	LoopLevel = FMath::FInterpTo(LoopLevel, Want, Dt, 6.f);
+	if (LoopLevel < 0.02f)
+	{
+		if (LoopAudio && LoopAudio->IsPlaying()) { LoopAudio->Stop(); }
+		return;
+	}
+	if (!LoopAudio) { LoopAudio = FBullySfx::Loop(this, Box, Def.SfxLoop); if (!LoopAudio) { Def.SfxLoop = NAME_None; return; } }
+	if (!LoopAudio->IsPlaying()) { LoopAudio->Play(); }
+	LoopAudio->SetVolumeMultiplier(LoopLevel);
+	LoopAudio->SetPitchMultiplier(0.8f + 0.7f * Frac);
+	// a skid when braking hard / handbraking at speed
+	const bool HB = bScripted ? bScriptHandbrake : bHandbrake;
+	const float T = bScripted ? ScriptThrottle : Throttle;
+	if (!Def.SfxBrake.IsNone() && bGrounded && FMath::Abs(Speed) > 600.f && (HB || (T < -0.3f && Speed > 0.f)) && GetWorld()->GetTimeSeconds() >= NextSkidAt)
+	{
+		FBullySfx::Play(this, Def.SfxBrake, GetActorLocation());
+		NextSkidAt = GetWorld()->GetTimeSeconds() + 1.2;
+	}
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // driving
 
@@ -564,6 +615,7 @@ void ABullyVehicle::Tick(float DeltaSeconds)
 		ShowStatus();
 	}
 	UpdateWheels(Dt);
+	UpdateSound(Dt);
 }
 
 void ABullyVehicle::Drive(float Dt)

@@ -39,6 +39,20 @@ code and config paths go in git.
 - **Evidence harness** `tools/ue/run_showcase_shots.sh` (`-BRShowcaseShots`): offscreen render of every ride (3/4 follow cam + chase cam)
   and every weapon (held / release frame / impact). Runner fix: the timeout timer's `sleep` no longer holds the caller's pipe open.
 
+## Owner playtest fixes (2026-10-20, later)
+
+- **Rides fell through the map** (car + go-kart): the ground check was one trace under the centre and falls moved
+  without collision. Now: ground probes under the whole footprint (centre + 4 corners, from above the box), swept falls,
+  and a rescue back to the last solid-ground spot if a ride ever drops under the map (`BR_VEHICLE ... fell under the map`).
+  New test `run_smoke_nullrhi.sh --flag -BRSandbox --flag -BRRideStress` drives car + kart 2.4 km over the game's real
+  streets (both ways from every parking spot): **old code FAIL 20/2100 under the map, new code PASS 0/2100, 0 rescues**.
+- **Teleports landed on roofs** (G menu / number row / BRGo): they traced down from 20 m above and took the first hit.
+  Now `FBullyLanding` picks open ground: outdoor spots snap to the nearest node of the game's sidewalk network
+  (`GRIDS.DAT`, `gen_teleport_spots.py --install`, stored as `ground_cm` in InteriorSpots.json) and land within a storey of
+  it; interiors land on the room's ground floor. Open patch around the landing must be clear of walls.
+  Test `run_smoke_nullrhi.sh --flag -BRTeleportSmoke`: **50/50 spots standing on open ground**; outdoor landings now on
+  the sidewalk (e.g. town 504, vale 920, carnival 603 cm vs. underpass/under-map before).
+
 ## Verification (Studio, 2026-10-20)
 
 All on `phase2` @ the commit carrying this file, editor module built on the Studio and the laptop.

@@ -9,6 +9,9 @@ applies the GPU-slot wrapper and the headless flags. Configuration comes from en
   BR_SCENES     comma list of manifest scene names, or "core" (tschool,ischool), or "all" [all]
   BR_STEPS      comma list of steps: textures,materials,meshes,level             [all four]
   BR_LIMIT      import at most N models (debugging)                              [no limit]
+  BR_MODELS     comma list of standalone models (imported/models/<name>.gltf: rides, wheels, hand props)
+                instead of the manifest's scenes; the level step is skipped. Vehicle rigs
+                (imported/vehicles/*.json) are copied to Content/Imported/VehicleRigs/ for the runtime.
   BR_REPORT     where to write the JSON report        [<project>/Saved/BullyImport/report.json]
 
 Idempotent: textures and meshes carry a "br_src_sha1" metadata tag; an asset whose tag equals the
@@ -107,6 +110,32 @@ def select_scenes(manifest, spec):
         if w not in names:
             raise RuntimeError("unknown scene %r (have %s)" % (w, names))
     return want
+
+
+def collect_models(imported, names):
+    """Standalone models by name (no placements): rides, their wheels, hand props, projectiles."""
+    paths, gltfs = {}, {}
+    for n in names:
+        p = os.path.join(imported, "models", n + ".gltf")
+        if not os.path.isfile(p):
+            raise RuntimeError("BR_MODELS: %s missing (run python3 -m tools.importers vehicle/prop first)" % p)
+        paths[n] = p
+        with open(p) as f:
+            gltfs[n] = json.load(f)
+    return paths, gltfs
+
+
+def copy_vehicle_rigs(imported):
+    src = os.path.join(imported, "vehicles")
+    dst = os.path.join(unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_content_dir()),
+                       "Imported", "VehicleRigs")
+    os.makedirs(dst, exist_ok=True)
+    copied = []
+    for f in sorted(os.listdir(src)) if os.path.isdir(src) else []:
+        if f.endswith(".json"):
+            shutil.copyfile(os.path.join(src, f), os.path.join(dst, f))
+            copied.append(f[:-5])
+    return {"rigs": copied, "dest": dst}
 
 
 def collect(manifest, imported, scenes, limit):
@@ -752,7 +781,8 @@ def build_level(manifest, placements, scenes):
 
 def main():
     imported = os.environ.get("BR_IMPORTED")
-    if not imported or not os.path.isfile(os.path.join(imported, "scenes", "academy.json")):
+    models = [m.strip() for m in os.environ.get("BR_MODELS", "").split(",") if m.strip()]
+    if not imported or (not models and not os.path.isfile(os.path.join(imported, "scenes", "academy.json"))):
         raise RuntimeError("BR_IMPORTED must point at the importer output (scenes/academy.json missing)")
     steps = [s.strip() for s in os.environ.get("BR_STEPS", "textures,materials,meshes,level").split(",")]
     limit = int(os.environ.get("BR_LIMIT", "0") or 0)
@@ -760,9 +790,15 @@ def main():
     report_path = os.environ.get("BR_REPORT") or os.path.join(proj_saved, "BullyImport", "report.json")
     stage_dir = os.path.join(proj_saved, "BullyImport", "stage")
 
-    manifest = load_manifest(imported)
-    scenes = select_scenes(manifest, os.environ.get("BR_SCENES", "all"))
-    placements, gltf_paths, gltfs = collect(manifest, imported, scenes, limit)
+    if models:
+        manifest, scenes, placements = None, [], []
+        gltf_paths, gltfs = collect_models(imported, models)
+        steps = [s for s in steps if s != "level"]
+        REPORT["steps"]["vehicle_rigs"] = copy_vehicle_rigs(imported)
+    else:
+        manifest = load_manifest(imported)
+        scenes = select_scenes(manifest, os.environ.get("BR_SCENES", "all"))
+        placements, gltf_paths, gltfs = collect(manifest, imported, scenes, limit)
     REPORT.update({"imported_dir": imported, "scenes": scenes, "steps_requested": steps, "limit": limit,
                    "models_selected": len(gltfs),
                    "placements_selected": len(placements)})

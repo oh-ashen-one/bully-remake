@@ -125,8 +125,8 @@ void ABullyProjectile::Launch(const FBullyProjectileSpec& InSpec, const FVector&
 	Movement->ProjectileGravityScale = Spec.GravityScale;
 	Movement->Velocity = Velocity;
 	SetLifeSpan(FMath::Max(0.25f, Spec.Lifetime));
-	UE_LOG(LogBullyWeapon, Display, TEXT("BR_WEAPON %s launched v=%.0f cm/s grav=%.2f aoe=%.0f dmg=%.0f effect=%s"),
-		*Spec.WeaponId.ToString(), Velocity.Size(), Spec.GravityScale, Spec.AoeRadius, Spec.Damage, FBullyProjectileSpec::EffectName(Spec.Effect));
+	UE_LOG(LogBullyWeapon, Display, TEXT("BR_WEAPON %s launched from %s v=%s (%.0f cm/s) grav=%.2f aoe=%.0f dmg=%.0f effect=%s"),
+		*Spec.WeaponId.ToString(), *Origin.ToCompactString(), *Velocity.ToCompactString(), Velocity.Size(), Spec.GravityScale, Spec.AoeRadius, Spec.Damage, FBullyProjectileSpec::EffectName(Spec.Effect));
 }
 
 void ABullyProjectile::SetVisual(UStaticMesh* Mesh, bool bIsFallbackSphere)
@@ -203,8 +203,8 @@ void ABullyProjectile::Detonate(const FVector& At, UBullyCombatComponent* Direct
 		{
 			if (C.IsValid() && C->GetOwner() && C.Get() != Shooter.Get())
 			{
-				UE_LOG(LogBullyWeapon, Display, TEXT("BR_WEAPON %s missed %s at %.0f cm (aoe %.0f, same world %d)"), *Spec.WeaponId.ToString(),
-					*C->GetOwner()->GetName(), FVector::Dist(C->GetOwner()->GetActorLocation(), At), Spec.AoeRadius, C->GetWorld() == W);
+				UE_LOG(LogBullyWeapon, Display, TEXT("BR_WEAPON %s missed %s at %s, %.0f cm (aoe %.0f, same world %d)"), *Spec.WeaponId.ToString(),
+					*C->GetOwner()->GetName(), *C->GetOwner()->GetActorLocation().ToCompactString(), FVector::Dist(C->GetOwner()->GetActorLocation(), At), Spec.AoeRadius, C->GetWorld() == W);
 			}
 		}
 	}

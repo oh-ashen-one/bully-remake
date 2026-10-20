@@ -105,6 +105,14 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Bully|Anim") float LedgeFallDelay = 0.25f;
 	/** A still landing can be interrupted by movement after this long (s). */
 	UPROPERTY(Config, EditAnywhere, Category = "Bully|Anim") float LandInterruptTime = 0.12f;
+	/** Start / stop transitions (game clips PLAYERWALK_START, PLAYERRUN_START, PLAYERWALK_STOP, RUNSTOP0) over the
+	 *  locomotion blend; a stop is cut short as soon as you move again, a start as soon as you stop. */
+	UPROPERTY(Config, EditAnywhere, Category = "Bully|Anim") bool bStartStopClips = true;
+	/** Speed (cm/s) you must have held for a stop clip: above RunStopSpeed RUNSTOP0, above WalkStopSpeed PLAYERWALK_STOP. */
+	UPROPERTY(Config, EditAnywhere, Category = "Bully|Anim") float RunStopSpeed = 320.f;
+	UPROPERTY(Config, EditAnywhere, Category = "Bully|Anim") float WalkStopSpeed = 120.f;
+	/** Peak weight of a start clip over the cycle (in-place clip on an accelerating capsule: keep it partial). */
+	UPROPERTY(Config, EditAnywhere, Category = "Bully|Anim") float StartClipWeight = 0.6f;
 
 	// --- read-only state (logging / evidence) ---------------------------------------------------------------
 	EBullyAnimState GetState() const { return State; }
@@ -196,6 +204,15 @@ private:
 	float RideRate = 1.f;
 	float RideWeight = 0.f;          // over locomotion
 	float RideSwap = 1.f;            // 0 -> 1 cross-fade from RidePrev to Ride
+	// start / stop transition (full body, one-shot)
+	FBullyAnimLayer Trans;
+	float TransWeight = 0.f;
+	float TransPeak = 1.f;
+	bool TransActive = false;
+	bool bTransIsStop = false;
+	float SpeedHistory = 0.f;        // speed held over the last ~0.25 s
+	float PrevLocoSpeed = 0.f;
+	void UpdateTransition(float Dt, float Speed, bool bFree);
 	FBullyAnimLayer Upper;
 	float UpperRate = 1.f;
 	float UpperWeight = 0.f;

@@ -7,6 +7,7 @@
 #include "AnimationRuntime.h"
 #include "BonePose.h"
 #include "BullyCharacter.h"
+#include "BullyCombatComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Engine/SkeletalMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -548,9 +549,71 @@ bool UBullyAnimInstance::PlayUpperBody(FName ClipName, float Rate)
 	return true;
 }
 
+void UBullyAnimInstance::UpdateTransition(float Dt, float Speed, bool bFree)
+{
+	if (!bStartStopClips) { return; }
+	const bool bMovingNow = Speed > 60.f;
+	if (TransActive)
+	{
+		// moving again cuts a stop short; stopping (or leaving plain locomotion) cuts a start short
+		const bool bCut = !bFree || (bTransIsStop ? bMovingNow : Speed < 20.f);
+		if (bCut) { TransActive = false; }
+	}
+	else if (bFree)
+	{
+		UAnimSequence* S = nullptr;
+		if (PrevLocoSpeed > 60.f && Speed < 20.f && SpeedHistory > WalkStopSpeed)
+		{
+			S = FindClip(SpeedHistory > RunStopSpeed ? FName(TEXT("RUNSTOP0")) : FName(TEXT("PLAYERWALK_STOP")));
+			bTransIsStop = true;
+			TransPeak = 1.f;
+		}
+		else if (PrevLocoSpeed < 20.f && bMovingNow)
+		{
+			S = FindClip(Speed > 300.f ? FName(TEXT("PLAYERRUN_START")) : FName(TEXT("PLAYERWALK_START")));
+			bTransIsStop = false;
+			TransPeak = StartClipWeight;
+		}
+		if (S)
+		{
+			Trans = FBullyAnimLayer();
+			Trans.Seq = S;
+			TransActive = true;
+		}
+	}
+	SpeedHistory = FMath::FInterpTo(SpeedHistory, Speed, Dt, 4.f);
+	PrevLocoSpeed = Speed;
+}
+
 void UBullyAnimInstance::ApplyOverlays(float Dt)
 {
 	FBullyAnimInstanceProxy& P = GetProxyOnGameThread<FBullyAnimInstanceProxy>();
+
+	// start / stop transition: only over plain on-foot locomotion (no ride, no combat clip, on the ground)
+	if (const ABullyCharacter* C = Cast<ABullyCharacter>(TryGetPawnOwner()))
+	{
+		const UBullyCombatComponent* CC = C->GetCombat();
+		const bool bFree = State == EBullyAnimState::Loco && RideClip.IsNone() && !(CC && CC->IsBusy()) && !C->GetCharacterMovement()->IsFalling();
+		UpdateTransition(Dt, C->GetHorizontalSpeed(), bFree);
+	}
+	if (TransActive && Trans.Seq)
+	{
+		AdvanceLayer(Trans, Dt);
+		const float Left = Trans.Seq->GetPlayLength() - Trans.Time;
+		TransWeight = FMath::Min(FMath::Min(TransPeak, TransWeight + Dt / 0.08f), FMath::Clamp(Left / 0.18f, 0.f, 1.f) * TransPeak);
+		if (Left <= KINDA_SMALL_NUMBER) { TransActive = false; }
+	}
+	else
+	{
+		TransWeight = FMath::Max(0.f, TransWeight - Dt / 0.12f);   // fade out from the last frame
+	}
+	if (TransWeight > 0.f && Trans.Seq)
+	{
+		for (FBullyAnimLayer& L : P.Layers) { L.Weight *= (1.f - TransWeight); }
+		FBullyAnimLayer A = Trans;
+		A.Weight = TransWeight;
+		P.Layers.Add(A);
+	}
 
 	// ride: fade in over 0.2 s, out over 0.25 s; consecutive ride loops cross-fade over 0.2 s
 	const bool bRide = !RideClip.IsNone() && Ride.Seq;

@@ -390,3 +390,15 @@ landing whose back wall (`ischool_103_BULL2_Banner04`, y=29726) ends a straight 
 3 m wide, 165 -> 550 cm) to the upper floor, which holds the office trigger (-63320, 29140, z 550) and `PrincipalRoom`. The M2
 "landing stop" was `walk_m2.json` walking straight on to (-62860, 29500) into that wall; its target is now on the landing. Pawn
 passes lobby -> office -> out at walk, run and sprint gait; risers (20.6 cm) are well under `MaxStepHeight` 45.
+
+## Mission smoke and the wrong-way variant (`run_mission_smoke.sh`, `audit_mission_skips.py`)
+<!-- OWNER: mission-fw -->
+
+    tools/ue/run_mission_smoke.sh <mission_id>               # headless: drive each stage the intended way, PASS/FAIL
+    tools/ue/run_mission_smoke.sh <mission_id> --wrong-way   # overshoot every positional stage, then skip ahead to the next goal
+    python3 tools/ue/audit_mission_skips.py [mission ...]    # the same skip-ahead rule on the mission JSON alone (no engine)
+
+`--wrong-way` passes `-BRMissionSmokeWrongWay` to the `-BRMissionSmoke=<id>` harness (`UMissionSubsystem::TickSmoke`). A stage that
+does not complete after the skip-ahead teleport is a soft-lock candidate (`BR_MISSION_SMOKE wrongway STUCK`) and fails the run.
+Fix such a stage by adding an `any` fallback for the far side, as `use_door` / `leave_office` do. Findings and the per-stage audit:
+`docs/re-notes/mission-robustness.md`. Not yet run against the engine (written on a machine without Unreal).

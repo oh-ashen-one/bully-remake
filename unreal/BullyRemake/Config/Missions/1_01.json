@@ -89,8 +89,19 @@
       "id": "walk_in",
       "objective": "Walk across the grounds toward the group waiting in the walkway.",
       "complete": {
-        "type": "trigger_enter",
-        "trigger": "1_01_BullyTrig"
+        "type": "any",
+        "conditions": [
+          {
+            "type": "trigger_enter",
+            "trigger": "1_01_BullyTrig"
+          },
+          {
+            "type": "reach_location",
+            "point": "gauntlet_clear",
+            "radius_cm": 800,
+            "z_tolerance_cm": 500
+          }
+        ]
       },
       "on_start": [
         {
@@ -120,6 +131,12 @@
             "point": "gauntlet_clear",
             "radius_cm": 500,
             "z_tolerance_cm": 500
+          },
+          {
+            "type": "reach_location",
+            "point": "courtyard_approach",
+            "radius_cm": 1200,
+            "z_tolerance_cm": 600
           }
         ]
       },
@@ -151,8 +168,19 @@
       "id": "use_door",
       "objective": "Go in through the main door.",
       "complete": {
-        "type": "trigger_enter",
-        "trigger": "main_door"
+        "type": "any",
+        "conditions": [
+          {
+            "type": "trigger_enter",
+            "trigger": "main_door"
+          },
+          {
+            "type": "reach_location",
+            "point": "lobby",
+            "radius_cm": 3000,
+            "z_tolerance_cm": 1000
+          }
+        ]
       },
       "on_complete": [
         {
@@ -169,10 +197,25 @@
       "id": "reach_lobby",
       "objective": "Walk into the entrance hall.",
       "complete": {
-        "type": "reach_location",
-        "point": "lobby",
-        "radius_cm": 450,
-        "z_tolerance_cm": 300
+        "type": "any",
+        "conditions": [
+          {
+            "type": "reach_location",
+            "point": "lobby",
+            "radius_cm": 450,
+            "z_tolerance_cm": 300
+          },
+          {
+            "type": "trigger_enter",
+            "trigger": "1_01_PrincOffice"
+          },
+          {
+            "type": "reach_location",
+            "point": "office_approach",
+            "radius_cm": 900,
+            "z_tolerance_cm": 400
+          }
+        ]
       }
     },
     {

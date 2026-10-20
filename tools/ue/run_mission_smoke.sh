@@ -5,7 +5,13 @@
 # every stage using only the stage's own conditions (reach / trigger / interact / event), exercises fail->retry when
 # the mission defines a smoke_fail stage, and logs BR_MISSION lines + a PASS/FAIL result.
 #
-#   tools/ue/run_mission_smoke.sh <mission_id> [--out DIR] [--seconds-limit 600]
+#   tools/ue/run_mission_smoke.sh <mission_id> [--out DIR] [--seconds-limit 600] [--wrong-way]
+#
+# --wrong-way (-BRMissionSmokeWrongWay): drive every positional stage the WRONG way instead. Each reach_location / trigger_enter
+# stage is first overshot (teleport 8 m past its point), then skipped ahead -- the player is teleported onto the goal of the NEXT
+# stage, which is what a door-link teleport does -- and the skipped stage must complete by itself (a fallback in the mission
+# data). A stage that stays open is logged `BR_MISSION_SMOKE wrongway STUCK`, then the normal driver recovers so the rest of the
+# mission is still checked; any stuck stage makes the run FAIL. Offline twin of the same rule: tools/ue/audit_mission_skips.py.
 #
 # Same engine-safety envelope as the other headless runners: GPU-slot wrapper (label bully-mission), window watchdog
 # that SIGTERMs the engine if any window appears (an empty window_watch.txt is the no-window evidence), no retry,
@@ -18,18 +24,21 @@ OUT=""
 MAP=/Game/Imported/Maps/Bullworth
 LABEL=bully-mission
 LIMIT=600
+WRONG=""
+SUFFIX=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --out) OUT="$2"; shift 2 ;;
     --seconds-limit) LIMIT="$2"; shift 2 ;;
+    --wrong-way) WRONG="-BRMissionSmokeWrongWay"; SUFFIX="_wrongway"; shift ;;
     -*) br_die "unknown argument $1" ;;
     *) [ -z "$MISSION" ] || br_die "only one mission id"; MISSION="$1"; shift ;;
   esac
 done
-[ -n "$MISSION" ] || br_die "usage: run_mission_smoke.sh <mission_id> [--out DIR] [--seconds-limit N]"
+[ -n "$MISSION" ] || br_die "usage: run_mission_smoke.sh <mission_id> [--out DIR] [--seconds-limit N] [--wrong-way]"
 [ -f "$BR_REPO/unreal/BullyRemake/Config/Missions/$MISSION.json" ] || br_die "no such mission: Config/Missions/$MISSION.json"
 [ -f "$BR_REPO/unreal/BullyRemake/Content/Imported/Maps/Bullworth.umap" ] || br_die "level missing: run tools/ue/run_import.sh first"
-[ -n "$OUT" ] || OUT="$HOME/bully-remake-evidence/missions/smoke_$MISSION"
+[ -n "$OUT" ] || OUT="$HOME/bully-remake-evidence/missions/smoke_$MISSION$SUFFIX"
 
 br_preflight
 mkdir -p "$OUT"
@@ -40,7 +49,7 @@ START=$(date +%s)
 "$GPU_SLOT" capture --label "$LABEL" -- \
   "$UE_CMD" "$BR_UPROJECT" "$MAP" -game -nullrhi -unattended -nosplash -nocrashreports -NoSound -notraceserver -NoVSync \
   -stdout -FullStdOutLogOutput -forcelogflush -abslog="$OUT/ue_run.log" -ResX=640 -ResY=360 -windowed -BRNoAmbient \
-  -BRMissionSmoke="$MISSION" ${BR_EXTRA_ARGS:-} \
+  -BRMissionSmoke="$MISSION" $WRONG ${BR_EXTRA_ARGS:-} \
   > "$OUT/stdout.log" 2>&1 &
 WRAP=$!
 br_window_watch "$WRAP" "$OUT/window_watch.txt" &

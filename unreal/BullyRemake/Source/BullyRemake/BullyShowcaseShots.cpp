@@ -183,6 +183,7 @@ void UBullyShowcaseShots::Tick(float Dt)
 		{
 			E->bAttackAllowed = false;
 			E->bBlockAllowed = false;
+			if (E->GetCharacterMovement()) { E->GetCharacterMovement()->MaxWalkSpeed = 0.f; }
 			Target = E;
 		}
 		Index = 0;

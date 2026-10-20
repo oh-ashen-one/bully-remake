@@ -419,6 +419,7 @@ void UBullyWeaponComponent::TickSmoke()
 		{
 			E->bAttackAllowed = false;
 			E->bBlockAllowed = false;
+			if (E->GetCharacterMovement()) { E->GetCharacterMovement()->MaxWalkSpeed = 0.f; }   // stands still through the wind-up
 			Smoke.Target = E;
 			Next(2);
 		}

@@ -8,8 +8,6 @@ DEFINE_LOG_CATEGORY_STATIC(LogBullyLanding, Log, All);
 
 namespace
 {
-	constexpr float BandUp = 3000.f;     // look this far above the spot (the spot itself may sit under the street)
-	constexpr float BandDown = 3000.f;   // and this far below
 	constexpr float StoreyGap = 200.f;   // a walkable surface this far over another one is a roof / deck / upper floor
 
 	bool IsWater(const FHitResult& H)
@@ -35,7 +33,8 @@ namespace
 	}
 }
 
-bool FBullyLanding::Find(const UWorld* W, const FVector& Spot, float Radius, FVector& OutGround, const AActor* Ignore, float ClearHalf)
+bool FBullyLanding::Find(const UWorld* W, const FVector& Spot, float Radius, FVector& OutGround, const AActor* Ignore, float ClearHalf,
+	float BandUp, float BandDown)
 {
 	if (!W) { return false; }
 	FCollisionQueryParams Q(SCENE_QUERY_STAT(BullyLandingFit), false, Ignore);

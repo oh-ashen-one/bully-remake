@@ -828,8 +828,21 @@ void ABullyCharacter::BRGo(const FString& Name)
 	const bool bInterior = Scene.StartsWith(TEXT("i"), ESearchCase::IgnoreCase);
 	const float HalfH = GetCapsuleComponent() ? GetCapsuleComponent()->GetScaledCapsuleHalfHeight() : 88.f;
 	FVector Ground;
-	if (FBullyLanding::Find(GetWorld(), Dest, bInterior ? 2500.f : 8000.f, Ground, this, bInterior ? 90.f : 150.f)
-		|| FBullyLanding::Find(GetWorld(), Dest, bInterior ? 2500.f : 8000.f, Ground, this, 45.f))   // tight rooms: a capsule's worth
+	const TArray<TSharedPtr<FJsonValue>>* G = nullptr;
+	bool bFound = false;
+	if ((*Spot)->TryGetArrayField(TEXT("ground_cm"), G) && G->Num() == 3)
+	{
+		// outdoor: a sidewalk node of the game's own ped network; stay within a storey of it (terrain here is stacked)
+		const FVector Node((*G)[0]->AsNumber(), (*G)[1]->AsNumber(), (*G)[2]->AsNumber());
+		bFound = FBullyLanding::Find(GetWorld(), Node, 2500.f, Ground, this, 150.f, 250.f, 300.f)
+			|| FBullyLanding::Find(GetWorld(), Node, 2500.f, Ground, this, 60.f, 250.f, 300.f);
+	}
+	if (!bFound)
+	{
+		bFound = FBullyLanding::Find(GetWorld(), Dest, bInterior ? 2500.f : 8000.f, Ground, this, bInterior ? 90.f : 150.f)
+			|| FBullyLanding::Find(GetWorld(), Dest, bInterior ? 2500.f : 8000.f, Ground, this, 45.f);   // tight rooms: a capsule's worth
+	}
+	if (bFound)
 	{
 		Dest = Ground + FVector(0, 0, HalfH + 3.f);
 	}

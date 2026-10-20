@@ -1,150 +1,115 @@
-# HANDOFF — bully-remake (town sandbox + weapons + vehicles + whole-map import)
+# HANDOFF — bully-remake (phase2: game models for rides + weapons, riding/throw anims, FX + SFX, town life, door links)
 
-Date: 2026-10-20 · Branch: `phase0` (= `origin/main` = `675ace2`) · Host: Studio (midirstudio, M3 Ultra) · Status: **merged to main, headless-verified; owner feel-playtest pending**
+Date: 2026-10-20 · Branch: `phase2` (pushed; **NOT merged to main** — owner playtest first) · Host: Studio (`ssh studio`; checkout
+`~/bully-remake` on `phase2`) · Laptop checkout `~/bully-remake` also on `phase2` (edit/commit/push there, pull on the Studio).
+Status: **built + headless-verified + rendered stills reviewed; owner feel-playtest pending.**
 
-## What this is
+## What this session did (owner ask: "do the rest — pull the models from the game like we've been doing")
 
-UE 5.8 remake of *Bully: Scholarship Edition*. Public repo, **original code only**; the game's assets are imported locally
-from the owner's own copy and stay git-ignored (CI-blocked). This thread (Studio, 2026-10-18 → 10-19) took it from "academy
-slice" to "free roam in the town with weapons and rides": combat camera shake, render-capture tooling, the crowd
-arm-corruption fix, the whole-map import + G-key teleport, a full weapon arsenal, four driveable rides, and a **town sandbox
-start** (the owner's milestone ask: "play outside the map we're used to — the town — and show the new stuff").
+Owner overruled the previous session's "no game models" line: game assets are pulled from the owner's own install exactly like
+the world/characters already were — converted locally into `imported/` + `Content/Imported/` (both git-ignored); only original
+code and config paths go in git.
 
-Decisions already made (don't re-ask):
-- **Merges to `main` are OK'd by the owner** ("yes u can merge"); merge verified milestones as a fast-forward.
-- **Start in the town by default** (sandbox start). The academy stays reachable through the G menu.
-- **Weapons:** the full arsenal; **vehicles:** bike, skateboard, go-kart and car (owner asked for cars), all fully driveable.
-- **Asset line:** the agent writes original code but does **not** pull models out of the game or render its characters/world.
-  The owner was told this and pushed back ("pull the models bro"); the answer stayed no. Weapons/rides are engine-primitive
-  placeholders with a `mesh` path each. **Open offer, no answer yet:** the agent builds *original* ride/weapon models
-  (Blender, or CustomUse one at a time) — ownable and safe for the public repo.
+- **Rides use the game's models** — `python3 -m tools.importers vehicle <model>` (new, `tools/importers/props.py`): body with
+  damage-state parts (`*_dam`) and untextured helper shapes pruned, the IDE `cars` row's wheel model recentred on its hub, and a rig
+  JSON (wheel hubs, seat/door points, ground offset, bounds). `ABullyVehicle` (`Vehicles.json` `model`) places body + 4 spinning
+  wheels (front pair steers). bike, skateboard (`SK8Board`), go-kart (`GoCart` + `wheel_van`), car (`taxicab`), plus new parked/drivable
+  variants police (`Policecar`), sedan (game's `Limo` = sedan body), pickup (`Truck`).
+- **Rider poses from the game** (`V_Bike`, `Go_Cart`, `Skateboard` groups; `Vehicles.json` `rider`): ride/fast/coast/idle/turn/air clips,
+  pedal clip rate follows speed. Cars use the kart seat pose (sits inside).
+- **Weapons**: held game models on `Root-R-Hand` (slingshot, spudg, BROCKETLAUNCHER, eggs, stink bomb, itching powder), game projectile
+  models (BROCKET with smoke trail, EGGPROJ/stinkbomb/W_Itch tumbling, marble), throw/fire clips from `W_Thrown`/`W_Slingshot`/`W_BRocket`
+  on the **upper body** (new overlay in `UBullyAnimInstance`, Root-Spine down) with the shot leaving on the clip's release frame; launchers
+  carry a hold pose (`BRKT_HOLD_IDLE`). Locked-on shots re-aim at the target on the release frame.
+- **FX** (`ABullyFx`, no particle assets): dust / chunks / blast (fireball + flash light + sparks + smoke) / bang / egg smear / green gas
+  cloud / itch powder puff / real marbles scattering; material `/Game/Imported/Fx/M_BullyFx` (lit translucent + Glow) built by the import.
+- **SFX from the game's banks** (`Config/Sfx.json`, `FBullySfx`): 25 events — weapon fire/impacts, punch light/heavy, block, body fall
+  (melee now has impact sounds = backlog #3), bike pedal / skate roll / kart + car engine loops pitched by speed, skids, horn (H).
+- **Town life** (`UBullyTownLifeSubsystem`, `Config/TownLife.json`): townspeople (10 imported `TO_*` peds) walk loops and rideable cars
+  park at the kerb, streamed in within 260 m. Loops/parking come from the game's nav grid `Config/GRIDS.DAT` (`python3 -m tools.importers
+  townlife`; the WALKABLE meshes turned out to be stubs). Good in business strip / Old Bullworth Vale / New Coventry; carnival has loops but
+  no parking; junkyard / BMX / go-kart / tGlobal have synthetic rings only.
+- **Door links from the game** (`python3 -m tools.importers exits` → `imported/door_links_game.json`): `Config/dat/ExitLocs.dat` +
+  `areabbox.dat` → 32 door pairs (64 links; 12 flagged "facing uncertain"; 6 pairs rejected for stale coordinates). Placed with
+  `tools/ue/run_place_doors.sh --generated` (hand-made main door stays authoritative). = backlog #4.
+- **Mission robustness** (backlog #2): 7 skippable stages got `any` fallbacks, min reach radius, `tools/ue/audit_mission_skips.py`, and
+  `run_mission_smoke.sh <id> --wrong-way` (overshoot + skip-ahead teleports). Table: `docs/re-notes/mission-robustness.md`.
+- **Locomotion start/stop** transitions (PLAYERWALK_START / PLAYERRUN_START / PLAYERWALK_STOP / RUNSTOP0), cut short by input (#7 debt).
+- **Studio now has** GN_Bully01–05 imported (fight/gauntlet peds are real here too) and the 10 townspeople.
+- **Evidence harness** `tools/ue/run_showcase_shots.sh` (`-BRShowcaseShots`): offscreen render of every ride (3/4 follow cam + chase cam)
+  and every weapon (held / release frame / impact). Runner fix: the timeout timer's `sleep` no longer holds the caller's pipe open.
 
-## Repo / branch map
+## Verification (Studio, 2026-10-20)
 
-| Repo | Checkout | Branch |
-|---|---|---|
-| oh-ashen-one/bully-remake | `~/bully-remake` (Studio) | `phase0` (level with `origin/main`) |
-| same | `~/bully-remake-wt/ai-npc` (Studio) | `ai-npc` — the owner's AI-NPC thread, already merged into main; **don't touch** |
+All on `phase2` @ the commit carrying this file, editor module built on the Studio and the laptop.
 
-## Where things stand
+| Check | Result |
+|---|---|
+| `run_smoke_nullrhi.sh --flag -BRSandboxSmoke` (game models; also with `-BRTownLife`, and after door placement) | **PASS 19/19** |
+| town life (`-BRTownLife`) | 8 districts / 45 loops / 30 parking spots loaded; business strip live: 12 walkers, 7 parked rides |
+| `run_smoke_nullrhi.sh --flag -BRWeaponSmoke` (fire clips, release frame, re-aim, FX/SFX) | **PASS 8/8** |
+| `run_combat_nullrhi.sh` (now with impact SFX) | **PASS** (7 + B7 checks) |
+| `run_mission_smoke.sh day_one` / `1_02` / `1_01` / `arrival` / `side_errand` | **PASS** 26/26 · 20/20 · 6/6 · 6/6 · 5/5 |
+| `run_mission_smoke.sh 1_01 --wrong-way` / `smoke_day_one --wrong-way` | **PASS** (3 / 2 skip-aheads, 0 stuck) |
+| `run_place_doors.sh --generated` | 66 door links placed (64 game + 2 hand-made) |
+| `run_showcase_shots.sh` (rendered, no window) | 46 stills reviewed: `~/bully-remake-evidence/phase2/showcase3/` (rides incl. parked police/sedan/pickup driving town, every weapon held / release / impact) |
 
-- `main` = `675ace2` holds everything below. Nothing unpushed, no stashes, clean tree.
-- Headless smokes on the Studio (2026-10-19): sandbox + vehicles **19/19**, weapons **8/8**, combat tutorial **7/7**,
-  arrival mission **6/6**; no window in any run.
-- The town / whole-world geometry is imported **on the Studio only** (local Content); the laptop must run the import once (below).
+Not verified: anything by hand-feel; doors walked through in-engine; perf on the M5 with town life; FX/SFX loudness.
 
-## What happened this session (commits on main)
+## Not done / open
 
-- `d4d65ef` impact camera shake + mission `shake` action · `4b3cb8d` rendered cutscene capture (`run_mission_shots.sh`)
-- `d42d98f` prefect mesh override for the arrival faculty · `7d43280`/`f988401` crowd-capture harness + **gesture arm fix**
-  (runtime skeleton retargeting in `ABullyScriptedNPC`)
-- `4d63e5f` **whole-map import** (`town`/`all` importer presets) + **G-key teleport menu** · `84b8018` 50 teleport spots
-  (8 outdoor + 42 rooms)
-- `5d90a66` **weapons** (8, `UBullyWeaponComponent` + `ABullyProjectile`) + generic `tools/ue/run_smoke_nullrhi.sh`
-- `675ace2` **vehicles** (`ABullyVehicle`, 4 rides) + **town sandbox start** (`UBullySandboxSubsystem`)
-- (`3ef7f55` was weapon WIP scaffolding, superseded by `5d90a66`)
+- **Not merged to main** — owner plays first (merge = fast-forward `phase2` → `main` once OK'd, per the standing merge rule).
+- **Town start spot** is a dim railway underpass (auto-picked near `town`); offer: move it (Sandbox.json `start` / search radius).
+- Held-weapon offsets are identity on the right hand: the slingshot hangs (its band is skinned and in bind pose; the game holds it in
+  the left hand), thrown items sit at the wrist. Tune `held_offset_cm` / `held_rot` in Weapons.json (or add a left-hand socket).
+- Firecracker has no game model (sphere); pebble/potato projectiles are spheres (no game model found).
+- Door links: placed and logged but **not walked in-engine**; 12 links are "facing uncertain" (see `imported/exits_report.json`).
+- Town life: sedan/pickup/police parked cars + walkers only checked headless + in stills; perf with many walkers not measured on the M5.
+- Still owner-only: feel (ride handling, weapon punch/fire rates, FX/SFX levels), footstep pitch by ear, standalone .app (Xcode 27 beta).
 
-## Verification done
-
-- `tools/ue/run_smoke_nullrhi.sh --flag -BRSandboxSmoke` → `RESULT PASS: 19 check(s)`: town start (found a clear
-  17x10 m street patch ~35 m from the spot), 4 rides lined up, each one accelerates / brakes / steers / mounts /
-  dismounts, and the car knocks a pedestrian over.
-- `--flag -BRWeaponSmoke` → `RESULT PASS: 8/8 weapons hit`; the sandbox logged `off` in that run (harness flags disable it).
-- `tools/ue/run_combat_nullrhi.sh` → 7 PASS / 0 FAIL; `tools/ue/run_mission_smoke.sh arrival` → PASS 6/6.
-- Town render check (environment only): `~/bully-remake-evidence/town/` — 0 material failures.
-- **Not verified:** anything visual about the sandbox start spot or the rides (all checks were headless), feel, perf on the laptop.
-
-## Not done / explicitly out of scope
-
-- **Placeholders:** rides and projectiles are coloured engine primitives until mesh paths are set (see the asset line above).
-- No throw/shoot **animation** (the arm doesn't move when firing), no projectile **VFX/SFX**, no vehicle engine sounds.
-- Town has **no traffic or pedestrians** yet (ambient walkers are academy-only).
-- The auto-picked town start spot has **never been eyeballed**: it's correct by the checks, not necessarily scenic.
-- Crowd gesture fix: a small glove/elbow seam remains on some mid-swing frames (cosmetic).
-- On the Studio the crowd bully peds `GN_Bully01-04` are placeholder bodies (not imported here; the owner imported them on the laptop).
-- **Standalone .app packaging is blocked on the Studio** (UE 5.8's Xcode finalize fails under Xcode 27 beta; the owner
-  plays via PIE, so it doesn't block anything). Fix = a UE-5.8-supported Xcode, which is a shared-toolchain change and needs the owner's OK.
-- Backlog #2–5 and #7 below are untouched.
-
-## Next steps
-
-1. **On the laptop:** pull, rebuild, import the whole world once, then PIE → you start in the town (commands below).
-   Feel-playtest: ride handling (`Config/Vehicles.json`), weapon punch and fire rates (`Config/Weapons.json`), the start
-   spot (`Config/Sandbox.json` → `start` / `search_radius_cm`), and town perf on the M5.
-2. If the owner says yes to original models: build bike / skateboard / go-kart / car / weapon models (Blender, or CustomUse
-   one at a time for review), drop them in, and set the `mesh` paths.
-3. Throw/shoot animation + projectile VFX/SFX; then backlog #2 (mission robustness pass).
-4. Town life: spawn ambient walkers / parked cars in the town districts.
-5. Backlog #3–5, #7.
-
-## Key files
-
-- `Source/BullyRemake/BullySandboxSubsystem.*` + `Config/Sandbox.json` — town start, open-ground finder (rejects
-  buildings, roofs, water), ride lineup, `-BRSandboxSmoke`
-- `Source/BullyRemake/BullyVehicle.*` + `Config/Vehicles.json` — the arcade ride pawn (handling, get on/off, chase cam, run-overs)
-- `Source/BullyRemake/BullyWeaponComponent.*`, `BullyProjectile.*` + `Config/Weapons.json` — the arsenal, aim/fire, effects, `-BRWeaponSmoke`
-- `Source/BullyRemake/BullyPlayerController.cpp` — Esc settings menu + G teleport menu (`SBullyTeleportMenu`)
-- `Source/BullyRemake/BullyCharacter.cpp` — input (LMB fires when a weapon is out; mouse wheel cycles), consoles
-  `BRGo`, `BRGiveWeapons`, `BRSpawnVehicle`
-- `tools/importers/world.py` (`town`/`all` presets) · `tools/ue/gen_teleport_spots.py` → `Config/InteriorSpots.json`
-- `tools/ue/run_smoke_nullrhi.sh` — generic headless harness runner (Studio)
-
-## How to run it
+## How to run it (laptop: once, after pulling `phase2`)
 
 ```bash
-# laptop or Studio — pull + build the editor module
-cd ~/bully-remake && git pull origin main
-"/Users/Shared/Epic Games/UE_5.8/Engine/Build/BatchFiles/Mac/Build.sh" BullyRemakeEditor Mac Development \
-  -project="$PWD/unreal/BullyRemake/BullyRemake.uproject"          # check for "Result: Succeeded"
-# once per machine: import the whole world from your own game install (needs BULLY_INSTALL or tools/importers/local_config.json)
-python3 -m tools.importers world --preset all
-tools/ue/run_import.sh --scenes all
-python3 tools/ue/gen_teleport_spots.py                                # only if you imported a different set
-# then open unreal/BullyRemake/BullyRemake.uproject in UE 5.8.3 and Play → you start in the town
-# controls: E get on/off a ride · W/S A/D drive · Space handbrake · mouse wheel = weapon · LMB fire · RMB lock-on · G teleport · T talk
-# Studio-only headless checks:
-tools/ue/run_smoke_nullrhi.sh --flag -BRSandboxSmoke --grep BR_SANDBOX
-tools/ue/run_smoke_nullrhi.sh --flag -BRWeaponSmoke  --grep BR_WEAPON
+cd ~/bully-remake && git fetch && git switch phase2 && git pull
+export BULLY_INSTALL="<your game install>"
+"/Users/Shared/Epic Games/UE_5.8/Engine/Build/BatchFiles/Mac/Build.sh" BullyRemakeEditor Mac Development -project="$PWD/unreal/BullyRemake/BullyRemake.uproject"
+# game models, rigs, sounds, effects material, town data
+python3 -m tools.importers vehicle bike SK8Board GoCart taxicab Policecar Limo Truck
+python3 -m tools.importers prop slingshot spudg BROCKETLAUNCHER BROCKET EGGPROJ stinkbomb marble W_Itch
+python3 -m tools.importers --out imported/extra_anims ped PLAYER --head B_Buzz --no-textures --root-motion inplace \
+  --group V_Bike,Go_Cart,Skateboard,W_Thrown,W_Slingshot,W_BRocket,W_SpudGun,W_CherryBomb,W_Itchpowder \
+  --anims RIDE BIKE_SPRINT BIKE_STANDING BIKE_TURN_L BIKE_TURN_R BIKE_SEATED_COAST BIKE_INAIR BIKE_BREAK BIKE_IDLE_A GOCART_RIDE \
+  GOCART_TURN_L GOCART_TURN_R GOCART_REVERSE SK8_COAST_REG SK8_PUMP_REG SK8_TURNL_REG SK8_TURNR_REG SK8_IDLE_REG SK8_OLLIE_REG \
+  SK8_BREAK_REG THROW THROW_UNDERHAND GENTHROW BALL_HOLD SLNG_FIRE_T SLNG_CHARGE_T SLNG_CHARGE_HOLD_T SLNG_2AIM_T BRKT_FIRE BRKT_AIM \
+  BRKT_HOLD_IDLE BRKT_RELOAD SPUDG_FIRE SPUDG_RELOAD SPUDCANNON_AIM CHERRYBOMB_LIT CHERRYBOMB_IDLE SCRATCH_START
+tools/ue/run_import_character.sh --imported "$PWD/imported/extra_anims" --anims-only
+# sounds: the extract commands are listed in Config/Sfx.json's waves (python3 -m tools.importers audio extract <Bank> --names '^(...)$')
+python3 -m tools.importers townlife && python3 -m tools.importers exits
+tools/ue/run_import.sh --models bike,SK8Board,GoCart,taxicab,Policecar,Limo,Truck,wheel_van,wheel_cargreen,Police_wheel,slingshot,spudg,BROCKETLAUNCHER,BROCKET,EGGPROJ,stinkbomb,marble,W_Itch --sfx --townlife
+tools/ue/run_import_npc.sh --peds TO_Business1,TO_Business2,TO_BusinessW1,TO_RichW1,TO_RichM1,TO_Mailman,TO_Poorwoman,TO_NH_Res_01,TO_Construct01,TO_Cop
+tools/ue/run_place_doors.sh --generated
+# Play: E ride · W/S A/D · Space handbrake · H horn · wheel = weapon · LMB fire · RMB lock-on · G teleport · T talk
 ```
+(The `run_*.sh` engine harnesses are Studio-only — they go through `~/.cache/gpu-slot`.)
 
-## Running processes / infra
+## Key files (new this session)
 
-None of this thread's. No LaunchAgents or ports. An old `tail -f` of an m1 shots log (from 2026-10-15) is still running
-on the Studio; it's harmless.
+`tools/importers/props.py` (vehicle/prop), `townlife.py`, `exits*.py`; `tools/ue/run_showcase_shots.sh`, `audit_mission_skips.py`;
+`Source/BullyRemake/BullyFx.*`, `BullySfx.*`, `BullyTownLifeSubsystem.*`, `BullyShowcaseShots.*`; overlays in `BullyAnimInstance.*`;
+`Config/Sfx.json`, `TownLife.json`, `Vehicles.json` (`model`, `rider`, `sfx_*`), `Weapons.json` (`held_mesh`, `fire_clip`, `fx`, `sfx_*`).
 
-## Picking this up on the other machine
+## Gotchas (new)
 
-- Pushed to: `origin/main` and `origin/phase0` (both `675ace2`) — `git pull origin main`
-- Written on: Studio
-- **Local-only, did NOT travel:** `imported/` (converter output), `unreal/BullyRemake/Content/Imported/` (imported
-  meshes/maps), the DDC, `~/bully-remake-evidence/` (render/smoke evidence). All git-ignored by design.
-- **Needs rebuilding there:** the editor module (Build.sh), and the imported world (importer commands above, from that
-  machine's own game install).
-- **Must already exist there:** UE 5.8.3 + Xcode; the game install path in `BULLY_INSTALL` (or `tools/importers/local_config.json`).
-- **Studio-only:** the `tools/ue/run_*.sh` harnesses (they go through `~/.cache/gpu-slot`, which the laptop doesn't have).
-
-## Secrets
-
-None added this thread. The AI-NPC keys (owner's thread) are read from `~/.claude/secrets/npc-llm.key` and
-`~/.claude/secrets/fish-audio.key` — paths only.
-
-## Gotchas
-
-- **Stale module manifest:** an incremental `Build.sh` can link `libUnrealEditor-BullyRemake-000N.dylib` without updating
-  `Binaries/Mac/UnrealEditor.modules`, and the engine silently runs old code (0 new log lines). Before building:
-  `rm -f unreal/BullyRemake/Binaries/Mac/libUnrealEditor-BullyRemake-0*.dylib unreal/BullyRemake/Binaries/Mac/UnrealEditor.modules`.
-- UE 5.8 JSON object keys are `TSharedString`: wrap them in `FString(It.Key)` before adding to a `TArray<FString>`.
-- The sandbox start turns **off** whenever any `-BR*` switch is on the command line (so harnesses are unaffected).
-  `-BRSandbox[=spot]` forces it on, `-BRNoSandbox` turns it off.
-- If the town isn't imported on a machine, the sandbox parks the rides next to the player instead of teleporting into empty air.
-- The importer's `--out` / `--install` are **global** args: `python3 -m tools.importers --out X world ...`.
-- Build + two smoke runs take more than 10 minutes; run them in the background rather than foreground with a timeout.
-- The number row is the interior quick-teleport cheat, so weapons are on the mouse wheel / D-pad, not number keys.
+- `git add -A` on the laptop picks up agent worktrees under `.claude/worktrees/` — now git-ignored.
+- `run_import_character.sh --imported` needs an **absolute** path.
+- Never move a capture camera in the same tick as a HighResShot (it renders a later frame).
+- Unlit/emissive effects go black under the scene's auto-exposure — keep FX lit, use Glow only for fire.
+- Editing a `run_*.sh` on the Studio while it runs breaks the running bash — don't `git pull` mid-run.
 
 ## Resume command
 
 ```
-work out of ~/bully-remake on branch phase0 (= main), read HANDOFF.md, pick up at next steps
+work out of ~/bully-remake on branch phase2, read HANDOFF.md, owner playtest feedback first, then "Not done / open"
 ```
 
 ---

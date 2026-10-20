@@ -254,6 +254,11 @@ private:
 
 	// smoke harness (-BRMissionSmoke[=id]): drives the player through the mission headless and logs PASS/FAIL
 	void TickSmoke(float Dt);
+	/** Wrong-way smoke helpers. SkippablePositional: a teleport can satisfy (or step past) this condition -- it holds a
+	 *  reach_location / trigger_enter. PrimaryGoal: the first positional goal in declaration order (the stage's "intended"
+	 *  target; an `any` lists its original trigger first and its fallbacks after). */
+	bool SkippablePositional(const FMissionCondition& C) const;
+	bool PrimaryGoal(const FMissionCondition& C, FVector& Out) const;
 	struct FSmoke
 	{
 		bool bEnabled = false;
@@ -267,6 +272,15 @@ private:
 		bool bWantFailTest = true;
 		int32 LastStage = -1;
 		TArray<int32> StagesSeen;
+		// wrong-way mode (-BRMissionSmokeWrongWay): per positional stage, first overshoot its point, then teleport straight to
+		// the next stage's goal (what a door-link teleport does). The skipped stage must complete on its own (a data fallback);
+		// one that does not is recorded as stuck and the normal driver then recovers so the rest of the mission is still checked.
+		bool bWrongWay = false;
+		int32 WrongWayPhase = 0;       // 0 = not started on this stage, 1 = overshot (waiting), 2 = skipped ahead (waiting), 3 = finished
+		double WrongWayAt = 0.0;       // Smoke.Elapsed of the last wrong-way teleport
+		FName WrongWayStageId;         // stage under test (for the log once it completes)
+		int32 WrongWayTested = 0;      // stages the skip-ahead teleport was applied to
+		TArray<FName> WrongWayStuck;   // stages still open after the skip-ahead teleport
 	} Smoke;
 
 	TSharedPtr<FMissionDef> Mission;

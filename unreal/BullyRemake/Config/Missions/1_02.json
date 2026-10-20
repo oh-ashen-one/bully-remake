@@ -154,6 +154,10 @@
             "point": "door_ext_out",
             "radius_cm": 900,
             "z_tolerance_cm": 600
+          },
+          {
+            "type": "trigger_enter",
+            "trigger": "gary_trigger"
           }
         ]
       }

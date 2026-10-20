@@ -384,9 +384,12 @@ owner screenshot.
    tracks from gesture AnimSequences. Then re-import (`run_import_npc.sh`) and re-capture. NB: the fix travels via git but the
    re-imported clips do not, so the owner re-imports on the laptop. (On the Studio the crowd bully meshes GN_Bully01-04 are
    also placeholders — not imported here; `run_import_npc.sh --peds GN_Bully01,...` to populate.)
-2. **Mission robustness pass**: audit every `trigger_enter` / `reach_location` completion in all missions for the
-   thin-trigger/teleport race; add `any` fallbacks like `leave_office`; add a headless smoke variant that drives stages
-   the "wrong" way (skip triggers, overshoot points).
+2. **Mission robustness pass** - **DATA + CODE WRITTEN 2026-10-20 (branch `phase2-missions`, NOT built, NOT merged).** Audit table:
+   `docs/re-notes/mission-robustness.md`. `use_door` (the same race as `leave_office`) plus `walk_in`, `get_past_bullies`,
+   `reach_lobby`, `exit_building` got `any` fallbacks in 1_01 / 1_02 / day_one (regenerated) / smoke_day_one; parser floors reach
+   radius 200 / z 150 cm. New `tools/ue/audit_mission_skips.py` (offline, run: 0 flagged) and `run_mission_smoke.sh <id> --wrong-way`
+   (`-BRMissionSmokeWrongWay`, `UMissionSubsystem::TickSmoke`). TODO on an engine machine: compile, then run
+   `run_mission_smoke.sh 1_01 --wrong-way` and `smoke_day_one --wrong-way` plus the normal smokes, and replay day_one by hand.
 3. **Combat impact SFX**: extract punch/hit cues from the game's XACT banks (cue graph already decoded,
    docs/re-notes/audio-formats.md) and wire into `UBullyCombatComponent` hit events; then owner-tune shake/hitstop
    magnitudes (first-pass numbers in DefaultGame.ini).

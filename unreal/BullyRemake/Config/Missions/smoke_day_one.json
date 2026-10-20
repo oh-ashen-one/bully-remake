@@ -29,13 +29,13 @@
     {
       "id": "use_door",
       "objective": "Go through the main door.",
-      "complete": { "type": "trigger_enter", "trigger": "main_door" },
+      "complete": { "type": "any", "conditions": [ { "type": "trigger_enter", "trigger": "main_door" }, { "type": "reach_location", "point": "lobby", "radius_cm": 3000, "z_tolerance_cm": 1000 } ] },
       "on_complete": [ { "type": "event", "name": "entered_school" } ]
     },
     {
       "id": "reach_lobby",
       "objective": "Walk into the entrance hall.",
-      "complete": { "type": "reach_location", "point": "lobby", "radius_cm": 450, "z_tolerance_cm": 300 }
+      "complete": { "type": "any", "conditions": [ { "type": "reach_location", "point": "lobby", "radius_cm": 450, "z_tolerance_cm": 300 }, { "type": "reach_location", "point": "office_approach", "radius_cm": 900, "z_tolerance_cm": 400 } ] }
     },
     {
       "id": "go_upstairs",

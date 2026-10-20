@@ -57,6 +57,11 @@ namespace
 
 	FVector GameToUe(const FVector& M) { return FVector(M.X * 100.0, -M.Y * 100.0, M.Z * 100.0); }
 
+	// A reach_location tighter than this is a thin target that a fast mover or a teleport steps over (see the door-link
+	// race in docs/re-notes/mission-robustness.md); the parser never lets a reach get narrower than these.
+	constexpr float MinReachRadiusCm = 200.f;
+	constexpr float MinReachZCm = 150.f;
+
 	/** A location from "point" (named), "location_cm"/"center_cm" or "game_m". `Prefix` allows e.g. "blip". */
 	bool ReadLocation(const FJsonObject& O, const FMissionDef& D, FVector& Out)
 	{
@@ -85,6 +90,12 @@ namespace
 			if (!ReadLocation(*O, D, C.Location)) { Err = TEXT("reach_location: unknown point / no location"); return false; }
 			C.Radius = Num(TEXT("radius_cm"), 300.f);
 			C.ZTolerance = Num(TEXT("z_tolerance_cm"), 400.f);
+			if (C.Radius < MinReachRadiusCm || C.ZTolerance < MinReachZCm)
+			{
+				UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION reach_location radius %.0f / z %.0f is under the %.0f / %.0f cm minimum: widened"), C.Radius, C.ZTolerance, MinReachRadiusCm, MinReachZCm);
+				C.Radius = FMath::Max(C.Radius, MinReachRadiusCm);
+				C.ZTolerance = FMath::Max(C.ZTolerance, MinReachZCm);
+			}
 		}
 		else if (Type == TEXT("trigger_enter") || Type == TEXT("trigger_exit"))
 		{
@@ -371,7 +382,8 @@ void UMissionSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		Smoke.bEnabled = true;
 		Smoke.MissionId = SmokeId.IsEmpty() ? TEXT("smoke_day_one") : SmokeId;
 		Smoke.bWantFailTest = !FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeNoFail"));
-		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION smoke harness armed: mission '%s' (fail/retry test %s)"), *Smoke.MissionId, Smoke.bWantFailTest ? TEXT("on") : TEXT("off"));
+		Smoke.bWrongWay = FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeWrongWay"));
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION smoke harness armed: mission '%s' (fail/retry test %s, wrong-way %s)"), *Smoke.MissionId, Smoke.bWantFailTest ? TEXT("on") : TEXT("off"), Smoke.bWrongWay ? TEXT("on") : TEXT("off"));
 	}
 }
 
@@ -1314,6 +1326,16 @@ void UMissionSubsystem::TickSmoke(float Dt)
 			Smoke.StagesSeen.Num(), Mission.IsValid() ? Mission->Stages.Num() : 0, Attempt, Smoke.Elapsed);
 		GEngine->Exec(World, TEXT("quit"));
 	};
+	// wrong-way bookkeeping: the stage under test just completed (or the mission ended) while a skip was pending
+	auto NoteWrongWayDone = [&]()
+	{
+		if (Smoke.bWrongWay && (Smoke.WrongWayPhase == 1 || Smoke.WrongWayPhase == 2))
+		{
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE wrongway stage '%s' completed after the %s"), *Smoke.WrongWayStageId.ToString(),
+				Smoke.WrongWayPhase == 1 ? TEXT("overshoot") : TEXT("skip-ahead teleport (a fallback caught it)"));
+		}
+		Smoke.WrongWayPhase = 0;
+	};
 
 	if (!Smoke.bStarted)
 	{
@@ -1334,11 +1356,23 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		}
 		return;
 	}
-	if (Smoke.Elapsed > 150.0) { Quit(false, TEXT("timeout")); return; }
+	if (Smoke.Elapsed > (Smoke.bWrongWay ? 300.0 : 150.0)) { Quit(false, TEXT("timeout")); return; }
 	if (State == EState::Complete)
 	{
+		NoteWrongWayDone();
 		const bool bAll = Mission.IsValid() && Smoke.StagesSeen.Num() == Mission->Stages.Num();
-		Quit(bAll && (!Smoke.bWantFailTest || Smoke.bFailTested) && (!Smoke.bWantFailTest || Attempt >= 2), bAll ? TEXT("mission completed") : TEXT("completed without visiting every stage"));
+		FString Why = bAll ? TEXT("mission completed") : TEXT("completed without visiting every stage");
+		if (Smoke.bWrongWay)
+		{
+			FString Ids;
+			for (const FName& N : Smoke.WrongWayStuck)
+			{
+				if (!Ids.IsEmpty()) { Ids += TEXT(","); }
+				Ids += N.ToString();
+			}
+			Why += FString::Printf(TEXT("; wrong-way: skipped ahead on %d stage(s), %d stuck [%s]"), Smoke.WrongWayTested, Smoke.WrongWayStuck.Num(), *Ids);
+		}
+		Quit(bAll && (!Smoke.bWantFailTest || Smoke.bFailTested) && (!Smoke.bWantFailTest || Attempt >= 2) && Smoke.WrongWayStuck.Num() == 0, Why);
 		return;
 	}
 	if (State != EState::Running || !Mission.IsValid()) { return; }
@@ -1346,6 +1380,7 @@ void UMissionSubsystem::TickSmoke(float Dt)
 	const FMissionStage& St = Mission->Stages[StageIndex];
 	if (StageIndex != Smoke.LastStage)
 	{
+		NoteWrongWayDone();
 		Smoke.LastStage = StageIndex;
 		Smoke.StagesSeen.AddUnique(StageIndex);
 		Smoke.LastDrive = Smoke.Elapsed;   // first drive 1.5 s after the stage begins
@@ -1362,6 +1397,60 @@ void UMissionSubsystem::TickSmoke(float Dt)
 	}
 
 	if (Smoke.Elapsed - Smoke.LastDrive < 1.5) { return; }
+
+	// wrong-way mode: a positional stage is first overshot, then skipped ahead by teleporting onto the NEXT stage's goal (the
+	// far side of a door link). The stage must complete by itself -- the data needs a fallback for that landing spot. If it
+	// does not, record it as stuck and fall through so the normal driver below recovers and the rest of the mission still runs.
+	if (Smoke.bWrongWay && Smoke.WrongWayPhase < 3 && SkippablePositional(St.Complete))
+	{
+		const APawn* Pawn = GetPlayerPawn();
+		if (!Pawn) { return; }
+		if (Smoke.WrongWayPhase == 0)
+		{
+			FVector Over = Pawn->GetActorLocation();
+			PrimaryGoal(St.Complete, Over);
+			FVector Dir = (Over - Pawn->GetActorLocation()) * FVector(1.0, 1.0, 0.0);
+			Dir = Dir.GetSafeNormal();
+			if (Dir.IsNearlyZero()) { Dir = FVector(1.0, 0.0, 0.0); }
+			Over += Dir * 800.0 + FVector(0.0, 0.0, 100.0);
+			Smoke.WrongWayStageId = St.Id;
+			Smoke.WrongWayPhase = 1;
+			Smoke.WrongWayAt = Smoke.Elapsed;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE wrongway overshoot stage %d '%s' to %s"), StageIndex + 1, *St.Id.ToString(), *Over.ToCompactString());
+			TeleportPlayer(Over, 0.f, false);
+			return;
+		}
+		if (Smoke.WrongWayPhase == 1)
+		{
+			if (Smoke.Elapsed - Smoke.WrongWayAt < 1.0) { return; }
+			FVector Goal = FVector::ZeroVector;
+			const bool bHaveGoal = StageIndex + 1 < Mission->Stages.Num() && SkippablePositional(Mission->Stages[StageIndex + 1].Complete) && PrimaryGoal(Mission->Stages[StageIndex + 1].Complete, Goal);
+			if (!bHaveGoal)
+			{
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE wrongway stage %d '%s': overshoot left it open (the player walks back); the next stage is not positional, no skip-ahead to test"), StageIndex + 1, *St.Id.ToString());
+				Smoke.WrongWayPhase = 3;
+			}
+			else
+			{
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE wrongway: overshoot left stage %d '%s' open (the player walks back); skipping ahead to the next goal %s"), StageIndex + 1, *St.Id.ToString(), *Goal.ToCompactString());
+				Smoke.WrongWayPhase = 2;
+				Smoke.WrongWayAt = Smoke.Elapsed;
+				Smoke.WrongWayTested++;
+				TeleportPlayer(Goal + FVector(0.0, 0.0, 100.0), 0.f, false);
+				return;
+			}
+		}
+		else if (Smoke.WrongWayPhase == 2)
+		{
+			if (Smoke.Elapsed - Smoke.WrongWayAt < 2.0) { return; }
+			FVector Blip = FVector::ZeroVector;
+			const double BlipDist = StageTarget(Blip) ? FVector::Dist(Blip, Pawn->GetActorLocation()) : -1.0;
+			Smoke.WrongWayStuck.AddUnique(St.Id);
+			Smoke.WrongWayPhase = 3;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE wrongway STUCK: stage %d '%s' did not complete after skipping ahead (blip target %.0f cm away); recovering with the normal driver"), StageIndex + 1, *St.Id.ToString(), BlipDist);
+		}
+	}
+
 	TArray<const FMissionCondition*> Interacts;
 	CollectInteracts(St.Complete, Interacts);
 	if (Interacts.Num() > 0 && InteractInRange(*Interacts[0]))
@@ -1372,12 +1461,38 @@ void UMissionSubsystem::TickSmoke(float Dt)
 	}
 	if (St.Complete.Type == FMissionCondition::EType::Event) { Smoke.LastDrive = Smoke.Elapsed; FireEvent(St.Complete.Name); return; }
 	FVector Target;
-	if (ConditionTarget(St.Complete, Target))
+	if (PrimaryGoal(St.Complete, Target))
 	{
 		Smoke.LastDrive = Smoke.Elapsed;
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE teleport player to stage %d target %s"), StageIndex + 1, *Target.ToCompactString());
 		TeleportPlayer(Target + FVector(0, 0, 100), 0.f, false);
 	}
+}
+
+bool UMissionSubsystem::SkippablePositional(const FMissionCondition& C) const
+{
+	switch (C.Type)
+	{
+	case FMissionCondition::EType::Reach:
+	case FMissionCondition::EType::TriggerEnter: return true;
+	case FMissionCondition::EType::Any:
+		for (const FMissionCondition& K : C.Children) { if (SkippablePositional(K)) { return true; } }
+		return false;
+	case FMissionCondition::EType::All:
+		for (const FMissionCondition& K : C.Children) { if (!SkippablePositional(K)) { return false; } }
+		return C.Children.Num() > 0;
+	default: return false;
+	}
+}
+
+bool UMissionSubsystem::PrimaryGoal(const FMissionCondition& C, FVector& Out) const
+{
+	if (C.Type == FMissionCondition::EType::Any)
+	{
+		for (const FMissionCondition& K : C.Children) { if (PrimaryGoal(K, Out)) { return true; } }
+		return false;
+	}
+	return ConditionTarget(C, Out);
 }
 
 // ---------------------------------------------------------------------------------------------------------------

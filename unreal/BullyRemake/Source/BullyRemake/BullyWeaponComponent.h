@@ -5,6 +5,8 @@
 //   thrown: a ballistic arc onto the lock-on target / the camera-ray point, else a fixed-pitch lob.
 // Every weapon starts unlocked with its starting ammo (console BRGiveWeapons refills). -BRWeaponSmoke runs a headless
 // check that fires each weapon at a spawned target and logs PASS/FAIL per weapon.
+// Look + feel: the equipped weapon's held model sits in Jimmy's right hand ('held_mesh' on bone Root-R-Hand); firing
+// plays its 'fire_clip' on the upper body and lets the shot go 'release_s' into the clip; 'sfx_fire' plays at release.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -13,6 +15,7 @@
 #include "BullyWeaponComponent.generated.h"
 
 class UStaticMesh;
+class UStaticMeshComponent;
 class ABullyCombatPawn;
 
 struct FBullyWeaponDef
@@ -26,6 +29,14 @@ struct FBullyWeaponDef
 	float FireInterval = 0.5f;     // s between shots
 	float ThrowPitchDeg = 18.f;    // thrown, no target: lob this far above the camera ray
 	FString MeshPath;              // optional local projectile mesh; empty -> engine sphere
+	FString HeldMeshPath;          // model in the right hand while equipped (thrown: the item itself)
+	FVector HeldOffset = FVector::ZeroVector;   // relative to the hand bone (cm)
+	FRotator HeldRot = FRotator::ZeroRotator;
+	float HeldScale = 1.f;
+	FName FireClip;                // Jimmy clip, upper body
+	float FireRate = 1.f;
+	float ReleaseSeconds = 0.f;    // into the clip (at rate 1)
+	FName SfxFire;
 };
 
 UCLASS(ClassGroup = (Bully), meta = (BlueprintSpawnableComponent))
@@ -61,6 +72,9 @@ private:
 	bool LoadDefs();
 	bool CanFireNow() const;
 	bool LaunchEquipped(const FVector& Target, bool bHasTarget);
+	bool LaunchNow(const FVector& Target, bool bHasTarget);
+	void UpdateHeld();
+	UStaticMesh* LoadMesh(const FString& Path);
 	FVector MuzzleLocation() const;
 	bool AimPoint(FVector& Out) const;
 	UStaticMesh* VisualFor(const FBullyWeaponDef& D, bool& bIsFallback);
@@ -72,7 +86,17 @@ private:
 	double NextFireAt = 0.0;
 
 	UPROPERTY(Transient) TMap<FName, TObjectPtr<UStaticMesh>> MeshCache;
+	UPROPERTY(Transient) TMap<FString, TObjectPtr<UStaticMesh>> PathCache;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> FallbackSphere;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> Held;
+
+	// a shot waiting for its release frame
+	bool bPending = false;
+	double PendingAt = 0.0;
+	FVector PendingTarget = FVector::ZeroVector;
+	bool bPendingHasTarget = false;
+	int32 HeldShownFor = -2;       // Equipped index the held model shows (-2 = not set up yet)
+	double HideHeldUntil = 0.0;    // thrown: the hand is empty for a moment after the throw
 
 	struct FSmoke
 	{

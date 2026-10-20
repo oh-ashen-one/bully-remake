@@ -30,6 +30,13 @@ struct FBullyProjectileSpec
 	float AoeRadius = 0.f;         // >0 = area blast
 	EBullyWeaponEffect Effect = EBullyWeaponEffect::None;
 	float EffectSeconds = 0.f;
+	// look + sound (Config/Weapons.json fx / fx_color / sfx_impact / spin_dps / trail / mesh_yaw; Config/Sfx.json events)
+	FName Fx;                      // dust | chunks | blast | splat | gas | bang | scatter | powder (none = no effect)
+	FLinearColor FxColor = FLinearColor(0.5f, 0.48f, 0.45f);
+	FName SfxImpact;
+	float SpinDps = 0.f;           // tumble while flying (thrown things)
+	bool bTrail = false;           // smoke trail (bottle rocket)
+	float MeshYaw = 0.f;           // model forward -> flight direction
 
 	static EBullyHitReaction ParseReaction(const FString& S);
 	static EBullyWeaponEffect ParseEffect(const FString& S);
@@ -48,6 +55,7 @@ public:
 	void Launch(const FBullyProjectileSpec& InSpec, const FVector& Origin, const FVector& Velocity, UBullyCombatComponent* FiredBy);
 	/** Visual: a local mesh if given, else the engine sphere scaled to the collision radius. */
 	void SetVisual(UStaticMesh* Mesh, bool bIsFallbackSphere);
+	virtual void Tick(float DeltaSeconds) override;
 
 	// evidence counters (headless smoke reads these)
 	static int32 TotalDetonations;
@@ -60,7 +68,8 @@ protected:
 	virtual void LifeSpanExpired() override;
 
 private:
-	void Detonate(const FVector& At, UBullyCombatComponent* DirectHit);
+	void Detonate(const FVector& At, UBullyCombatComponent* DirectHit, const FVector& Normal = FVector::UpVector);
+	void ImpactFx(const FVector& At, const FVector& Normal, int32 Victims);
 	void ApplyEffect(const FVector& At, const TArray<TWeakObjectPtr<UBullyCombatComponent>>& Victims);
 
 	UPROPERTY() TObjectPtr<USphereComponent> Collision;
@@ -70,4 +79,6 @@ private:
 	FBullyProjectileSpec Spec;
 	TWeakObjectPtr<UBullyCombatComponent> Shooter;
 	bool bDetonated = false;
+	float Spin = 0.f;
+	float TrailClock = 0.f;
 };

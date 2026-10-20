@@ -1,6 +1,10 @@
 // OWNER: slice-weapons
 #include "BullyWeaponComponent.h"
 
+#include "BullyAnimInstance.h"
+#include "BullySfx.h"
+#include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "BullyCharacter.h"
 #include "BullyCombatComponent.h"
 #include "BullyCombatPawn.h"
@@ -85,6 +89,28 @@ bool UBullyWeaponComponent::LoadDefs()
 		if (O->TryGetNumberField(TEXT("fire_interval_s"), N)) { D.FireInterval = float(N); }
 		if (O->TryGetNumberField(TEXT("throw_pitch_deg"), N)) { D.ThrowPitchDeg = float(N); }
 		O->TryGetStringField(TEXT("mesh"), D.MeshPath);
+		if (O->TryGetNumberField(TEXT("mesh_yaw"), N)) { D.Spec.MeshYaw = float(N); }
+		if (O->TryGetNumberField(TEXT("spin_dps"), N)) { D.Spec.SpinDps = float(N); }
+		O->TryGetBoolField(TEXT("trail"), D.Spec.bTrail);
+		if (O->TryGetStringField(TEXT("fx"), S)) { D.Spec.Fx = FName(*S); }
+		if (O->TryGetStringField(TEXT("sfx_impact"), S)) { D.Spec.SfxImpact = FName(*S); }
+		if (O->TryGetStringField(TEXT("sfx_fire"), S)) { D.SfxFire = FName(*S); }
+		if (O->TryGetStringField(TEXT("fire_clip"), S)) { D.FireClip = FName(*S); }
+		if (O->TryGetNumberField(TEXT("fire_rate"), N)) { D.FireRate = FMath::Max(0.1f, float(N)); }
+		if (O->TryGetNumberField(TEXT("release_s"), N)) { D.ReleaseSeconds = FMath::Max(0.f, float(N)); }
+		O->TryGetStringField(TEXT("held_mesh"), D.HeldMeshPath);
+		if (O->TryGetNumberField(TEXT("held_scale"), N)) { D.HeldScale = float(N); }
+		auto Arr3 = [&O](const TCHAR* Key, FVector& Out)
+		{
+			const TArray<TSharedPtr<FJsonValue>>* A = nullptr;
+			if (O->TryGetArrayField(Key, A) && A->Num() == 3) { Out = FVector((*A)[0]->AsNumber(), (*A)[1]->AsNumber(), (*A)[2]->AsNumber()); }
+		};
+		FVector Col(D.Spec.FxColor.R, D.Spec.FxColor.G, D.Spec.FxColor.B), Rot(0.f);
+		Arr3(TEXT("fx_color"), Col);
+		D.Spec.FxColor = FLinearColor(Col.X, Col.Y, Col.Z);
+		Arr3(TEXT("held_offset_cm"), D.HeldOffset);
+		Arr3(TEXT("held_rot"), Rot);   // pitch, yaw, roll
+		D.HeldRot = FRotator(Rot.X, Rot.Y, Rot.Z);
 		D.AmmoMax = FMath::Max(D.AmmoMax, D.AmmoStart);
 		Defs.Add(D);
 	}
@@ -135,7 +161,20 @@ void UBullyWeaponComponent::RefillAll()
 FVector UBullyWeaponComponent::MuzzleLocation() const
 {
 	const AActor* O = GetOwner();
-	return O->GetActorLocation() + O->GetActorForwardVector() * 45.f + FVector(0.f, 0.f, 55.f);   // throwing hand, chest height
+	const FVector Body = O->GetActorLocation() + O->GetActorForwardVector() * 45.f + FVector(0.f, 0.f, 55.f);   // chest height
+	// the hand (or the weapon in it) at the release frame, kept in front of the chest so a shot never starts behind
+	const ACharacter* C = Cast<ACharacter>(O);
+	const USkeletalMeshComponent* SK = C ? C->GetMesh() : nullptr;
+	if (SK && SK->GetBoneIndex(TEXT("Root-R-Hand")) != INDEX_NONE)
+	{
+		FVector Hand = SK->GetBoneLocation(TEXT("Root-R-Hand"));
+		if (Held && Held->IsVisible() && Held->GetStaticMesh()) { Hand = Held->Bounds.Origin; }
+		const FVector Fwd = O->GetActorForwardVector();
+		const float Ahead = FVector::DotProduct(Hand - O->GetActorLocation(), Fwd);
+		if (Ahead < 25.f) { Hand += Fwd * (25.f - Ahead); }
+		if (FVector::Dist(Hand, Body) < 150.f) { return Hand; }
+	}
+	return Body;
 }
 
 bool UBullyWeaponComponent::AimPoint(FVector& Out) const
@@ -171,7 +210,7 @@ bool UBullyWeaponComponent::AimPoint(FVector& Out) const
 
 bool UBullyWeaponComponent::CanFireNow() const
 {
-	if (!HasEquipped() || GetAmmo(Defs[Equipped].Id) <= 0) { return false; }
+	if (bPending || !HasEquipped() || GetAmmo(Defs[Equipped].Id) <= 0) { return false; }
 	if (GetWorld()->GetTimeSeconds() < NextFireAt) { return false; }
 	const ABullyCharacter* C = Cast<ABullyCharacter>(GetOwner());
 	const UBullyCombatComponent* Combat = C ? C->GetCombat() : nullptr;
@@ -206,9 +245,70 @@ UStaticMesh* UBullyWeaponComponent::VisualFor(const FBullyWeaponDef& D, bool& bI
 	return FallbackSphere;
 }
 
+UStaticMesh* UBullyWeaponComponent::LoadMesh(const FString& Path)
+{
+	if (Path.IsEmpty()) { return nullptr; }
+	if (const TObjectPtr<UStaticMesh>* Hit = PathCache.Find(Path)) { return *Hit; }
+	UStaticMesh* M = LoadObject<UStaticMesh>(nullptr, *Path, nullptr, LOAD_NoWarn | LOAD_Quiet);
+	PathCache.Add(Path, M);
+	return M;
+}
+
+void UBullyWeaponComponent::UpdateHeld()
+{
+	ACharacter* C = Cast<ACharacter>(GetOwner());
+	USkeletalMeshComponent* SK = C ? C->GetMesh() : nullptr;
+	if (!SK) { return; }
+	if (!Held)
+	{
+		if (SK->GetBoneIndex(TEXT("Root-R-Hand")) == INDEX_NONE) { return; }
+		Held = NewObject<UStaticMeshComponent>(GetOwner(), TEXT("HeldWeapon"));
+		Held->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Held->SetupAttachment(SK, TEXT("Root-R-Hand"));
+		Held->RegisterComponent();
+		Held->SetVisibility(false);
+	}
+	if (HeldShownFor != Equipped)
+	{
+		HeldShownFor = Equipped;
+		UStaticMesh* M = HasEquipped() ? LoadMesh(Defs[Equipped].HeldMeshPath) : nullptr;
+		Held->SetStaticMesh(M);
+		if (M)
+		{
+			const FBullyWeaponDef& D = Defs[Equipped];
+			Held->SetRelativeLocationAndRotation(D.HeldOffset, D.HeldRot);
+			Held->SetRelativeScale3D(FVector(D.HeldScale));
+		}
+	}
+	Held->SetVisibility(Held->GetStaticMesh() != nullptr && GetWorld()->GetTimeSeconds() >= HideHeldUntil);
+}
+
 bool UBullyWeaponComponent::LaunchEquipped(const FVector& Target, bool bHasTarget)
 {
 	if (!CanFireNow()) { return false; }
+	const FBullyWeaponDef& D = Defs[Equipped];
+	// face the shot now; the clip winds up and the projectile leaves at its release frame
+	FRotator Face = GetOwner()->GetActorRotation();
+	Face.Yaw = (Target - GetOwner()->GetActorLocation()).Rotation().Yaw;
+	GetOwner()->SetActorRotation(Face);
+	const ACharacter* Ch = Cast<ACharacter>(GetOwner());
+	UBullyAnimInstance* AI = Ch && Ch->GetMesh() ? Cast<UBullyAnimInstance>(Ch->GetMesh()->GetAnimInstance()) : nullptr;
+	if (!D.FireClip.IsNone() && AI && AI->PlayUpperBody(D.FireClip, D.FireRate) && D.ReleaseSeconds > 0.f)
+	{
+		bPending = true;
+		PendingAt = GetWorld()->GetTimeSeconds() + D.ReleaseSeconds / D.FireRate;
+		PendingTarget = Target;
+		bPendingHasTarget = bHasTarget;
+		NextFireAt = GetWorld()->GetTimeSeconds() + FMath::Max(D.FireInterval, D.ReleaseSeconds / D.FireRate + 0.05f);
+		return true;
+	}
+	return LaunchNow(Target, bHasTarget);
+}
+
+bool UBullyWeaponComponent::LaunchNow(const FVector& Target, bool bHasTarget)
+{
+	bPending = false;
+	if (!HasEquipped() || GetAmmo(Defs[Equipped].Id) <= 0) { return false; }
 	UWorld* W = GetWorld();
 	const FBullyWeaponDef& D = Defs[Equipped];
 	const FVector Muzzle = MuzzleLocation();
@@ -251,9 +351,12 @@ bool UBullyWeaponComponent::LaunchEquipped(const FVector& Target, bool bHasTarge
 	bool bFallback = true;
 	Proj->SetVisual(VisualFor(D, bFallback), bFallback);
 
+	if (!D.SfxFire.IsNone()) { FBullySfx::Play(this, D.SfxFire, Muzzle); }
+	if (D.bThrown) { HideHeldUntil = W->GetTimeSeconds() + 0.45; }   // it left the hand
+
 	int32& A = Ammo.FindOrAdd(D.Id);
 	A = FMath::Max(0, A - 1);
-	NextFireAt = W->GetTimeSeconds() + D.FireInterval;
+	NextFireAt = FMath::Max(NextFireAt, W->GetTimeSeconds() + D.FireInterval * 0.5);
 	UE_LOG(LogBullyWeapons, Display, TEXT("BR_WEAPON fire %s (%s, %s) ammo %d/%d"),
 		*D.Name, D.bThrown ? TEXT("thrown") : TEXT("ranged"), bHasTarget ? TEXT("aimed") : TEXT("free"), A, D.AmmoMax);
 	if (A == 0)
@@ -284,6 +387,8 @@ void UBullyWeaponComponent::TickComponent(float DeltaTime, ELevelTick TickType, 
 	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
 	const APawn* P = Cast<APawn>(GetOwner());
 	if (P && P->IsPlayerControlled() && P->IsLocallyControlled()) { LocalArmed = this; }
+	if (bPending && GetWorld()->GetTimeSeconds() >= PendingAt) { LaunchNow(PendingTarget, bPendingHasTarget); }
+	UpdateHeld();
 	if (Smoke.bEnabled && P && P->IsPlayerControlled()) { TickSmoke(); }
 }
 
@@ -335,6 +440,7 @@ void UBullyWeaponComponent::TickSmoke()
 		if (E->GetCharacterMovement()) { E->GetCharacterMovement()->StopMovementImmediately(); }
 		RefillAll();
 		NextFireAt = 0.0;
+		bPending = false;
 		Smoke.HitsBefore = ABullyProjectile::TotalFighterHits;
 		Smoke.DetonationsBefore = ABullyProjectile::TotalDetonations;
 		Smoke.HealthBefore = E->GetCombat()->Health;

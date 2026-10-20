@@ -1,6 +1,8 @@
 // OWNER: slice-weapons
 #include "BullyProjectile.h"
 
+#include "BullyFx.h"
+#include "BullySfx.h"
 #include "Components/SphereComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -87,7 +89,7 @@ namespace
 
 ABullyProjectile::ABullyProjectile()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;   // tumble + trail
 	InitialLifeSpan = 0.f;   // set on Launch from the weapon's fuse
 
 	Collision = CreateDefaultSubobject<USphereComponent>(TEXT("Collision"));
@@ -133,13 +135,35 @@ void ABullyProjectile::SetVisual(UStaticMesh* Mesh, bool bIsFallbackSphere)
 	MeshComp->SetStaticMesh(Mesh);
 	// The engine sphere is 100 cm across: scale it to the collision diameter so what you see is what hits.
 	MeshComp->SetRelativeScale3D(bIsFallbackSphere ? FVector(FMath::Max(1.f, Spec.Radius) * 2.f / 100.f) : FVector(1.f));
+	MeshComp->SetRelativeRotation(FRotator(0.f, bIsFallbackSphere ? 0.f : Spec.MeshYaw, 0.f));
+}
+
+void ABullyProjectile::Tick(float Dt)
+{
+	Super::Tick(Dt);
+	if (bDetonated) { return; }
+	if (Spec.SpinDps != 0.f && MeshComp)
+	{
+		Spin = FMath::Fmod(Spin + Spec.SpinDps * Dt, 360.f);
+		MeshComp->SetRelativeRotation(FRotator(Spin, Spec.MeshYaw, Spin * 0.37f));
+	}
+	if (Spec.bTrail)
+	{
+		TrailClock += Dt;
+		if (TrailClock >= 0.035f)
+		{
+			TrailClock = 0.f;
+			ABullyFx::Puff(GetWorld(), GetActorLocation(), FLinearColor(0.55f, 0.53f, 0.5f), 10.f, 0.7f, 0.35f, 15.f);
+		}
+	}
 }
 
 void ABullyProjectile::OnHit(UPrimitiveComponent*, AActor* Other, UPrimitiveComponent*, FVector, const FHitResult& Hit)
 {
 	if (bDetonated) { return; }
 	UBullyCombatComponent* Direct = Other ? Other->FindComponentByClass<UBullyCombatComponent>() : nullptr;
-	Detonate(Hit.ImpactPoint.IsNearlyZero() ? GetActorLocation() : FVector(Hit.ImpactPoint), Direct);
+	Detonate(Hit.ImpactPoint.IsNearlyZero() ? GetActorLocation() : FVector(Hit.ImpactPoint), Direct,
+		Hit.ImpactNormal.IsNearlyZero() ? FVector::UpVector : FVector(Hit.ImpactNormal));
 }
 
 void ABullyProjectile::LifeSpanExpired()
@@ -149,7 +173,7 @@ void ABullyProjectile::LifeSpanExpired()
 	Super::LifeSpanExpired();
 }
 
-void ABullyProjectile::Detonate(const FVector& At, UBullyCombatComponent* DirectHit)
+void ABullyProjectile::Detonate(const FVector& At, UBullyCombatComponent* DirectHit, const FVector& Normal)
 {
 	if (bDetonated) { return; }
 	bDetonated = true;
@@ -176,8 +200,28 @@ void ABullyProjectile::Detonate(const FVector& At, UBullyCombatComponent* Direct
 	UE_LOG(LogBullyWeapon, Display, TEXT("BR_WEAPON %s detonated at %s: %d fighter(s) hit, effect=%s %.1fs"),
 		*Spec.WeaponId.ToString(), *At.ToCompactString(), Victims.Num(), FBullyProjectileSpec::EffectName(Spec.Effect), Spec.EffectSeconds);
 
+	ImpactFx(At, Normal, Victims.Num());
 	ApplyEffect(At, Victims);
 	Destroy();
+}
+
+void ABullyProjectile::ImpactFx(const FVector& At, const FVector& Normal, int32 Victims)
+{
+	UWorld* W = GetWorld();
+	if (!Spec.SfxImpact.IsNone()) { FBullySfx::Play(this, Spec.SfxImpact, At); }
+	const FLinearColor C = Spec.FxColor;
+	const float Aoe = FMath::Max(Spec.AoeRadius, 60.f);
+	if (Spec.Fx == TEXT("dust")) { ABullyFx::Puff(W, At, C, 18.f, 0.6f, 0.5f, 25.f); }
+	else if (Spec.Fx == TEXT("chunks")) { ABullyFx::Burst(W, At, Normal, C, 10, 520.f, 7.f); ABullyFx::Puff(W, At, C * 0.8f, 22.f, 0.5f, 0.45f, 20.f); }
+	else if (Spec.Fx == TEXT("blast")) { ABullyFx::Blast(W, At, Aoe * 0.55f, C); }
+	else if (Spec.Fx == TEXT("bang")) { ABullyFx::Blast(W, At, Aoe * 0.4f, C); ABullyFx::Puff(W, At, FLinearColor(0.2f, 0.19f, 0.18f), 40.f, 1.6f, 0.5f, 60.f); }
+	else if (Spec.Fx == TEXT("splat")) { ABullyFx::Splat(W, At, Normal, C, 22.f, 4.f); }
+	else if (Spec.Fx == TEXT("gas")) { ABullyFx::Cloud(W, At, C, Aoe, FMath::Max(1.f, Spec.EffectSeconds), TEXT("gas_stinkbomb")); }
+	else if (Spec.Fx == TEXT("powder")) { ABullyFx::Puff(W, At, C, Aoe * 0.35f, 2.2f, 0.55f, 30.f); }
+	else if (Spec.Fx == TEXT("scatter"))
+	{
+		ABullyFx::Scatter(W, At, MeshComp ? MeshComp->GetStaticMesh() : nullptr, 14, Aoe * 0.5f, FMath::Max(2.f, Spec.EffectSeconds));
+	}
 }
 
 void ABullyProjectile::ApplyEffect(const FVector& At, const TArray<TWeakObjectPtr<UBullyCombatComponent>>& Victims)
@@ -221,6 +265,11 @@ void ABullyProjectile::ApplyEffect(const FVector& At, const TArray<TWeakObjectPt
 			for (const TWeakObjectPtr<UBullyCombatComponent>& V : Victims)
 			{
 				if (V.IsValid() && !V->IsDown()) { V->ApplyWeaponHit(EBullyHitReaction::Flinch, 0.5f); ++ABullyProjectile::TotalEffectTicks; }
+				if (V.IsValid() && V->GetOwner())   // they smoulder while they burn
+				{
+					ABullyFx::Puff(V->GetWorld(), V->GetOwner()->GetActorLocation() + FMath::VRand() * 20.f + FVector(0, 0, 30.f),
+						FLinearColor(3.f, 1.1f, 0.2f), 9.f, 0.4f, 0.8f, 90.f);
+				}
 			}
 		});
 		break;

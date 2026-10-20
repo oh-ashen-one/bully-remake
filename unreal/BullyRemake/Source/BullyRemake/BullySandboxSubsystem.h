@@ -40,8 +40,8 @@ private:
 	bool bDone = false;
 	bool bSmoke = false;
 	bool bStress = false;
-	struct FStress { int32 Ride = -1; double RideStart = 0.0; double NextInput = 0.0; double NextCheck = 0.0; int32 Under = 0; int32 Checks = 0;
-		float Dist = 0.f; FVector Last = FVector::ZeroVector; int32 RescuesBefore = 0; TArray<FString> Lines; } Stress;
+	struct FStress { int32 Leg = 0; double RideStart = 0.0; double NextCheck = 0.0; double SlowSince = -1.0; double ReverseUntil = 0.0;
+		int32 Under = 0; int32 Checks = 0; float Dist = 0.f; FVector Last = FVector::ZeroVector; TArray<FTransform> Spots; } Stress;
 	double StartedAt = 0.0;
 	FString StartKey = TEXT("town");
 	TArray<FName> VehicleIds;

@@ -252,65 +252,83 @@ void UBullySandboxSubsystem::TickStress(float Dt)
 {
 	UWorld* W = GetWorld();
 	const double Now = W->GetTimeSeconds();
-	APlayerController* PC = W->GetFirstPlayerController();
 	ABullyCharacter* Me = nullptr;
 	for (TActorIterator<ABullyCharacter> It(W); It; ++It) { if (It->IsPlayerControlled() || It->GetAttachParentActor()) { Me = *It; break; } }
+	if (!Me) { return; }
 	auto Pick = [this](const TCHAR* Id) -> ABullyVehicle*
 	{
 		for (const TWeakObjectPtr<ABullyVehicle>& V : Lineup) { if (V.IsValid() && V->GetDef().Id == FName(Id)) { return V.Get(); } }
 		return nullptr;
 	};
-	static const TCHAR* Rides[2] = { TEXT("car"), TEXT("gokart") };
-	ABullyVehicle* V = Stress.Ride >= 0 && Stress.Ride < 2 ? Pick(Rides[Stress.Ride]) : nullptr;
-	if (Stress.Ride < 0 || (V && Now - Stress.RideStart > 60.0))
+	if (Stress.Spots.Num() == 0 && Stress.Leg == 0)
 	{
-		if (V)
+		// real streets: the kerbside parking spots (game road network, Content/Imported/TownLife/townlife.json)
+		FString Text;
+		TSharedPtr<FJsonObject> Root;
+		const TArray<TSharedPtr<FJsonValue>>* Ds = nullptr;
+		if (FFileHelper::LoadFileToString(Text, *(FPaths::ProjectContentDir() / TEXT("Imported/TownLife/townlife.json")))
+			&& FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), Root) && Root.IsValid() && Root->TryGetArrayField(TEXT("districts"), Ds))
 		{
-			const int32 Rescues = ABullyVehicle::TotalRescues - Stress.RescuesBefore;
-			Stress.Lines.Add(FString::Printf(TEXT("%s: %.0f m driven, %d/%d checks under the ground, %d rescue(s)"), Rides[Stress.Ride], Stress.Dist / 100.f, Stress.Under, Stress.Checks, Rescues));
-			UE_LOG(LogBullySandbox, Display, TEXT("BR_RIDE_STRESS %s"), *Stress.Lines.Last());
-			V->SetScriptedInput(false);
-			V->Dismount();
+			for (const TSharedPtr<FJsonValue>& DV : *Ds)
+			{
+				const TArray<TSharedPtr<FJsonValue>>* Ps = nullptr;
+				if (!DV->AsObject()->TryGetArrayField(TEXT("parking"), Ps)) { continue; }
+				for (const TSharedPtr<FJsonValue>& PV : *Ps)
+				{
+					const TArray<TSharedPtr<FJsonValue>>& L = PV->AsObject()->GetArrayField(TEXT("location_cm"));
+					Stress.Spots.Add(FTransform(FRotator(0.f, float(PV->AsObject()->GetNumberField(TEXT("yaw_deg"))), 0.f), FVector(L[0]->AsNumber(), L[1]->AsNumber(), L[2]->AsNumber())));
+				}
+			}
 		}
-		if (++Stress.Ride >= 2)
+		UE_LOG(LogBullySandbox, Display, TEXT("BR_RIDE_STRESS %d street start(s)"), Stress.Spots.Num());
+		if (Stress.Spots.Num() == 0) { bStress = false; GEngine->Exec(W, TEXT("quit")); return; }
+		Stress.Leg = -1;
+	}
+	static const TCHAR* Rides[2] = { TEXT("car"), TEXT("gokart") };
+	ABullyVehicle* V = Stress.Leg >= 0 ? Pick(Rides[Stress.Leg % 2]) : nullptr;
+	if (Stress.Leg < 0 || Now - Stress.RideStart > 7.0)
+	{
+		if (V) { V->SetScriptedInput(false); V->Dismount(); }
+		if (++Stress.Leg >= Stress.Spots.Num() * 2)
 		{
-			const bool bOk = !Stress.Lines.ContainsByPredicate([](const FString& L) { return !L.Contains(TEXT(" 0/")); });
-			UE_LOG(LogBullySandbox, Display, TEXT("BR_RIDE_STRESS RESULT %s: %s"), bOk ? TEXT("PASS") : TEXT("FAIL"), *FString::Join(Stress.Lines, TEXT(" | ")));
+			UE_LOG(LogBullySandbox, Display, TEXT("BR_RIDE_STRESS RESULT %s: %d leg(s), %.0f m driven, %d/%d checks under the map, %d rescue(s)"),
+				Stress.Under == 0 ? TEXT("PASS") : TEXT("FAIL"), Stress.Leg, Stress.Dist / 100.f, Stress.Under, Stress.Checks, ABullyVehicle::TotalRescues);
 			bStress = false;
 			GEngine->Exec(W, TEXT("quit"));
 			return;
 		}
-		V = Pick(Rides[Stress.Ride]);
-		if (!V || !Me) { UE_LOG(LogBullySandbox, Error, TEXT("BR_RIDE_STRESS no %s"), Rides[Stress.Ride]); return; }
+		V = Pick(Rides[Stress.Leg % 2]);
+		const FTransform& T = Stress.Spots[(Stress.Leg / 2) % Stress.Spots.Num()];
+		const float Dir = (Stress.Leg / 2) % 2 ? 180.f : 0.f;   // both ways along the street
+		V->SetActorLocationAndRotation(T.GetLocation() + FVector(0, 0, V->GetDef().RideHeight + 30.f), FRotator(0.f, T.Rotator().Yaw + Dir, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+		V->ResetMotion();
 		V->Mount(Me);
-		Stress.RideStart = Now; Stress.Under = 0; Stress.Checks = 0; Stress.Dist = 0.f; Stress.Last = V->GetActorLocation();
-		Stress.RescuesBefore = ABullyVehicle::TotalRescues;
-		Stress.NextInput = 0.0;
+		Stress.RideStart = Now; Stress.Last = V->GetActorLocation(); Stress.SlowSince = -1.0; Stress.ReverseUntil = 0.0;
 	}
 	if (!V) { return; }
-	if (Now >= Stress.NextInput)   // a new random line every 1.5-3 s: mostly flat out, some hard turns and handbrakes
+	// flat out with a little weave; reverse out when stuck against something
+	const float Speed = FMath::Abs(V->GetSpeed());
+	if (Now < Stress.ReverseUntil) { V->SetScriptedInput(true, -1.f, 0.6f); }
+	else
 	{
-		V->SetScriptedInput(true, FMath::FRandRange(0.5f, 1.f), FMath::FRandRange(-1.f, 1.f), FMath::FRand() < 0.12f);
-		Stress.NextInput = Now + FMath::FRandRange(1.5f, 3.f);
+		V->SetScriptedInput(true, 1.f, 0.25f * FMath::Sin(float(Now) * 0.9f));
+		if (Speed < 60.f && Now - Stress.RideStart > 1.0) { if (Stress.SlowSince < 0.0) { Stress.SlowSince = Now; } else if (Now - Stress.SlowSince > 0.8) { Stress.ReverseUntil = Now + 1.0; Stress.SlowSince = -1.0; } }
+		else { Stress.SlowSince = -1.0; }
 	}
 	if (Now >= Stress.NextCheck)
 	{
-		Stress.NextCheck = Now + 0.25;
+		Stress.NextCheck = Now + 0.2;
 		++Stress.Checks;
 		const FVector P = V->GetActorLocation();
 		Stress.Dist += FVector::Dist2D(P, Stress.Last);
 		Stress.Last = P;
-		// under the map = a ground surface above the ride's centre right where it is
-		FHitResult H;
+		FHitResult Down;
 		FCollisionQueryParams Q(SCENE_QUERY_STAT(BullyRideStress), true, V);
 		Q.AddIgnoredActor(Me);
-		const bool bRoofOver = W->LineTraceSingleByObjectType(H, P + FVector(0, 0, 1500.f), P, FCollisionObjectQueryParams(ECC_WorldStatic), Q);
-		FHitResult Down;
-		const bool bGround = W->LineTraceSingleByObjectType(Down, P, P - FVector(0, 0, 3000.f), FCollisionObjectQueryParams(ECC_WorldStatic), Q);
-		if (!bGround || (bRoofOver && H.ImpactNormal.Z > 0.8f && H.ImpactPoint.Z - P.Z < 400.f && !bGround))
+		if (!W->LineTraceSingleByObjectType(Down, P, P - FVector(0, 0, 3000.f), FCollisionObjectQueryParams(ECC_WorldStatic), Q))
 		{
 			++Stress.Under;
-			UE_LOG(LogBullySandbox, Warning, TEXT("BR_RIDE_STRESS %s under the map at %s"), Rides[Stress.Ride], *P.ToCompactString());
+			UE_LOG(LogBullySandbox, Warning, TEXT("BR_RIDE_STRESS %s under the map at %s"), Rides[Stress.Leg % 2], *P.ToCompactString());
 		}
 	}
 }

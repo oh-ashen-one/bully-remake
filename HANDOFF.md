@@ -1,6 +1,6 @@
 # HANDOFF — bully-remake (phase2: game models for rides + weapons, riding/throw anims, FX + SFX, town life, door links)
 
-Date: 2026-10-20 · Branch: `phase2` (pushed; **NOT merged to main** — owner playtest first) · Host: Studio (`ssh studio`; checkout
+Date: 2026-10-20 · Branch: `phase2` = `main` (**merged to main 2026-10-20 on the owner's go**, fast-forward) · Host: Studio (`ssh studio`; checkout
 `~/bully-remake` on `phase2`) · Laptop checkout `~/bully-remake` also on `phase2` (edit/commit/push there, pull on the Studio).
 Status: **built + headless-verified + rendered stills reviewed; owner feel-playtest pending.**
 
@@ -72,7 +72,6 @@ Not verified: anything by hand-feel; doors walked through in-engine; perf on the
 
 ## Not done / open
 
-- **Not merged to main** — owner plays first (merge = fast-forward `phase2` → `main` once OK'd, per the standing merge rule).
 - **Town start spot** is a dim railway underpass (auto-picked near `town`); offer: move it (Sandbox.json `start` / search radius).
 - Held-weapon offsets are identity on the right hand: the slingshot hangs (its band is skinned and in bind pose; the game holds it in
   the left hand), thrown items sit at the wrist. Tune `held_offset_cm` / `held_rot` in Weapons.json (or add a left-hand socket).

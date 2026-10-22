@@ -1,0 +1,26 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "Placeholder spine stub for 1_02C, the first-class connector (campaign-spine v1): the original rings the bell, sets the clock to 9:00, pauses it for the first-attempt class tutorials, and fails on a 57 s countdown (docs/re-notes/ch1/1_02C-first-class.md). This stub keeps the clock beats (set 9:00, pause for the tutorial hint, unpause on pass) so the campaign clock actions are exercised; the countdown fail comes with the real mission. Wording is original. Point: 1_02C_ClassExit (imported/triggers/1_02C.json).",
+  "id": "1_02C",
+  "title": "First Class",
+  "retry": "stage",
+  "points": {
+    "class_door": { "location_cm": [-60408.1, 29419.7, 3.5] }
+  },
+  "stages": [
+    {
+      "id": "get_to_class",
+      "objective": "Get to Chemistry before the bell.",
+      "complete": { "type": "reach_location", "point": "class_door", "radius_cm": 300 },
+      "on_start": [
+        { "type": "clock", "set": "9:00" },
+        { "type": "clock", "pause": true },
+        { "type": "hint", "text": "Classes run on the school clock. Don't be late.", "seconds": 4 }
+      ],
+      "on_complete": [
+        { "type": "clock", "unpause": true },
+        { "type": "log", "text": "1_02C passed: the school schedule is live" }
+      ]
+    }
+  ]
+}

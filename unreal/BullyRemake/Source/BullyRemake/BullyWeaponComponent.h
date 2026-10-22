@@ -67,6 +67,11 @@ public:
 	/** Fire at an actor's chest; the shot re-aims at where it is on the release frame. */
 	bool FireAtActor(AActor* Target);
 	void RefillAll();
+	/** Campaign grant (on_pass / give_weapon): v1 every weapon starts unlocked, so this tops ammo up to the
+	 *  weapon's starting loadout and logs. False if the id is not in the arsenal. */
+	bool GiveWeapon(FName Id);
+	/** Campaign grant (give_ammo): top the weapon's ammo up to N. False if the id is not in the arsenal. */
+	bool GiveAmmo(FName Id, int32 N);
 	/** Tests / captures: drop the cooldown and any shot waiting for its release frame. */
 	void ResetCooldown() { NextFireAt = 0.0; bPending = false; }
 

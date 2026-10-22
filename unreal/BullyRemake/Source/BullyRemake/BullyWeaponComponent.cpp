@@ -156,6 +156,32 @@ void UBullyWeaponComponent::RefillAll()
 	UE_LOG(LogBullyWeapons, Display, TEXT("BR_WEAPON refilled all %d weapon(s)"), Defs.Num());
 }
 
+bool UBullyWeaponComponent::GiveWeapon(FName Id)
+{
+	for (const FBullyWeaponDef& D : Defs)
+	{
+		if (D.Id != Id) { continue; }
+		Ammo.Add(Id, FMath::Max(Ammo.FindRef(Id), D.AmmoStart));
+		UE_LOG(LogBullyWeapons, Display, TEXT("BR_WEAPON give_weapon %s (ammo %d)"), *Id.ToString(), Ammo[Id]);
+		return true;
+	}
+	UE_LOG(LogBullyWeapons, Warning, TEXT("BR_WEAPON give_weapon %s: unknown weapon id"), *Id.ToString());
+	return false;
+}
+
+bool UBullyWeaponComponent::GiveAmmo(FName Id, int32 N)
+{
+	for (const FBullyWeaponDef& D : Defs)
+	{
+		if (D.Id != Id) { continue; }
+		Ammo.Add(Id, FMath::Min(D.AmmoMax, FMath::Max(Ammo.FindRef(Id), N)));
+		UE_LOG(LogBullyWeapons, Display, TEXT("BR_WEAPON give_ammo %s x%d -> %d"), *Id.ToString(), N, Ammo[Id]);
+		return true;
+	}
+	UE_LOG(LogBullyWeapons, Warning, TEXT("BR_WEAPON give_ammo %s: unknown weapon id"), *Id.ToString());
+	return false;
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // aim + fire
 

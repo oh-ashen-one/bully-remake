@@ -1,0 +1,25 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "Placeholder spine stub for 1_02B 'This Is Your School' (campaign-spine v1): the full school-systems tour (apology/lockpick/hide/gift, all inside ischool) is a later wave — see docs/re-notes/ch1/1_02B-this-is-your-school.md. These two outdoor beats exist so the campaign star -> start -> pass -> chain edge is playable and headless-verifiable; wording is original. Chains into 1_02C exactly like the original's shared.b102finished handoff. Points come from imported/triggers (1_02B_spawnPlayerMainmap / 1_02C_ClassLocation).",
+  "id": "1_02B",
+  "title": "This Is Your School",
+  "retry": "stage",
+  "points": {
+    "tour_start": { "location_cm": [27130.3, 11614.4, 649.7] },
+    "class_approach": { "location_cm": [-60408.4, 29279.8, 3.0] }
+  },
+  "stages": [
+    {
+      "id": "tour",
+      "objective": "Let Gary show you around the school.",
+      "complete": { "type": "reach_location", "point": "tour_start", "radius_cm": 400 },
+      "on_start": [ { "type": "banner", "text": "THIS IS YOUR SCHOOL", "sub": "Gary knows the ropes. Keep up.", "seconds": 3 } ]
+    },
+    {
+      "id": "to_class",
+      "objective": "Tour's over. Get moving toward your first class.",
+      "complete": { "type": "reach_location", "point": "class_approach", "radius_cm": 400 }
+    }
+  ],
+  "on_complete": [ { "type": "start_mission", "mission": "1_02C", "seconds": 0.5 } ]
+}

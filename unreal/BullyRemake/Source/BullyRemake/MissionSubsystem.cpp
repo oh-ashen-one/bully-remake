@@ -1,7 +1,9 @@
 // OWNER: mission-fw
 #include "MissionSubsystem.h"
 
+#include "BullyCampaignSubsystem.h"
 #include "BullyCharacter.h"
+#include "BullyClockSubsystem.h"
 #include "BullyCombatComponent.h"
 #include "BullyCombatPawn.h"
 #include "BullyCombatTest.h"
@@ -242,6 +244,60 @@ namespace
 				double Am = 0.0; if (O->TryGetNumberField(TEXT("amp"), Am)) { A.Amp = FMath::Max(0.f, float(Am)); }
 				if (!O->HasField(TEXT("seconds"))) { A.Seconds = 0.3f; }
 			}
+			else if (Type == TEXT("give_weapon") || Type == TEXT("give_ammo"))
+			{
+				A.Type = Type == TEXT("give_weapon") ? FMissionAction::EType::GiveWeapon : FMissionAction::EType::GiveAmmo;
+				double W = 0.0;
+				if (O->TryGetNumberField(TEXT("weapon"), W)) { A.WeaponId = int32(W); }
+				else if (O->TryGetStringField(TEXT("weapon"), S)) { A.Text = S; }
+				else { Err = Type + TEXT(": missing \"weapon\""); return false; }
+				double N2 = 0.0;
+				if (O->TryGetNumberField(TEXT("n"), N2)) { A.Amount = int32(N2); }
+			}
+			else if (Type == TEXT("set_respect"))
+			{
+				A.Type = FMissionAction::EType::SetRespect;
+				if (!O->TryGetStringField(TEXT("faction"), S)) { Err = TEXT("set_respect: missing \"faction\""); return false; }
+				A.Name = FName(*S);
+				double V2 = 0.0;
+				if (O->TryGetNumberField(TEXT("value"), V2)) { A.Amount = int32(V2); }
+			}
+			else if (Type == TEXT("clock"))
+			{
+				A.Type = FMissionAction::EType::Clock;
+				bool b = false;
+				if (O->TryGetStringField(TEXT("set"), S)) { A.Text = S; }
+				else if (O->TryGetBoolField(TEXT("pause"), b) && b) { A.Amount = 1; }
+				else if (O->TryGetBoolField(TEXT("unpause"), b) && b) { A.Amount = 2; }
+				else { Err = TEXT("clock: needs \"set\" | \"pause\" | \"unpause\""); return false; }
+			}
+			else if (Type == TEXT("chapter_set"))
+			{
+				A.Type = FMissionAction::EType::ChapterSet;
+				double C2 = 0.0;
+				if (!O->TryGetNumberField(TEXT("chapter"), C2)) { Err = TEXT("chapter_set: missing \"chapter\""); return false; }
+				A.Amount = int32(C2);
+			}
+			else if (Type == TEXT("force_complete"))
+			{
+				const TArray<TSharedPtr<FJsonValue>>* Ids = nullptr;
+				if (O->TryGetStringField(TEXT("mission"), S))
+				{
+					A.Type = FMissionAction::EType::ForceComplete;
+					A.Name = FName(*S);
+					Out.Add(MoveTemp(A));
+					continue;
+				}
+				if (!O->TryGetArrayField(TEXT("missions"), Ids) || Ids->Num() == 0) { Err = TEXT("force_complete: needs \"mission\" or \"missions\""); return false; }
+				for (const TSharedPtr<FJsonValue>& Iv : *Ids)
+				{
+					FMissionAction Fa;
+					Fa.Type = FMissionAction::EType::ForceComplete;
+					Fa.Name = FName(*Iv->AsString());
+					Out.Add(MoveTemp(Fa));
+				}
+				continue;
+			}
 			else { Err = FString::Printf(TEXT("unknown action type \"%s\""), *Type); return false; }
 			Out.Add(MoveTemp(A));
 		}
@@ -350,6 +406,7 @@ void UMissionSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	{
 		PendingAutoStart = Id;
 		AutoStartAt = InWorld.GetTimeSeconds() + 1.0;
+		bPendingDevOverride = true;   // harness/cmdline start: bypass the campaign availability gate
 	}
 	else if (!BootMission.IsEmpty())
 	{
@@ -538,11 +595,20 @@ bool UMissionSubsystem::LoadMission(const FString& Id, FMissionDef& D, FString& 
 // ---------------------------------------------------------------------------------------------------------------
 // control
 
-bool UMissionSubsystem::StartMission(const FString& Id, int32 StartStage)
+bool UMissionSubsystem::StartMission(const FString& Id, int32 StartStage, bool bDevOverride)
 {
 	UWorld* World = GetWorld();
 	if (!World) { return false; }
 	if (State != EState::Idle) { StopMission(TEXT("restarted")); }
+
+	// Campaign spine: a tabled mission only starts when the campaign says it is available (chapter, prereqs, clock
+	// window, not already completed). Harnesses and the dev console bypass the gate via bDevOverride.
+	UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(World);
+	if (Camp && !bDevOverride && !Camp->IsAvailable(Id))
+	{
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION start '%s' refused: not available in the campaign (use Mission.Start / -BRMission= to override)"), *Id);
+		return false;
+	}
 
 	TSharedPtr<FMissionDef> D = MakeShared<FMissionDef>();
 	FString Err;
@@ -551,6 +617,7 @@ bool UMissionSubsystem::StartMission(const FString& Id, int32 StartStage)
 		UE_LOG(LogBullyMission, Error, TEXT("BR_MISSION start '%s' FAILED to load: %s"), *Id, *Err);
 		return false;
 	}
+	if (Camp) { Camp->NoteAttempt(Id); }
 	Mission = D;
 	Attempt = 1;
 	Flags.Reset(); MissionEvents.Reset(); StageEvents.Reset();
@@ -729,6 +796,8 @@ void UMissionSubsystem::CompleteMission()
 		if (!bChains) { Hud->ShowBanner(TEXT("MISSION COMPLETE"), Mission->Title, 4.f, false); }
 	}
 	RunActions(Mission->OnComplete);
+	// Campaign spine: the pass side (SMissPass-style on_pass) + completion count. Campaign absent = no-op.
+	if (UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(GetWorld())) { Camp->NotifyPassed(Mission->Id); }
 	// A terminal mission returns to gameplay, so never leave a cutscene camera live (a chaining one hands off via
 	// StopMission, which releases it there). If on_complete deliberately set a camera, that's respected on the chain.
 	if (!bChains) { ReleaseCutsceneCamera(0.6f); }
@@ -823,6 +892,40 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			break;
 		case FMissionAction::EType::Shake:
 			ApplyShake(A);
+			break;
+		case FMissionAction::EType::GiveWeapon:
+		case FMissionAction::EType::GiveAmmo:
+			if (UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(GetWorld()))
+			{
+				if (A.Type == FMissionAction::EType::GiveWeapon)
+				{
+					if (A.WeaponId >= 0) { Camp->GiveWeaponByGameId(A.WeaponId); }
+					else { Camp->GiveWeaponByName(FName(*A.Text)); }
+				}
+				else
+				{
+					if (A.WeaponId >= 0) { Camp->GiveAmmoByGameId(A.WeaponId, A.Amount); }
+					else { Camp->GiveAmmoByName(FName(*A.Text), A.Amount); }
+				}
+			}
+			break;
+		case FMissionAction::EType::SetRespect:
+			if (UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(GetWorld())) { Camp->SetRespect(A.Name, A.Amount); }
+			break;
+		case FMissionAction::EType::Clock:
+			if (UBullyClockSubsystem* Clock = UBullyClockSubsystem::Get(GetWorld()))
+			{
+				FString Hs, Ms;
+				if (!A.Text.IsEmpty() && A.Text.Split(TEXT(":"), &Hs, &Ms)) { Clock->SetClock(FCString::Atoi(*Hs), FCString::Atoi(*Ms)); }
+				else if (A.Amount == 1) { Clock->PauseClock(); }
+				else if (A.Amount == 2) { Clock->UnpauseClock(); }
+			}
+			break;
+		case FMissionAction::EType::ChapterSet:
+			if (UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(GetWorld())) { Camp->SetChapter(A.Amount); }
+			break;
+		case FMissionAction::EType::ForceComplete:
+			if (UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(GetWorld())) { Camp->NotifyPassed(A.Name.ToString()); }
 			break;
 		}
 	}
@@ -1187,8 +1290,10 @@ void UMissionSubsystem::Tick(float Dt)
 	if (!PendingAutoStart.IsEmpty() && World->GetTimeSeconds() >= AutoStartAt && GetPlayerPawn())
 	{
 		const FString Id = PendingAutoStart;
+		const bool bDev = bPendingDevOverride;
 		PendingAutoStart.Reset();
-		StartMission(Id);
+		bPendingDevOverride = false;
+		StartMission(Id, 0, bDev);
 	}
 	if (Smoke.bEnabled) { TickSmoke(Dt); }
 	if (Shots.bEnabled) { TickMissionShots(Dt); }
@@ -1262,7 +1367,7 @@ void UMissionSubsystem::TickMissionShots(float Dt)
 		if (Now - Shots.CompileReadyAt < Shots.Warmup) { return; }
 
 		Shots.bStarted = true;
-		if (!StartMission(Shots.MissionId))
+		if (!StartMission(Shots.MissionId, 0, /*bDevOverride*/ true))
 		{
 			UE_LOG(LogBullyMission, Error, TEXT("BR_MISSIONSHOT mission '%s' failed to load; quitting"), *Shots.MissionId);
 			GEngine->Exec(World, TEXT("quit"));
@@ -1314,6 +1419,17 @@ void UMissionSubsystem::TickMissionShots(float Dt)
 // ---------------------------------------------------------------------------------------------------------------
 // smoke harness
 
+void UMissionSubsystem::DriveSmoke(const FString& Id, bool bQuitOnDone)
+{
+	if (Smoke.bEnabled) { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION smoke driver already armed ('%s')"), *Smoke.MissionId); return; }
+	Smoke = FSmoke();
+	Smoke.bEnabled = true;
+	Smoke.MissionId = Id;
+	Smoke.bWantFailTest = true;   // re-detected from the loaded mission (smoke_fail stage) once it starts
+	Smoke.bNoQuit = !bQuitOnDone;
+	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION smoke harness armed by code: mission '%s' (quit on done %s)"), *Id, bQuitOnDone ? TEXT("on") : TEXT("off"));
+}
+
 void UMissionSubsystem::TickSmoke(float Dt)
 {
 	UWorld* World = GetWorld();
@@ -1324,6 +1440,7 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		Smoke.bDone = true;
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE %s: %s (stages seen %d/%d, attempts %d, t=%.1fs)"), bPass ? TEXT("PASS") : TEXT("FAIL"), *Why,
 			Smoke.StagesSeen.Num(), Mission.IsValid() ? Mission->Stages.Num() : 0, Attempt, Smoke.Elapsed);
+		if (Smoke.bNoQuit) { Smoke.bEnabled = false; return; }   // the caller (campaign smoke) keeps driving
 		GEngine->Exec(World, TEXT("quit"));
 	};
 	// wrong-way bookkeeping: the stage under test just completed (or the mission ended) while a skip was pending
@@ -1342,7 +1459,7 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		if (Smoke.Elapsed > 3.0 && GetPlayerPawn())
 		{
 			Smoke.bStarted = true;
-			if (!StartMission(Smoke.MissionId)) { Quit(false, TEXT("mission failed to load")); return; }
+			if (!StartMission(Smoke.MissionId, 0, /*bDevOverride*/ true)) { Quit(false, TEXT("mission failed to load")); return; }
 			// Only expect a fail/retry exercise if this mission actually defines a smoke_fail stage (day_one does;
 			// a plain errand mission need not). Keeps the harness usable for any mission.
 			Smoke.bWantFailTest = false;
@@ -1517,10 +1634,10 @@ namespace
 		return S;
 	}
 
-	FAutoConsoleCommandWithWorldAndArgs GStart(TEXT("Mission.Start"), TEXT("Mission.Start <id> [stage#]: load Config/Missions/<id>.json and begin"),
+	FAutoConsoleCommandWithWorldAndArgs GStart(TEXT("Mission.Start"), TEXT("Mission.Start <id> [stage#]: load Config/Missions/<id>.json and begin (dev override: bypasses the campaign availability gate)"),
 		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>& A, UWorld* W)
 		{
-			if (UMissionSubsystem* S = SysFor(W)) { if (A.Num() >= 1) { S->StartMission(A[0], A.Num() >= 2 ? FCString::Atoi(*A[1]) - 1 : 0); } else { UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION usage: Mission.Start <id> [stage#]")); } }
+			if (UMissionSubsystem* S = SysFor(W)) { if (A.Num() >= 1) { S->StartMission(A[0], A.Num() >= 2 ? FCString::Atoi(*A[1]) - 1 : 0, /*bDevOverride*/ true); } else { UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION usage: Mission.Start <id> [stage#]")); } }
 		}));
 	FAutoConsoleCommandWithWorldAndArgs GStop(TEXT("Mission.Stop"), TEXT("Stop the active mission"),
 		FConsoleCommandWithWorldAndArgsDelegate::CreateLambda([](const TArray<FString>&, UWorld* W) { if (UMissionSubsystem* S = SysFor(W)) { S->StopMission(TEXT("console")); } }));

@@ -44,6 +44,17 @@
 //                                   "fov": 50, "blend": 1.2 }                         //   (blend 0 = hard cut)
 //               { "type": "camera", "release": true, "blend": 0.8 }                  // hand the view back to the player's camera
 //               { "type": "shake", "amp": 1.0, "seconds": 0.3 }                      // kick the player's camera (impact beats)
+//               { "type": "give_weapon", "weapon": 303 | "slingshot" }               // campaign grant (numeric = original game id)
+//               { "type": "give_ammo", "weapon": 309 | "stinkbomb", "n": 5 }         // top the weapon's ammo up to n
+//               { "type": "set_respect", "faction": "bullies", "value": 20 }         // set a faction's respect (campaign table)
+//               { "type": "clock", "set": "8:30" } | { "type": "clock", "pause": true } | { "type": "clock", "unpause": true }
+//               { "type": "chapter_set", "chapter": 2 }                              // advance the campaign chapter
+//               { "type": "force_complete", "mission": "id" | "missions": ["id",..] } // mark passed without playing (applies on_pass)
+//
+// Campaign spine: StartMission consults UBullyCampaignSubsystem::IsAvailable (ids outside the campaign table are
+// always available) unless the start came from -BRMission=, the Mission.Start console exec, or a smoke/shots
+// harness (bDevOverride — harness runs must keep working); star-marker starts go through the gate. CompleteMission
+// feeds Campaign.NotifyPassed(id) (the SMissPass-style on_pass block) and counts attempts per mission id.
 #pragma once
 
 #include "CoreMinimal.h"
@@ -73,7 +84,7 @@ struct FMissionCondition
 
 struct FMissionAction
 {
-	enum class EType : uint8 { Hint, Banner, Event, SetFlag, ClearFlag, Teleport, Log, StartMission, SpawnEnemy, Fade, Reward, Letterbox, Say, Camera, Shake };
+	enum class EType : uint8 { Hint, Banner, Event, SetFlag, ClearFlag, Teleport, Log, StartMission, SpawnEnemy, Fade, Reward, Letterbox, Say, Camera, Shake, GiveWeapon, GiveAmmo, SetRespect, Clock, ChapterSet, ForceComplete };
 	EType Type = EType::Log;
 	FString Text, Sub;
 	FName Name;
@@ -103,6 +114,12 @@ struct FMissionAction
 	float Fov = 0.f, Blend = 0.5f;
 	// shake: Amp = shake amplitude (1.0 = a firm hit), Seconds = duration.
 	float Amp = 1.f;
+	// campaign spine: give_weapon/give_ammo (WeaponId = original numeric game id, -1 = Text holds a Weapons.json id;
+	// Amount = ammo count), set_respect (Name = faction, Amount = value), chapter_set (Amount), force_complete
+	// (Name = mission id; a "missions" array expands to one action per id). clock: Text = "h:mm" to set,
+	// Amount 1 = pause, 2 = unpause.
+	int32 WeaponId = -1;
+	int32 Amount = 0;
 };
 
 struct FMissionStage
@@ -170,7 +187,9 @@ public:
 	virtual TStatId GetStatId() const override;
 
 	// --- control (console: Mission.Start / Stop / Skip / Fire / Fail / Interact / Goto / Status / List) ---
-	bool StartMission(const FString& Id, int32 StageIndex = 0);
+	/** bDevOverride bypasses the campaign availability gate: -BRMission=, the Mission.Start console exec and the
+	 *  smoke/shots harnesses pass it; star-marker and chained starts go through the gate. */
+	bool StartMission(const FString& Id, int32 StageIndex = 0, bool bDevOverride = false);
 	void StopMission(const FString& Reason);
 	/** `Arg` is a 1-based stage number, a stage id, or "next". Completes nothing in between (no actions run for skipped stages). */
 	bool SkipToStage(const FString& Arg);
@@ -185,6 +204,11 @@ public:
 	bool GotoStageTarget();
 	void LogStatus() const;
 	static TArray<FString> ListMissionIds();
+
+	/** Arm the smoke driver from code instead of the command line. With bQuitOnDone=false the driver logs its
+	 *  PASS/FAIL line but hands control back instead of quitting the engine (-BRCampaignSmoke uses this to run the
+	 *  day_one boot chain before its own star/clock checks). Harness starts are dev overrides of the campaign gate. */
+	void DriveSmoke(const FString& Id, bool bQuitOnDone);
 
 	// --- state ---
 	EState GetState() const { return State; }
@@ -270,6 +294,7 @@ private:
 		bool bFailTested = false;
 		bool bDone = false;
 		bool bWantFailTest = true;
+		bool bNoQuit = false;          // DriveSmoke(.., false): log PASS/FAIL but keep running (campaign smoke)
 		int32 LastStage = -1;
 		TArray<int32> StagesSeen;
 		// wrong-way mode (-BRMissionSmokeWrongWay): per positional stage, first overshoot its point, then teleport straight to
@@ -301,6 +326,7 @@ private:
 	TSharedPtr<FBullyHUD> Hud;
 	FString PendingAutoStart;
 	double AutoStartAt = 0.0;
+	bool bPendingDevOverride = false;   // PendingAutoStart came from -BRMission= (start_mission chains stay gated)
 
 	// cinematic fade state (fade action)
 	enum class EFadePhase : uint8 { None, Out, Hold, In } FadePhase = EFadePhase::None;

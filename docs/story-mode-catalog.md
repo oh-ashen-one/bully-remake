@@ -114,6 +114,37 @@ differently (side missions include the optionals above plus the 6 Hobo transisto
 other one-offs); the exact gold/red classification per row needs one verification pass against
 the game script dumps (`docs/re-notes/` + Bully-SE-scripts research) before authoring data.
 
+### Chapter 1 verified script mapping (from `docs/re-notes/ch1/`, 2026-10-22)
+
+Read of the decompiled scripts corrected several assumptions; the engine script ids are the
+authoritative mapping for authoring:
+
+| Script | Mission | Notes |
+|---|---|---|
+| 1_01 / 1_02 / 1_02A | Welcome to Bullworth / (opening walk) / dorm epilogue | already built (`day_one`) |
+| 1_02B | This Is Your School | systems tour: apology, lockpicking, bust/hide, gift; was missing from the naive numbering |
+| 1_02C | first-class connector | clock to 9:00, reach Chemistry, unpauses the world clock |
+| 1_03 | The Setup | chase + hit-count Davis fight; grants slingshot (item 303) |
+| 1_04 | Slingshot | bus windows + tree sniping with stealth spotter |
+| 1_05 | **Save Algie** (not A Little Help) | escort + bathroom gauntlet |
+| 1_06_01 | **A Little Help** (not Save Algie) | hobo lesson template for the whole transistor chain |
+| 1_07 | Defend Bucky | three-wave defense; grants skateboard (437); force-completes 1_E01 |
+| 1_08 | That Bitch | gift/social fetch + gym locker stealth |
+| 1_09 | The Candidate | auditorium defense; grants super slingshot (306); pauses clock into Halloween |
+| 1_10 | Halloween | night escort + basement puzzle rooms, ends at the Hole |
+| 1_11x1 / 1_11xp | Halloween parts 1–2 | costume + prank-collection hub (5 of 6 playable pranks) |
+| 1_11x2 | The Big Prank (O) | optional, Halloween night only; rewards Red Ninja outfit |
+| 1_11_Dummy | "night is over" marker mission | strips Halloween dressing |
+| 1_E01 | errand-system tutorial (Petey→Beatrice) | pseudo-mission, not on the canonical list |
+| 1_G1 | The Diary (O) | evening infiltration; DAT file is `1_G1_new` |
+| 1_S01 | Hattrick vs. Galloway (O) | bottle stealth fetch; grants camera (328). Canonical lists place it in Ch2; the script id says Ch1-era side mission — placement flagged OPEN |
+| 2_S04 | Character Sheets (O) | 4-stash collection; engine ties its launch to the Ch1→2 transition (canon-vs-engine contradiction, engine authoritative) |
+| 1_B | Help Gary (boss: Russell) | passing sets Chapter 2, force-completes 1_11x2 + level-1 classes |
+| Chapt1Trans | chapter 1→2 interstitial | camera flyover + title card + faction seeding |
+
+Trigger/point/path data for all of these was extracted from the owned install's `DAT/Trigger.img`
+to `imported/triggers/<stem>.json` (local only, git-ignored like all converted game data).
+
 ## 2. Classes — 10 subjects × 5 levels each (SE)
 
 Rotating 5-day schedule; classes run 9–11:30AM and 1–3:30PM. Passing level 5 of each is required

@@ -1,0 +1,18 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_11_Dummy — the Halloween-night end marker (recon: docs/re-notes/ch1/1_11-dummy-halloween-marker.md). The original is a zero-content script (its completion flag means 'the night is over'); ours is a one-beat marker mission so the flag exists in our completion map. The SMissPass dressing strips (Halloween1/2/3 off) and the guaranteed outfit grant are logged — no dressing system yet. What fires it in the original is OPEN even in the recon (the night-end wake-up logic); in v1 it is never world-started (no star in the campaign table) and exists for completion reads / console.",
+  "id": "1_11_Dummy",
+  "title": "Halloween Night Ends",
+  "retry": "none",
+  "stages": [
+    {
+      "id": "marker",
+      "objective": "The night is over.",
+      "blip": false,
+      "complete": { "type": "timer", "seconds": 0.1 }
+    }
+  ],
+  "on_complete": [
+    { "type": "log", "text": "Halloween night is over (marker). The original strips the Halloween1/2/3 dressing and guarantees the Halloween outfit here — dressing system pending; the outfit is already granted by 1_11x1's on_pass." }
+  ]
+}

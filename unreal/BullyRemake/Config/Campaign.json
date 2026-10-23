@@ -236,6 +236,13 @@
         "unlock_collectible": "yearbook_russell"
       },
       "_on_pass_src": "1_B doc B6/B7: SMissPass ChapterSet(1) (0-based = chapter 2), force-completes 1_11x2 + level-1 classes (incl. Art1X); in-script SetFactionRespect 11->100 bullies / 1->85 nerds / 5->50 (faction 5 INFERRED as preppies, OPEN); yearbook picture 75 unlocked"
+    },
+    "Chapt1Trans": {
+      "title": "Chapter 2 Begins",
+      "chapter": 0,
+      "_note": "the chapter 1->2 interstitial (docs/re-notes/ch1/chapt1trans-chapter-transition.md): the gate flyover + chapter card + narration, chained from 1_B's pass (start_mission in Config/Missions/1_B.json). No star — it is never world-started. Chapterless (it IS the transition; the faction seeding lives in 1_B's on_pass).",
+      "prereq": ["1_B"],
+      "on_pass": {}
     }
   }
 }

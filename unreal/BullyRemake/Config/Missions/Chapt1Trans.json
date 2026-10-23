@@ -1,0 +1,33 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "Chapt1Trans — the chapter 1 -> 2 interstitial: the school gate closes behind the player, the chapter card holds, the narration runs, and the player lands back in the school hall (recon: docs/re-notes/ch1/chapt1trans-chapter-transition.md). Chained from 1_B's pass (start_mission); never world-started (the campaign row has no star). v1 simplifications (see the recon's gap table): the camera-path flyover is one fixed gate shot; the chapter card is a held banner + letterbox; the vignette peds and the baked 2-0 chapter-2 intro are out of scope (Chapter 1 only); the closed-gate geometry swap and KO-respawn/bus-point flags are world-state work. The faction seeding lives in 1_B's on_pass (the original seeds them in this mission's cleanup — same net effect, noted in the recon). The hand-off point is our pick (the school hall, from 1_09's EndTrans). Wording is original.",
+  "id": "Chapt1Trans",
+  "title": "Chapter 2 Begins",
+  "retry": "stage",
+  "start": { "location_cm": [21735.1, 5353.8, 859.4], "yaw": 0 },
+  "trigger_file": "imported/triggers/Chapt1Trans.json",
+  "stages": [
+    {
+      "id": "trans",
+      "objective": "Chapter 1 is over.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "location_cm": [21546.0, 7308.0, 991.0], "look_cm": [28952.0, 7300.0, 799.0], "fov": 50, "blend": 0.4 },
+        { "type": "banner", "text": "CHAPTER 2", "sub": "Rich Kid Blues", "seconds": 6 },
+        { "type": "speech_sequence", "id": "trans", "lines": [
+          { "speaker": "", "text": "The first chapter of Jimmy's story is done.", "seconds": 3 },
+          { "speaker": "", "text": "New cliques. New trouble. Same Jimmy.", "seconds": 3 },
+          { "speaker": "", "text": "Welcome to the rest of Bullworth.", "seconds": 3 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:trans", "latched": true },
+      "on_complete": [
+        { "type": "camera", "release": true, "blend": 0.6 },
+        { "type": "letterbox", "on": false },
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "location_cm": [-61894.2, 29565.9, 550.0] },
+        { "type": "log", "text": "chapter transition done (the baked 2-0 chapter-2 intro is out of scope — Chapter 1 only)" }
+      ]
+    }
+  ]
+}

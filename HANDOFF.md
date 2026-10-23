@@ -86,6 +86,16 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   tables: the 26-entry attacker schedule → 3 waves; the five puzzle rooms → one switch beat; crowd/jeers/speaker-breaks
   skipped. Verified: `run_mission_smoke.sh 1_09` **PASS 6/6**, `1_10` **PASS 6/6** (both incl. fail/retry), campaign
   **PASS 4/4**, all ten prior smokes re-PASS.
+- **Wave F (the finale cluster: 1_11x1, 1_11xp, 1_11x2, 1_11_Dummy, 1_B, Chapt1Trans)**: `boss_bar` (the named
+  one-member wave's health on the HUD progress bar + an under-half bark — the original's 50% anger flag as a readout);
+  spawn_wave now applies `health` via SetMaxHealth (boss pools); a player-KO fail revives the player on retry
+  (RetryNow). The costume force is a mission flag (no clothing system); the prank unique-victim counter maps onto
+  spawn_wave dummies + advance_at (5 of 6 playable pranks, matching the original's HUD counter); the crowd ring is
+  spawned spectators; 1_B chains into Chapt1Trans (new campaign row: chapterless, prereq 1_B, no star); 1_11_Dummy is
+  a one-beat marker mission (the night-over flag). Verified: all six smoke **PASS** (1_11x1 4/4, 1_11xp 7/7, 1_11x2 7/7
+  incl. the alarm countdown, 1_11_Dummy 1/1, 1_B 3/3 incl. the boss bar + half bark, Chapt1Trans 1/1), campaign
+  **PASS 4/4**, all prior smokes re-PASS. **Chapter 1 is complete**: every mission in the campaign table has a real,
+  headless-verified mission file.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

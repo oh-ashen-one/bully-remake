@@ -1,0 +1,69 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_11x1 — Halloween night, part 1: the costume, Pete in the trash can, and out into the night (recon: docs/re-notes/ch1/1_11x1-halloween-costume.md). Chains straight into 1_11xp like the original's MissionDontFadeInAfterCompetion hand-off. v1 simplifications (see the recon's gap table): the baked 1-11 cutscene is a title card + speech beat; the outfit force is a mission flag (set_flag outfit_halloween — no clothing system yet; the permanent grant is the campaign on_pass's unlock_collectible); the population roster swap and Halloween3 dressing are skipped (no dressing system); the laughing bullies release beat is a speech line; passing on 'area 0 visible' becomes reach-the-exit + a fade hop to the 1_11xp start (the dorm is an interior pocket). ped_model_id records the original model ids next to the stand-in meshes. Wording is original.",
+  "id": "1_11x1",
+  "title": "Halloween",
+  "retry": "stage",
+  "start": { "location_cm": [-49682.4, -31922.8, 3157.3], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_11x1.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Halloween night. Gary has plans.",
+      "blip": "1_11x1_spawnGary",
+      "on_start": [
+        { "type": "banner", "text": "HALLOWEEN", "sub": "The dorm, after dark.", "seconds": 3 },
+        { "type": "set_flag", "name": "outfit_halloween" },
+        { "type": "log", "text": "costume force: outfit flag set (no clothing system yet; the permanent grant is the campaign on_pass's unlock_collectible)" },
+        { "type": "spawn_npc", "npc": "gary", "point": "1_11x1_spawnGary", "mesh": "GN_Boy01", "ped_model_id": 160, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "spawn_npc", "npc": "laugh1", "point": "1_11x1_spawnLaugh01", "mesh": "GN_Bully03", "ped_model_id": 170, "untargetable": true },
+        { "type": "spawn_npc", "npc": "laugh2", "point": "1_11x1_spawnLaugh02", "mesh": "GN_Bully05", "ped_model_id": 75, "untargetable": true },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "GARY", "text": "Nice costume. Tonight we run this school.", "seconds": 3 },
+          { "speaker": "BULLY", "text": "Nice costume, loser! Hilarious!", "seconds": 2.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:gary" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Gary got knocked out."
+    },
+    {
+      "id": "pete_beat",
+      "objective": "Pete's in a trash can. Again.",
+      "blip": "1_11x1_spawnPete",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "pete", "point": "1_11x1_spawnPete", "mesh": "GN_Boy02", "ped_model_id": 165, "untargetable": true }
+      ],
+      "complete": { "type": "reach_location", "point": "1_11x1_spawnPete", "radius_cm": 400 }
+    },
+    {
+      "id": "the_exchange",
+      "objective": "Get Pete out of there.",
+      "blip": false,
+      "on_start": [
+        { "type": "speech_sequence", "id": "pete", "lines": [
+          { "speaker": "PETE", "text": "They put me in the can AGAIN, Gary.", "seconds": 2.5 },
+          { "speaker": "GARY", "text": "Get out of there, Pete. We've got pranks to pull.", "seconds": 3 },
+          { "speaker": "PETE", "text": "Right. Right! Pranks.", "seconds": 2 }
+        ] },
+        { "type": "npc_follow", "npc": "gary", "radius_cm": 300, "gait": "run" },
+        { "type": "npc_follow", "npc": "pete", "radius_cm": 300, "gait": "run" }
+      ],
+      "complete": { "type": "event", "name": "speech:pete", "latched": true }
+    },
+    {
+      "id": "leave_dorm",
+      "objective": "Head out into the night.",
+      "blip": "1_11X1_blipExit",
+      "complete": { "type": "reach_location", "point": "1_11X1_blipExit", "radius_cm": 400 },
+      "on_complete": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "location_cm": [27066.4, 11359.1, 621.6] },
+        { "type": "log", "text": "out into the Halloween night (the original passes on area 0 visible; the dorm is an interior pocket, so the exit is a fade hop to the 1_11xp start)" }
+      ]
+    }
+  ],
+  "on_complete": [ { "type": "start_mission", "mission": "1_11xp", "seconds": 1.5 } ]
+}

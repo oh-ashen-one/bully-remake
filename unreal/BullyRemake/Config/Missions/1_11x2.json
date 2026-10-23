@@ -1,0 +1,120 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_11x2 'The Big Prank' — the optional Halloween-night prank: collect the dog's bag, plant it at the staff lounge, light it, pull the fire alarm before it burns out (recon: docs/re-notes/ch1/1_11x2-the-big-prank.md). v1 simplifications (see the recon's gap table): the two skippable in-engine cutscenes are speech beats; the dog is folded into dialogue (no dog model); Chad's ambush is a wave; the bag is an item flag; 'light it' is Gary's beat; the 15 s alarm pull is the mission countdown (retry re-arms it); Burton's stomp is a speech beat; the fire-alarm world flag and fire effects are skipped; the bag-recovery countdown (dropped bag) is skipped. Pass: the Red Ninja outfit via the campaign on_pass's unlock_collectible (the clothing system is pending). Wording is original; ped_model_id records the original model ids.",
+  "id": "1_11x2",
+  "title": "The Big Prank",
+  "retry": "stage",
+  "start": { "location_cm": [11095.4, 11674.2, 672.2], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_11x2.json",
+  "triggers": [
+    { "id": "alarm_trig", "point": "1_11x2_blipAlarm", "half_extent_cm": [150, 150, 200], "interact": true, "prompt": "Pull the fire alarm" }
+  ],
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "The plan, in the garden.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "THE BIG PRANK", "sub": "Halloween night. One more prank.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "gary", "point": "1_11_x2_startGary", "mesh": "GN_Boy01", "ped_model_id": 160, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "spawn_npc", "npc": "pete", "point": "1_11x2_cutPete", "mesh": "GN_Boy02", "ped_model_id": 165, "untargetable": true },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "GARY", "text": "Chad's dog left us a present. We bag it, we light it, and the gym teacher stomps it out.", "seconds": 4 },
+          { "speaker": "PETE", "text": "This is disgusting. I'm in.", "seconds": 2.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:gary" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Gary got knocked out."
+    },
+    {
+      "id": "garden_ambush",
+      "objective": "Follow Gary to the garden — Chad is waiting.",
+      "blip": "1_11x2_cutPoopGary",
+      "on_start": [
+        { "type": "npc_lead", "npc": "gary", "point": "1_11x2_cutPoopGary", "gait": "sprint", "radius_cm": 700 },
+        { "type": "spawn_wave", "group": "chad", "points": ["1_11x2_spawnChad"], "mesh": "GN_Bully05", "hostile": true },
+        { "type": "say", "speaker": "CHAD", "text": "Hey! Get away from my dog!", "seconds": 2.5 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:gary", "latched": true },
+        { "type": "event", "name": "wave:chad", "latched": true }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:gary", "latched": true },
+      "fail_text": "Gary got knocked out."
+    },
+    {
+      "id": "collect_bag",
+      "objective": "Collect the bag. Don't think about it.",
+      "blip": "1_11x2_cutPoopPlayer",
+      "on_start": [
+        { "type": "minigame_launch", "id": "collect", "point": "1_11x2_cutPoopPlayer", "radius_cm": 250, "seconds": 2, "text": "Bagging it..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:collect_ok", "latched": true },
+      "on_complete": [
+        { "type": "give_item", "item": "poop_bag", "n": 1 },
+        { "type": "say", "speaker": "GARY", "text": "Got it. Ugh. To the staff lounge — quick.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "deliver",
+      "objective": "Deliver the bag to the staff lounge door.",
+      "blip": "1_11x2_blipLounge",
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "poop_bag" },
+        { "type": "reach_location", "point": "1_11x2_blipLounge", "radius_cm": 500 }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:gary", "latched": true },
+      "fail_text": "Gary got knocked out."
+    },
+    {
+      "id": "light_it",
+      "objective": "Gary lights it.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "light", "lines": [
+          { "speaker": "GARY", "text": "Watch this. When he opens that door...", "seconds": 3 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:light", "latched": true },
+      "on_complete": [ { "type": "letterbox", "on": false } ]
+    },
+    {
+      "id": "pull_alarm",
+      "objective": "Pull the fire alarm before it burns out!",
+      "blip": "1_11x2_blipAlarm",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 15, "visible": true, "event": "countdown:alarm" },
+        { "type": "hint", "text": "The alarm — now!", "seconds": 3 }
+      ],
+      "complete": { "type": "interact", "trigger": "alarm_trig", "prompt": "Pull the fire alarm" },
+      "fail": { "type": "event", "name": "countdown:alarm", "latched": true },
+      "fail_text": "The alarm never rang.",
+      "on_complete": [ { "type": "countdown_cancel" } ]
+    },
+    {
+      "id": "payoff",
+      "objective": "Watch it burn.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "location_cm": [-58800.0, 29530.0, 160.0], "look": "player", "fov": 45, "blend": 0.6 },
+        { "type": "spawn_npc", "npc": "burton", "point": "1_11x2_spawnBurton", "mesh": "TO_Cop", "ped_model_id": 55, "untargetable": true },
+        { "type": "speech_sequence", "id": "payoff", "lines": [
+          { "speaker": "BURTON", "text": "WHO DID THIS?!", "seconds": 2.5 },
+          { "speaker": "GARY", "text": "...Run.", "seconds": 2 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:payoff", "latched": true },
+      "on_complete": [
+        { "type": "camera", "release": true, "blend": 0.6 },
+        { "type": "letterbox", "on": false },
+        { "type": "log", "text": "campaign on_pass for 1_11x2: the Red Ninja outfit (unlock_collectible; clothing system pending); SFaction's bullies-turn-hostile is ambient work" }
+      ]
+    }
+  ]
+}

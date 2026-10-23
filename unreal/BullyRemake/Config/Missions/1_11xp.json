@@ -1,0 +1,138 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_11xp — Halloween night, part 2: the prank collection hub (recon: docs/re-notes/ch1/1_11xp-halloween-pranks.md). Five of the six playable pranks as sequential beats (the kick-me sign is excluded — the original ships two of eight pre-completed; ours plays five, matching the HUD counter max). Each beat: the costumed giver pitches, grants the prank ammo, and the player pranks N unique victims — the unique-victim counter maps onto spawn_wave dummies + advance_at (each member counts once). v1 simplifications: the giver scenario-dialog walk-up is a speech beat; victims are stationary stand-ins (real victims would flee with stat overrides — reaction data is imported but the flee-with-itch/marbles/stink reactions are combat-reaction work); the fountain firework (397, no arsenal entry) maps to bottle rockets for v1; out-of-ammo restock loops are skipped (grants are generous); prank rub-out (giver attacked) is latent. The clock unpauses on completion like the original's cleanup. SMissPass xp's dressing reload is skipped (no dressing system). ped_model_id records the original giver model ids. Wording is original.",
+  "id": "1_11xp",
+  "title": "Halloween Pranks",
+  "retry": "stage",
+  "start": { "location_cm": [27066.4, 11359.1, 621.6], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_11xp.json",
+  "points": {
+    "egg_v1": { "location_cm": [22901.3, 8074.5, 621.5] },
+    "egg_v2": { "location_cm": [22701.3, 8374.5, 621.5] },
+    "egg_v3": { "location_cm": [22951.3, 8374.5, 621.5] },
+    "itch_v1": { "location_cm": [10172.9, 9845.6, 527.5] },
+    "itch_v2": { "location_cm": [9972.9, 10145.6, 527.5] },
+    "itch_v3": { "location_cm": [10172.9, 10145.6, 527.5] },
+    "marb_v1": { "location_cm": [17670.0, 2250.0, 640.0] },
+    "stink_v1": { "location_cm": [15876.3, 7157.2, 674.5] },
+    "stink_v2": { "location_cm": [15676.3, 7457.2, 674.5] },
+    "stink_v3": { "location_cm": [15876.3, 7457.2, 674.5] },
+    "fire_v1": { "location_cm": [18421.4, 13337.7, 625.7] }
+  },
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Halloween night — five pranks to pull.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "HALLOWEEN PRANKS", "sub": "Five pranks. One night.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "gary", "point": "1_11XP_PLAYERSTART", "mesh": "GN_Boy01", "ped_model_id": 160, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "spawn_npc", "npc": "pete", "point": "1_11XP_PLAYERSTART", "mesh": "GN_Boy02", "ped_model_id": 165, "untargetable": true },
+        { "type": "npc_follow", "npc": "gary", "radius_cm": 400, "gait": "run" },
+        { "type": "npc_follow", "npc": "pete", "radius_cm": 400, "gait": "run" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "GARY", "text": "Five pranks, one night. The givers are out there — find them.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:gary" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Gary got knocked out."
+    },
+    {
+      "id": "prank_egg",
+      "objective": "Prank 1: egg three people.",
+      "blip": "1_11xp_JokeCandy",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "g_egg", "point": "1_11xp_JokeCandy", "mesh": "GN_Boy01", "ped_model_id": 164, "untargetable": true },
+        { "type": "say", "speaker": "GIVER", "text": "Eggs. Three people. Make them count.", "seconds": 3 },
+        { "type": "give_ammo", "weapon": "eggs", "n": 6 },
+        { "type": "spawn_wave", "group": "egg", "points": ["egg_v1", "egg_v2", "egg_v3"], "mesh": "GN_Boy02", "hostile": false, "hits_to_beat": 1, "advance_at": 3 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "1_11xp_JokeCandy", "radius_cm": 900 },
+        { "type": "event", "name": "wave:egg", "latched": true }
+      ] }
+    },
+    {
+      "id": "prank_itch",
+      "objective": "Prank 2: itching powder on three people.",
+      "blip": "1_11xp_ItchPowder",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "g_itch", "point": "1_11xp_ItchPowder", "mesh": "GN_Greekboy", "ped_model_id": 163, "untargetable": true },
+        { "type": "say", "speaker": "GIVER", "text": "Powder. Down the back of the shirt. Three of them.", "seconds": 3 },
+        { "type": "give_ammo", "weapon": "itchpowder", "n": 5 },
+        { "type": "spawn_wave", "group": "itch", "points": ["itch_v1", "itch_v2", "itch_v3"], "mesh": "GN_Boy01", "hostile": false, "hits_to_beat": 1, "advance_at": 3 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "1_11xp_ItchPowder", "radius_cm": 900 },
+        { "type": "event", "name": "wave:itch", "latched": true }
+      ] }
+    },
+    {
+      "id": "prank_marbles",
+      "objective": "Prank 3: slip someone on marbles.",
+      "blip": "1_11xp_Marbles",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "g_marb", "point": "1_11xp_Marbles", "mesh": "NDH3_Bucky", "ped_model_id": 161, "untargetable": true },
+        { "type": "say", "speaker": "GIVER", "text": "Marbles underfoot. One good slip does it.", "seconds": 3 },
+        { "type": "give_ammo", "weapon": "marbles", "n": 5 },
+        { "type": "spawn_wave", "group": "marb", "points": ["marb_v1"], "mesh": "GN_Boy02", "hostile": false, "hits_to_beat": 1, "advance_at": 1 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "1_11xp_Marbles", "radius_cm": 900 },
+        { "type": "event", "name": "wave:marb", "latched": true }
+      ] }
+    },
+    {
+      "id": "prank_stink",
+      "objective": "Prank 4: stink-bomb three people.",
+      "blip": "1_11xp_StinkBomb",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "g_stink", "point": "1_11xp_StinkBomb", "mesh": "GN_Boy02", "ped_model_id": 186, "untargetable": true },
+        { "type": "say", "speaker": "GIVER", "text": "These clear a room. Three victims, no mercy.", "seconds": 3 },
+        { "type": "give_ammo", "weapon": "stinkbomb", "n": 5 },
+        { "type": "spawn_wave", "group": "stink", "points": ["stink_v1", "stink_v2", "stink_v3"], "mesh": "GN_Boy01", "hostile": false, "hits_to_beat": 1, "advance_at": 3 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "1_11xp_StinkBomb", "radius_cm": 900 },
+        { "type": "event", "name": "wave:stink", "latched": true }
+      ] }
+    },
+    {
+      "id": "prank_firework",
+      "objective": "Prank 5: the fountain firework.",
+      "blip": "1_11xp_F4000",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "g_fire", "point": "1_11xp_F4000", "mesh": "GN_Bully03", "ped_model_id": 162, "untargetable": true },
+        { "type": "say", "speaker": "GIVER", "text": "One firework. Light it, plant it, watch someone jump.", "seconds": 3 },
+        { "type": "give_ammo", "weapon": "bottlerocket", "n": 2 },
+        { "type": "spawn_wave", "group": "fire", "points": ["fire_v1"], "mesh": "GN_Boy02", "hostile": false, "hits_to_beat": 1, "advance_at": 1 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "1_11xp_F4000", "radius_cm": 900 },
+        { "type": "event", "name": "wave:fire", "latched": true }
+      ] }
+    },
+    {
+      "id": "outro",
+      "objective": "Five pranks down.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "banner", "text": "PRANKS DONE", "sub": "Five of five. The night is yours.", "seconds": 3 },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "GARY", "text": "Best Halloween ever. And it's not over yet.", "seconds": 3 }
+        ] },
+        { "type": "clock", "unpause": true }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "letterbox", "on": false },
+        { "type": "log", "text": "SMissPass 1_11xp (dressing reload + g1_11XpJustFinished) is skipped — no dressing system; the Big Prank (1_11x2) is the optional star" }
+      ]
+    }
+  ]
+}

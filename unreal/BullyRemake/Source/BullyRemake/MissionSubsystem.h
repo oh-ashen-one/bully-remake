@@ -145,6 +145,10 @@
 //                 { "label": "Hand over the chocolate", "event": "dlg:pay", "requires_item": "chocolate" },
 //                 { "label": "Bully him", "event": "dlg:bully" } ] }   // HUD option list; J/K/L or D-pad left/up/right
 //                 //  pick; requires_item greys the option (a hint instead of firing). Stage-scoped; a retry re-arms.
+//   chapter-1 wave-F primitive (1_B's Russell):
+//               { "type": "boss_bar", "group": "boss", "label": "RUSSELL", "half_line": "Russell is furious!" }
+//                 -- boss health bar (drives the HUD progress bar off the named one-member wave) + a one-time bark
+//                    when he drops under half (the original's 50% anger flag, as a readout instead of a phase).
 //
 // Campaign spine: StartMission consults UBullyCampaignSubsystem::IsAvailable (ids outside the campaign table are
 // always available) unless the start came from -BRMission=, the Mission.Start console exec, or a smoke/shots
@@ -207,7 +211,7 @@ struct FMissionAction
 {
 	enum class EType : uint8 { Hint, Banner, Event, SetFlag, ClearFlag, Teleport, Log, StartMission, SpawnEnemy, Fade, Reward, Letterbox, Say, Camera, Shake, GiveWeapon, GiveAmmo, SetRespect, Clock, ChapterSet, ForceComplete,
 		SpawnNpc, NpcMove, NpcLead, NpcFace, NpcDespawn, PairAnim, SpeechSequence, MinigameLaunch, GiveItem, TakeItem, MoneyEnsure, MoneyTake, HeatSet, Hide,
-		SpawnWave, Spotter, NpcFollow, CountdownStart, CountdownCancel, LessonStart, SpawnDefender, NpcDrain, DialogueChoice };
+		SpawnWave, Spotter, NpcFollow, CountdownStart, CountdownCancel, LessonStart, SpawnDefender, NpcDrain, DialogueChoice, BossBar };
 	EType Type = EType::Log;
 	FString Text, Sub;
 	FName Name;
@@ -549,6 +553,19 @@ private:
 	} Choice;
 	void TickChoice();
 	bool ChooseDialogueOption(int32 Index);
+
+	// wave-F: boss health bar (drives the HUD progress bar off a named one-member wave) + the under-half bark
+	// (boss_bar action: Name = group, Text = label, Sub = half bark). Stage-scoped.
+	struct FBossBarState
+	{
+		TWeakObjectPtr<ABullyCombatPawn> Boss;
+		float Max = 0.f;
+		FString Label;
+		FString HalfLine;
+		bool bHalfFired = false;
+	};
+	FBossBarState BossBarState;
+	void TickBossBar();
 	bool bPlayerHidden = false;
 
 	// rendered cutscene capture (-BRMissionShots=<id> in a -game -RenderOffScreen run): grab one HighResShot a beat

@@ -558,6 +558,14 @@ namespace
 					A.Options.Add(MoveTemp(Op));
 				}
 			}
+			else if (Type == TEXT("boss_bar"))
+			{
+				A.Type = FMissionAction::EType::BossBar;
+				if (!O->TryGetStringField(TEXT("group"), S)) { Err = TEXT("boss_bar: missing \"group\""); return false; }
+				A.Name = FName(*S);
+				if (A.Text.IsEmpty()) { O->TryGetStringField(TEXT("label"), A.Text); }
+				O->TryGetStringField(TEXT("half_line"), A.Sub);
+			}
 			else { Err = FString::Printf(TEXT("unknown action type \"%s\""), *Type); return false; }
 			Out.Add(MoveTemp(A));
 		}
@@ -797,6 +805,7 @@ void UMissionSubsystem::Deinitialize()
 	Countdown.bActive = false;
 	Lesson.bActive = false;
 	Choice.bActive = false;
+	BossBarState.Boss.Reset();
 	if (Hud.IsValid()) { Hud->Hide(); Hud.Reset(); }
 	Super::Deinitialize();
 }
@@ -1010,6 +1019,7 @@ void UMissionSubsystem::StopMission(const FString& Reason)
 	Countdown.bActive = false;
 	Lesson.bActive = false;
 	Choice.bActive = false;
+	BossBarState.Boss.Reset();
 	if (Hud.IsValid()) { Hud->ClearChoice(); }
 	Speech.bActive = false;
 	Minigame = FMinigameState();
@@ -1070,6 +1080,8 @@ void UMissionSubsystem::RetryNow()
 		StageEvents.Remove(Ev);
 		MissionEvents.Remove(Ev);
 	}
+	// a player-KO fail (1_B) puts him back on his feet for the retry
+	if (ABullyCharacter* P = Cast<ABullyCharacter>(GetPlayerPawn()); P && P->GetCombat() && P->GetCombat()->IsOut()) { P->GetCombat()->Revive(); }
 	if (Mission->Retry == FMissionDef::ERetry::Stage)
 	{
 		const FMissionStage& St = Mission->Stages[StageIndex];
@@ -1119,6 +1131,7 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	Speech.bActive = false;
 	Lesson.bActive = false;   // the lesson is stage-scoped (a retry re-arms it from on_start)
 	Choice.bActive = false;   // a dialogue choice is stage-scoped too
+	BossBarState.Boss.Reset();
 	if (Hud.IsValid()) { Hud->ClearChoice(); }
 	DespawnWaves();   // a wave/spotter belongs to its stage
 	Spotters.Reset();
@@ -1193,6 +1206,7 @@ void UMissionSubsystem::CompleteMission()
 	Countdown.bActive = false;
 	Lesson.bActive = false;
 	Choice.bActive = false;
+	BossBarState.Boss.Reset();
 	if (Hud.IsValid()) { Hud->ClearChoice(); }
 	Speech.bActive = false;
 	Minigame = FMinigameState();
@@ -1587,6 +1601,26 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 				Hud->SetChoice(A.Text, Labels);
 			}
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION dialogue_choice '%s': %d option(s)"), *A.Name.ToString(), A.Options.Num());
+			break;
+		}
+		case FMissionAction::EType::BossBar:
+		{
+			// track the named one-member wave's health on the HUD progress bar
+			BossBarState.Boss.Reset();
+			for (const FWaveGroup& G : Waves)
+			{
+				if (G.Group == A.Name && G.Members.Num() > 0 && G.Members[0].IsValid() && G.Members[0]->GetCombat())
+				{
+					BossBarState.Boss = G.Members[0];
+					BossBarState.Max = G.Members[0]->GetCombat()->MaxHealth;
+					break;
+				}
+			}
+			BossBarState.Label = A.Text;
+			BossBarState.HalfLine = A.Sub;
+			BossBarState.bHalfFired = false;
+			if (Hud.IsValid() && BossBarState.Boss.IsValid()) { Hud->SetProgress(1.f, BossBarState.Label); }
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION boss_bar %s (%s, hp %.0f)"), *A.Name.ToString(), *BossBarState.Label, BossBarState.Max);
 			break;
 		}
 		}
@@ -2055,6 +2089,7 @@ void UMissionSubsystem::Tick(float Dt)
 		TickLesson();
 		TickDefenders(Dt);
 		TickChoice();
+		TickBossBar();
 		// visible fail timer -> HUD countdown
 		const FMissionStage& St = Mission->Stages[StageIndex];
 		if (Hud.IsValid())
@@ -2778,6 +2813,7 @@ void UMissionSubsystem::SpawnWave(const FMissionAction& A)
 			if (ABullyCombatPawn* Victim = DefenderById(FName(*A.Sub))) { E->PreferredVictim = Victim; }
 		}
 		E->FinishSpawning(FTransform(FRotator::ZeroRotator, *P + FVector(0, 0, 20.f)));
+		if (A.Health > 0.f && E->GetCombat()) { E->GetCombat()->SetMaxHealth(A.Health); }   // boss health pools (1_B)
 		G.Members.Add(E);
 	}
 	Waves.Add(MoveTemp(G));
@@ -2981,6 +3017,27 @@ void UMissionSubsystem::TickChoice()
 	if (PC->WasInputKeyJustPressed(EKeys::J) || PC->WasInputKeyJustPressed(EKeys::Gamepad_DPad_Left)) { ChooseDialogueOption(0); }
 	else if (PC->WasInputKeyJustPressed(EKeys::K) || PC->WasInputKeyJustPressed(EKeys::Gamepad_DPad_Up)) { ChooseDialogueOption(1); }
 	else if (PC->WasInputKeyJustPressed(EKeys::L) || PC->WasInputKeyJustPressed(EKeys::Gamepad_DPad_Right)) { ChooseDialogueOption(2); }
+}
+
+void UMissionSubsystem::TickBossBar()
+{
+	ABullyCombatPawn* B = BossBarState.Boss.Get();
+	if (!B || !B->GetCombat()) { return; }
+	UBullyCombatComponent* C = B->GetCombat();
+	if (C->IsOut())
+	{
+		if (Hud.IsValid()) { Hud->SetProgress(-1.f); }
+		BossBarState.Boss.Reset();
+		return;
+	}
+	const float Frac = BossBarState.Max > 0.f ? C->Health / BossBarState.Max : 0.f;
+	if (Hud.IsValid()) { Hud->SetProgress(Frac, BossBarState.Label); }
+	if (!BossBarState.bHalfFired && Frac < 0.5f)
+	{
+		BossBarState.bHalfFired = true;
+		if (Hud.IsValid() && !BossBarState.HalfLine.IsEmpty()) { Hud->Say(BossBarState.Label, BossBarState.HalfLine, 2.5f); }
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION boss_bar %s under half"), *BossBarState.Label);
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------

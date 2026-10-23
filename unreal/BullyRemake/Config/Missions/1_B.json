@@ -1,0 +1,61 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_B 'Help Gary' — the Chapter 1 boss: Russell in the Hole, a crowd ring, a boss health bar with a half-health bark, and the chapter advance on pass (recon: docs/re-notes/ch1/1_B-help-gary.md). Russell is a one-member hostile wave with a real 200 hp pool (the original's boss stat block / damage multipliers / berserk tree are engine data we don't decode — v1 is a straight fight); the player-KO fail revives him on retry (the wave re-issues fresh) and revives the player (RetryNow). The crowd ring is four spectator stand-ins (the original's 15-ped cheer loop with named barks is ambient work). The arena seal (FightPit door swap) and the inventory snapshot/restore are skipped — nothing in v1 takes the player's weapons. Chains into Chapt1Trans like the original's chapter-complete pass. Pass grants (chapter 2, force-complete 1_11x2 + level-1 classes, respect 100/85/50, yearbook unlock) live in the campaign table's on_pass for 1_B. Wording is original; ped_model_id records the original model ids.",
+  "id": "1_B",
+  "title": "Help Gary",
+  "retry": "stage",
+  "start": { "location_cm": [-77230.1, 13650.0, 599.9], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_B.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "The Hole. Russell is waiting.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "HELP GARY", "sub": "The Hole, beneath the school.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "crowd1", "point": "1_B_CROWD02", "mesh": "GN_Boy01", "ped_model_id": 35, "untargetable": true },
+        { "type": "spawn_npc", "npc": "crowd2", "point": "1_B_CROWD03", "mesh": "GN_Boy02", "ped_model_id": 37, "untargetable": true },
+        { "type": "spawn_npc", "npc": "crowd3", "point": "1_B_CROWD06", "mesh": "GN_Greekboy", "ped_model_id": 38, "untargetable": true },
+        { "type": "spawn_npc", "npc": "crowd4", "point": "1_B_CROWD10", "mesh": "NDH3_Bucky", "ped_model_id": 23, "untargetable": true },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "GARY", "text": "Russell's waiting in the pit. This was always the plan — his plan, anyway.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "fight",
+      "objective": "Beat Russell.",
+      "blip": "1_B_RUSSELL",
+      "on_start": [
+        { "type": "spawn_wave", "group": "boss", "points": ["1_B_RUSSELL"], "mesh": "GN_Bully05", "hostile": true, "health": 2000 },
+        { "type": "boss_bar", "group": "boss", "label": "RUSSELL", "half_line": "Russell is FURIOUS now!" },
+        { "type": "say", "speaker": "RUSSELL", "text": "Me. You. Now.", "seconds": 2.5 }
+      ],
+      "complete": { "type": "event", "name": "wave:boss", "latched": true },
+      "fail": { "type": "event", "name": "player_knocked_out", "latched": true },
+      "fail_text": "Russell put you down."
+    },
+    {
+      "id": "outro",
+      "objective": "The pit is yours.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "point": "1_B_BOOKIE", "look": "player", "fov": 45, "blend": 0.6 },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "GARY", "text": "The whole school heard that, Jimmy. Everything changes now.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "camera", "release": true, "blend": 0.6 },
+        { "type": "letterbox", "on": false },
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "1_B_BOOKIE" },
+        { "type": "log", "text": "campaign on_pass for 1_B: ChapterSet(2), force-complete 1_11x2 + level-1 classes, respect bullies 100 / nerds 85 / preppies 50, yearbook unlock" }
+      ]
+    }
+  ],
+  "on_complete": [ { "type": "start_mission", "mission": "Chapt1Trans", "seconds": 1.5 } ]
+}

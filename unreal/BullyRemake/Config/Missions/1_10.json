@@ -1,0 +1,110 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_10 'Halloween' — the time-stopped night: Gary leads the player to a parking-lot ambush, then down into the janitor basement and across it to the Hole, where the Russell-fight audience is already gathering (recon: docs/re-notes/ch1/1_10-halloween.md). v1 simplifications (see the recon's gap table): the baked 1-10 cutscene is a title card + speech beat; the five puzzle rooms (plain switch, cage, broom, electric floor, furnace) compress to one switch beat + the long dark walk (the switch is the v1 hold-interact; the broom/cage/crawl/extinguisher mechanics are traversal + prop work for later); the door lock/unlock choreography is skipped; Gary is untargetable (his KO fail is latent); the betrayal cutscene itself belongs to 1_B's intro. The clock is NOT touched here — the night is time-stopped from 1_09's pass (its on_pass pauses the clock), matching the original. No pass grants (the original has no SMissPass entry for 1_10). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "1_10",
+  "title": "Halloween",
+  "retry": "stage",
+  "start": { "location_cm": [27132.6, 11502.8, 643.4], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_10.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Halloween night at Bullworth.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "HALLOWEEN", "sub": "The clocks stopped. The school is ours.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "gary", "point": "1_10_Nemesis_MM", "mesh": "GN_Boy01", "ped_model_id": 130, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "GARY", "text": "Tonight's the night, Jimmy. Follow me and don't fall behind.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:gary" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "The night fell apart."
+    },
+    {
+      "id": "follow_fight",
+      "objective": "Follow Gary — and watch your back.",
+      "blip": "1_10_Nemesis_MM",
+      "on_start": [
+        { "type": "npc_lead", "npc": "gary", "point": "1_10_Nemesis_MM", "gait": "sprint", "radius_cm": 700 },
+        { "type": "spawn_wave", "group": "h1", "points": ["1_10bully01", "1_10Bully02A", "1_10Bully02B"], "mesh": "GN_Bully01", "hostile": true },
+        { "type": "say", "speaker": "GARY", "text": "Company. Deal with them.", "seconds": 2.5 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:gary", "latched": true },
+        { "type": "event", "name": "wave:h1", "latched": true }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:gary", "latched": true },
+      "fail_text": "Gary got knocked out."
+    },
+    {
+      "id": "basement_door",
+      "objective": "Follow Gary to the basement door.",
+      "blip": "1_10JanDoorBlip",
+      "on_start": [
+        { "type": "npc_lead", "npc": "gary", "point": "1_10JanDoorBlip", "gait": "sprint", "radius_cm": 700 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:gary", "latched": true },
+        { "type": "reach_location", "point": "1_10JanDoorBlip", "radius_cm": 600 }
+      ] },
+      "on_complete": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "1_10_GaryBS" },
+        { "type": "spawn_npc", "npc": "gary", "point": "1_10_GaryBS", "mesh": "GN_Boy01", "ped_model_id": 130, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "npc_follow", "npc": "gary", "radius_cm": 300, "gait": "run" },
+        { "type": "say", "speaker": "GARY", "text": "Down here. Stay close — it's dark.", "seconds": 3 },
+        { "type": "log", "text": "area hop into the janitor basement (area 8) via the fade; the original's side-door unlock is skipped (door props not driven yet)" }
+      ]
+    },
+    {
+      "id": "room_switch",
+      "objective": "Throw the switch past the sparks.",
+      "blip": "1_10_GarySwitchElec",
+      "on_start": [
+        { "type": "say", "speaker": "GARY", "text": "The switch is past the sparks. Go on.", "seconds": 3 },
+        { "type": "minigame_launch", "id": "sw", "point": "1_10_GarySwitchElec", "radius_cm": 250, "seconds": 3, "text": "Throwing the switch..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:sw_ok", "latched": true }
+    },
+    {
+      "id": "dark_walk",
+      "objective": "Through the dark, to the Hole.",
+      "blip": "1_10_HoleBilip",
+      "on_start": [
+        { "type": "npc_lead", "npc": "gary", "point": "1_10_HoleBilip", "gait": "sprint", "radius_cm": 700 },
+        { "type": "say", "speaker": "GARY", "text": "Almost there. You hear that? That's the school breathing.", "seconds": 3.5 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:gary", "latched": true },
+        { "type": "reach_location", "point": "1_10_HoleBilip", "radius_cm": 800 }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:gary", "latched": true },
+      "fail_text": "Gary got knocked out."
+    },
+    {
+      "id": "the_hole",
+      "objective": "The Hole. Something is waiting.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "point": "1_10_AudView", "look": "player", "fov": 40, "blend": 0.6 },
+        { "type": "spawn_npc", "npc": "spect1", "point": "1_10_Audience", "mesh": "GN_Boy01", "ped_model_id": 23, "untargetable": true },
+        { "type": "spawn_npc", "npc": "spect2", "point": "1_10_Audience", "mesh": "GN_Greekboy", "ped_model_id": 19, "untargetable": true },
+        { "type": "shake", "amp": 0.4, "seconds": 0.3 },
+        { "type": "speech_sequence", "id": "hole", "lines": [
+          { "speaker": "GARY", "text": "You made it this far. Shame how it ends.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:hole", "latched": true },
+      "on_complete": [
+        { "type": "camera", "release": true, "blend": 0.6 },
+        { "type": "letterbox", "on": false },
+        { "type": "log", "text": "the audience is staged (the original's 4-ped crowd compresses to 2 stand-ins); the betrayal + Russell boss fight continue into 1_B (star row in the campaign table)" }
+      ]
+    }
+  ]
+}

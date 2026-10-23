@@ -1,0 +1,110 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_09 'The Candidate' — defend Earnest's speech in the auditorium while jock waves interrupt (recon: docs/re-notes/ch1/1_09-the-candidate.md). The defense is real: Earnest is a mission defender (player-team combat pawn, 100 hp, KO fails the stage), and every other wave member takes him as PreferredVictim. The speech plays as speech_sequence parts latched alongside each wave (both must finish). v1 simplifications (see the recon's gap table): the baked 1-09 cutscene is a title card + speech beat; the 26-entry timed attacker schedule compresses to three waves (jocks + mascot beat); the 30-line speech with hit interruptions compresses to three parts without the interrupt-resume; the seated crowd/jeers and the speaker-breakables fail are skipped; the camera-path intro sweep is one fixed shot; the player keeps his whole arsenal (the original locks him to the 306 with 1 unit — v1 grants the slingshot + ammo instead). On entry the clock sets to 18:45 and pauses, like the original's A2. Pass grants (306 -> slingshot, nerds 70 / jocks 45, clock paused into Halloween) live in the campaign table's on_pass for 1_09. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "1_09",
+  "title": "The Candidate",
+  "retry": "stage",
+  "start": { "location_cm": [-61860.6, 29351.8, 552.5], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_09.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Earnest is giving a speech. It will not go quietly.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "THE CANDIDATE", "sub": "The auditorium, before the vote.", "seconds": 3 },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "EARNEST", "text": "They'll tear me apart up there, Jimmy. Keep them off me and I'll owe you everything.", "seconds": 4 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "to_auditorium",
+      "objective": "Get to the auditorium doors.",
+      "blip": "1_09_HallTrig",
+      "complete": { "type": "reach_location", "point": "1_09_HallTrig", "radius_cm": 500 },
+      "fail": { "type": "timer", "seconds": 30, "visible": true },
+      "fail_text": "You missed the assembly.",
+      "on_complete": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "1_09_CutStart" },
+        { "type": "clock", "set": "18:45" },
+        { "type": "clock", "pause": true },
+        { "type": "spawn_defender", "npc": "earnest", "point": "1_09_Earnest", "mesh": "NDH3_Bucky", "ped_model_id": 10, "health": 100 },
+        { "type": "give_weapon", "weapon": "slingshot" },
+        { "type": "give_ammo", "weapon": "slingshot", "n": 30 }
+      ]
+    },
+    {
+      "id": "speech_1",
+      "objective": "Protect Earnest — the first wave is coming.",
+      "blip": "1_09_Earnest",
+      "on_start": [
+        { "type": "speech_sequence", "id": "part1", "lines": [
+          { "speaker": "EARNEST", "text": "Fellow students! A vote for me is a vote for—", "seconds": 3 },
+          { "speaker": "EARNEST", "text": "—for not getting your head dunked in a toilet, for a start!", "seconds": 3 }
+        ] },
+        { "type": "spawn_wave", "group": "j1", "points": ["1_09_AisleLeft", "1_09_BoxLeft1"], "mesh": "GN_Bully04", "hostile": true, "target": "earnest" }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "speech:part1", "latched": true },
+        { "type": "event", "name": "wave:j1", "latched": true }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:earnest", "latched": true },
+      "fail_text": "Earnest was driven off the stage."
+    },
+    {
+      "id": "speech_2",
+      "objective": "More of them. Keep the stage clear.",
+      "on_start": [
+        { "type": "speech_sequence", "id": "part2", "lines": [
+          { "speaker": "EARNEST", "text": "Is that the best they've got? As I was saying—", "seconds": 3 },
+          { "speaker": "EARNEST", "text": "—a library budget! Real books! With pages!", "seconds": 3 }
+        ] },
+        { "type": "spawn_wave", "group": "j2", "points": ["1_09_AisleRight", "1_09_BoxRight1", "1_09_Catwalk1"], "mesh": "GN_Bully03", "hostile": true, "target": "earnest" }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "speech:part2", "latched": true },
+        { "type": "event", "name": "wave:j2", "latched": true }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:earnest", "latched": true },
+      "fail_text": "Earnest was driven off the stage."
+    },
+    {
+      "id": "mascot",
+      "objective": "They're sending the mascot. Seriously.",
+      "on_start": [
+        { "type": "speech_sequence", "id": "part3", "lines": [
+          { "speaker": "EARNEST", "text": "The mascot?! They're throwing EVERYTHING at me!", "seconds": 3 }
+        ] },
+        { "type": "spawn_wave", "group": "mascot", "points": ["1_09_StageRight"], "mesh": "GN_Bully05", "hostile": true, "target": "earnest" }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "speech:part3", "latched": true },
+        { "type": "event", "name": "wave:mascot", "latched": true }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:earnest", "latched": true },
+      "fail_text": "Earnest was driven off the stage."
+    },
+    {
+      "id": "outro",
+      "objective": "The speech survived.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "point": "1_09_EndC1", "look": "1_09_Earnest", "fov": 40, "blend": 0.6 },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "EARNEST", "text": "Thank you! The nerds owe you everything — and I never forget a debt.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "camera", "release": true, "blend": 0.6 },
+        { "type": "letterbox", "on": false },
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "1_09_EndTrans" },
+        { "type": "log", "text": "campaign on_pass for 1_09: super slingshot 306 (mapped to slingshot), respect nerds 70 / jocks 45, clock paused into the Halloween night" }
+      ]
+    }
+  ]
+}

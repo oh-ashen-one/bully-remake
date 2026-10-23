@@ -70,13 +70,22 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   the smoke driver picks the first option whose gate passes). Combat component gained `SetMaxHealth`/`Revive`; the AI
   honors `PreferredVictim`. Bugs the harness caught: wave spawns in a previous stage's on_complete are wiped by the
   stage-scoped cleanup (spawns belong to the stage that uses them — 1_07 fixed), and actor_tag interact targets were
-  gathered before the stage's own on_start spawns ran (`RefreshStageActors` now re-collects on spawn).
-- **Missions**: `1_07.json` (7 stages: Bucky under scripted drain, three targeted waves, gate rendezvous, hobo + give-back
-  outro; pass = skateboard 437 (logged ride), force-complete 1_E01, respect bullies 0/nerds 65 via campaign on_pass) and
-  `1_08.json` (9 stages: Gary's plan, Fatty meet, cafeteria chocolate run under the cook's spotter, pay-or-bully
-  dialogue choice, gym locker rig (minigame) under the prefect's spotter, Mandy payoff, deliver the notes to Beatrice;
-  pass = 309 x5 top-up via campaign on_pass). Verified: `run_mission_smoke.sh 1_07` **PASS 7/7**, `1_08` **PASS 9/9**
-  (both incl. fail/retry), campaign **PASS 4/4**, all eight prior smokes re-PASS.
+  gathered before the stage's own on_start spawns ran (`RefreshStageActors` now re-collects on spawn). Missions:
+  `1_07.json` (7 stages: drain pressure, three targeted waves, gate rendezvous, hobo + give-back outro; pass = 437
+  (logged ride), force-complete 1_E01, respect bullies 0/nerds 65 via campaign on_pass) and `1_08.json` (9 stages:
+  Gary's plan, Fatty meet, cafeteria chocolate run under the cook's spotter, pay-or-bully dialogue choice, gym locker
+  rig under the prefect's spotter, Mandy payoff, deliver the notes to Beatrice; pass = 309 x5 top-up via on_pass).
+  Verified: `run_mission_smoke.sh 1_07` **PASS 7/7**, `1_08` **PASS 9/9** (both incl. fail/retry), campaign **PASS 4/4**,
+  all eight prior smokes re-PASS.
+- **Wave E (1_09 + 1_10 full missions)** — pure data on Waves A–D primitives (deduped; no new C++):
+  `1_09.json` (6 stages: the speech plays as latched speech_sequence parts alongside PreferredVictim waves on Earnest
+  (a mission defender, KO = fail); clock sets 18:45 + pauses on auditorium entry like the original's A2; pass = 306 →
+  slingshot, nerds 70 / jocks 45, clock paused into Halloween via campaign on_pass) and `1_10.json` (6 stages: night
+  lead + parking ambush, basement fade-hop, switch beat (minigame), the dark walk to the Hole, audience staging for
+  1_B; clock untouched — the night is time-stopped from 1_09, matching the original). Compressed per the recon gap
+  tables: the 26-entry attacker schedule → 3 waves; the five puzzle rooms → one switch beat; crowd/jeers/speaker-breaks
+  skipped. Verified: `run_mission_smoke.sh 1_09` **PASS 6/6**, `1_10` **PASS 6/6** (both incl. fail/retry), campaign
+  **PASS 4/4**, all ten prior smokes re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

@@ -23,6 +23,28 @@ void UBullyProgressSubsystem::AddMoney(int32 Delta)
 	OnChanged.Broadcast();
 }
 
+void UBullyProgressSubsystem::EnsureMoney(int32 Minimum)
+{
+	if (Money >= Minimum) { return; }
+	UE_LOG(LogBullyProgress, Display, TEXT("BR_PROGRESS money ensure %d (was %d)"), Minimum, Money);
+	Money = FMath::Max(0, Minimum);
+	OnChanged.Broadcast();
+}
+
+bool UBullyProgressSubsystem::TakeMoney(int32 Amount)
+{
+	if (Amount <= 0) { return true; }
+	if (Money < Amount)
+	{
+		UE_LOG(LogBullyProgress, Display, TEXT("BR_PROGRESS money take %d refused (have %d)"), Amount, Money);
+		return false;
+	}
+	Money -= Amount;
+	UE_LOG(LogBullyProgress, Display, TEXT("BR_PROGRESS money -%d -> %d"), Amount, Money);
+	OnChanged.Broadcast();
+	return true;
+}
+
 void UBullyProgressSubsystem::AddRespect(int32 Delta)
 {
 	if (Delta == 0) { return; }
@@ -31,11 +53,32 @@ void UBullyProgressSubsystem::AddRespect(int32 Delta)
 	OnChanged.Broadcast();
 }
 
+void UBullyProgressSubsystem::AddItem(FName Id, int32 N)
+{
+	if (Id.IsNone() || N == 0) { return; }
+	const int32 Now = (Items.FindOrAdd(Id) += N);
+	if (Now < 0) { Items[Id] = 0; }
+	UE_LOG(LogBullyProgress, Display, TEXT("BR_PROGRESS item %s %+d -> %d"), *Id.ToString(), N, Items[Id]);
+	OnChanged.Broadcast();
+}
+
+bool UBullyProgressSubsystem::TakeItem(FName Id, int32 N)
+{
+	if (GetItemCount(Id) < N)
+	{
+		UE_LOG(LogBullyProgress, Display, TEXT("BR_PROGRESS item %s -%d refused (have %d)"), *Id.ToString(), N, GetItemCount(Id));
+		return false;
+	}
+	AddItem(Id, -N);
+	return true;
+}
+
 void UBullyProgressSubsystem::ResetProgress()
 {
 	Money = 0;
 	Respect = 0;
-	UE_LOG(LogBullyProgress, Display, TEXT("BR_PROGRESS reset -> money 0 respect 0"));
+	Items.Reset();
+	UE_LOG(LogBullyProgress, Display, TEXT("BR_PROGRESS reset -> money 0 respect 0 items cleared"));
 	OnChanged.Broadcast();
 }
 
@@ -63,7 +106,7 @@ namespace
 		{
 			if (UBullyProgressSubsystem* S = SysFor(W))
 			{
-				UE_LOG(LogBullyProgress, Display, TEXT("BR_PROGRESS status: money=%d respect=%d"), S->GetMoney(), S->GetRespect());
+				UE_LOG(LogBullyProgress, Display, TEXT("BR_PROGRESS status: money=%d respect=%d items=%d"), S->GetMoney(), S->GetRespect(), S->GetItems().Num());
 			}
 		}));
 

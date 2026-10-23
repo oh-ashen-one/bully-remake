@@ -9,6 +9,7 @@
 #include "BullyCombatTest.h"
 #include "BullyHUD.h"
 #include "BullyProgressSubsystem.h"
+#include "BullyScriptedNPC.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
@@ -105,14 +106,36 @@ namespace
 			if (!O->TryGetStringField(TEXT("trigger"), S)) { Err = Type + TEXT(": missing \"trigger\""); return false; }
 			C.Name = FName(*S);
 		}
-		else if (Type == TEXT("interact"))
+		else if (Type == TEXT("interact") || Type == TEXT("social"))
 		{
 			C.Type = FMissionCondition::EType::Interact;
 			if (O->TryGetStringField(TEXT("trigger"), S)) { C.Name = FName(*S); }
 			else if (O->TryGetStringField(TEXT("actor_tag"), S)) { C.Name = FName(*S); C.bActorTag = true; }
-			else { Err = TEXT("interact: needs \"trigger\" or \"actor_tag\""); return false; }
+			else { Err = Type + TEXT(": needs \"trigger\" or \"actor_tag\""); return false; }
 			C.Radius = Num(TEXT("radius_cm"), 250.f);
 			O->TryGetStringField(TEXT("prompt"), C.Prompt);
+			double MC = 0.0;
+			if (O->TryGetNumberField(TEXT("money"), MC)) { C.MoneyCost = int32(MC); }   // social: the wallet must cover it
+			FString F;
+			if (O->TryGetStringField(TEXT("set_flag"), F)) { C.FlagToSet = FName(*F); }
+		}
+		else if (Type == TEXT("has_item"))
+		{
+			C.Type = FMissionCondition::EType::HasItem;
+			if (!O->TryGetStringField(TEXT("name"), S) && !O->TryGetStringField(TEXT("item"), S)) { Err = TEXT("has_item: missing \"name\""); return false; }
+			C.Name = FName(*S);
+		}
+		else if (Type == TEXT("attempt"))
+		{
+			C.Type = FMissionCondition::EType::Attempt;
+			C.AttemptN = int32(Num(TEXT("n"), 1.f));
+			O->TryGetBoolField(TEXT("eq"), C.bAttemptEq);
+		}
+		else if (Type == TEXT("leave_area"))
+		{
+			C.Type = FMissionCondition::EType::LeaveArea;
+			C.Area = int32(Num(TEXT("area"), -1.f));
+			if (C.Area < 0) { Err = TEXT("leave_area: missing \"area\""); return false; }
 		}
 		else if (Type == TEXT("event"))
 		{
@@ -121,7 +144,7 @@ namespace
 			C.Name = FName(*S);
 			O->TryGetBoolField(TEXT("latched"), C.bLatched);
 		}
-		else if (Type == TEXT("timer")) { C.Type = FMissionCondition::EType::Timer; C.Seconds = Num(TEXT("seconds"), 1.f); }
+		else if (Type == TEXT("timer")) { C.Type = FMissionCondition::EType::Timer; C.Seconds = Num(TEXT("seconds"), 1.f); O->TryGetBoolField(TEXT("visible"), C.bVisible); }
 		else if (Type == TEXT("flag"))
 		{
 			C.Type = FMissionCondition::EType::Flag;
@@ -298,6 +321,126 @@ namespace
 				}
 				continue;
 			}
+			else if (Type == TEXT("spawn_npc"))
+			{
+				A.Type = FMissionAction::EType::SpawnNpc;
+				if (!O->TryGetStringField(TEXT("npc"), S)) { Err = TEXT("spawn_npc: missing \"npc\" id"); return false; }
+				A.NpcId = FName(*S);
+				if (!ReadLocation(*O, D, A.Location)) { Err = TEXT("spawn_npc: unknown point / no location"); return false; }
+				O->TryGetStringField(TEXT("mesh"), A.Mesh);
+				bool b = false;
+				if (O->TryGetBoolField(TEXT("mission_critical"), b)) { A.bMissionCritical = b; }
+				if (O->TryGetBoolField(TEXT("invulnerable"), b)) { A.bInvulnerable = b; }
+				if (O->TryGetBoolField(TEXT("untargetable"), b)) { A.bUntargetable = b; }
+				FString Face;
+				if (O->TryGetStringField(TEXT("face"), Face) && Face.Equals(TEXT("player"), ESearchCase::IgnoreCase)) { A.bFacePlayer = true; }
+				double N2 = 0.0;
+				if (O->TryGetNumberField(TEXT("min_health"), N2)) { A.MinHealth = float(N2); }
+				if (O->TryGetStringField(TEXT("tag"), S)) { A.Name = FName(*S); }   // actor-tag override (default br_npc_<id>)
+			}
+			else if (Type == TEXT("npc_move_to") || Type == TEXT("npc_lead"))
+			{
+				A.Type = Type == TEXT("npc_lead") ? FMissionAction::EType::NpcLead : FMissionAction::EType::NpcMove;
+				if (!O->TryGetStringField(TEXT("npc"), S)) { Err = Type + TEXT(": missing \"npc\" id"); return false; }
+				A.NpcId = FName(*S);
+				if (!ReadLocation(*O, D, A.Location)) { Err = Type + TEXT(": unknown point / no location"); return false; }
+				bool b = false;
+				if (O->TryGetBoolField(TEXT("run"), b)) { A.bRun = b; }
+				if (O->TryGetStringField(TEXT("event"), S)) { A.Sub = S; }   // arrived-event override
+				double R = 0.0;
+				if (O->TryGetNumberField(TEXT("radius_cm"), R)) { A.Dist = float(R); }
+			}
+			else if (Type == TEXT("npc_face"))
+			{
+				A.Type = FMissionAction::EType::NpcFace;
+				if (!O->TryGetStringField(TEXT("npc"), S)) { Err = TEXT("npc_face: missing \"npc\" id"); return false; }
+				A.NpcId = FName(*S);
+				FString Face;
+				if (O->TryGetStringField(TEXT("face"), Face) && Face.Equals(TEXT("player"), ESearchCase::IgnoreCase)) { A.bFacePlayer = true; }
+				else if (!ReadLocation(*O, D, A.Location)) { Err = TEXT("npc_face: needs \"face\" or a point"); return false; }
+			}
+			else if (Type == TEXT("npc_despawn"))
+			{
+				A.Type = FMissionAction::EType::NpcDespawn;
+				if (!O->TryGetStringField(TEXT("npc"), S)) { Err = TEXT("npc_despawn: missing \"npc\" id"); return false; }
+				A.NpcId = FName(*S);
+			}
+			else if (Type == TEXT("pair_anim"))
+			{
+				A.Type = FMissionAction::EType::PairAnim;
+				if (!O->TryGetStringField(TEXT("npc"), S)) { Err = TEXT("pair_anim: missing \"npc\" id"); return false; }
+				A.NpcId = FName(*S);
+				O->TryGetStringField(TEXT("clips"), A.Text);   // comma-separated candidates
+				if (!O->HasField(TEXT("seconds"))) { A.Seconds = 1.5f; }
+			}
+			else if (Type == TEXT("speech_sequence"))
+			{
+				A.Type = FMissionAction::EType::SpeechSequence;
+				if (!O->TryGetStringField(TEXT("id"), S)) { Err = TEXT("speech_sequence: missing \"id\""); return false; }
+				A.Name = FName(*S);
+				const TArray<TSharedPtr<FJsonValue>>* Ls = nullptr;
+				if (!O->TryGetArrayField(TEXT("lines"), Ls) || Ls->Num() == 0) { Err = TEXT("speech_sequence: needs \"lines\""); return false; }
+				for (const TSharedPtr<FJsonValue>& Lv : *Ls)
+				{
+					FObj LO = Lv->AsObject();
+					if (!LO.IsValid()) { continue; }
+					FSpeechLine L;
+					LO->TryGetStringField(TEXT("speaker"), L.Speaker);
+					if (!LO->TryGetStringField(TEXT("text"), L.Text)) { LO->TryGetStringField(TEXT("line"), L.Text); }
+					double Sec2 = 0.0;
+					if (LO->TryGetNumberField(TEXT("seconds"), Sec2)) { L.Seconds = float(Sec2); }
+					A.Lines.Add(MoveTemp(L));
+				}
+			}
+			else if (Type == TEXT("minigame_launch"))
+			{
+				A.Type = FMissionAction::EType::MinigameLaunch;
+				if (!O->TryGetStringField(TEXT("id"), S)) { Err = TEXT("minigame_launch: missing \"id\""); return false; }
+				A.Name = FName(*S);
+				FString Trig;
+				if (O->TryGetStringField(TEXT("trigger"), Trig))
+				{
+					bool bFound = false;
+					for (const FMissionTriggerDef& T : D.Triggers) { if (T.Id == FName(*Trig)) { A.Location = T.Center; bFound = true; break; } }
+					if (!bFound) { Err = FString::Printf(TEXT("minigame_launch: unknown trigger \"%s\""), *Trig); return false; }
+				}
+				else if (!ReadLocation(*O, D, A.Location)) { Err = TEXT("minigame_launch: needs \"point\" or \"trigger\""); return false; }
+				if (O->TryGetStringField(TEXT("success"), S)) { A.SuccessEvent = FName(*S); }
+				else { A.SuccessEvent = FName(*FString::Printf(TEXT("minigame:%s_ok"), *A.Name.ToString())); }
+				if (O->TryGetStringField(TEXT("fail"), S)) { A.FailEvent = FName(*S); }
+				else { A.FailEvent = FName(*FString::Printf(TEXT("minigame:%s_fail"), *A.Name.ToString())); }
+				double R = 0.0;
+				if (O->TryGetNumberField(TEXT("radius_cm"), R)) { A.Radius = float(R); }
+				if (!O->HasField(TEXT("seconds"))) { A.Seconds = 4.f; }
+			}
+			else if (Type == TEXT("give_item") || Type == TEXT("take_item"))
+			{
+				A.Type = Type == TEXT("give_item") ? FMissionAction::EType::GiveItem : FMissionAction::EType::TakeItem;
+				if (!O->TryGetStringField(TEXT("item"), S)) { Err = Type + TEXT(": missing \"item\""); return false; }
+				A.Name = FName(*S);
+				double N2 = 0.0;
+				if (O->TryGetNumberField(TEXT("n"), N2)) { A.Amount = int32(N2); }
+				if (A.Amount <= 0) { A.Amount = 1; }
+			}
+			else if (Type == TEXT("money_ensure") || Type == TEXT("money_take"))
+			{
+				A.Type = Type == TEXT("money_ensure") ? FMissionAction::EType::MoneyEnsure : FMissionAction::EType::MoneyTake;
+				double M2 = 0.0;
+				if (!O->TryGetNumberField(TEXT("money"), M2)) { Err = Type + TEXT(": missing \"money\""); return false; }
+				A.Money = int32(M2);
+			}
+			else if (Type == TEXT("heat_set"))
+			{
+				A.Type = FMissionAction::EType::HeatSet;
+				double P2 = 0.0;
+				if (O->TryGetNumberField(TEXT("points"), P2)) { A.Amount = int32(P2); }
+				if (O->TryGetNumberField(TEXT("decay"), P2)) { A.Amp = float(P2); }
+			}
+			else if (Type == TEXT("hide"))
+			{
+				A.Type = FMissionAction::EType::Hide;
+				bool b = true; O->TryGetBoolField(TEXT("on"), b); A.bOn = b;
+			}
 			else { Err = FString::Printf(TEXT("unknown action type \"%s\""), *Type); return false; }
 			Out.Add(MoveTemp(A));
 		}
@@ -356,6 +499,33 @@ namespace
 				}
 			}
 		}
+		// imported/triggers/<id>.json "entities" layout (Trigger.img extract): an array of
+		// { "name", "type": "point"|"trigger-volume"|..., "location_cm" | "location_game", "area_code" }. Points become
+		// named points (inline wins); every entity with a location also grows its area's bounding box (leave_area).
+		if (const TArray<TSharedPtr<FJsonValue>>* Ents = nullptr; Root->TryGetArrayField(TEXT("entities"), Ents))
+		{
+			for (const TSharedPtr<FJsonValue>& V : *Ents)
+			{
+				FObj E = V->AsObject();
+				FString N;
+				if (!E.IsValid() || !(E->TryGetStringField(TEXT("name"), N) || E->TryGetStringField(TEXT("id"), N))) { continue; }
+				FVector Loc;
+				bool bOk = ReadVec3(*E, TEXT("location_cm"), Loc);
+				FVector G;
+				if (!bOk && ReadVec3(*E, TEXT("location_game"), G)) { Loc = GameToUe(G); bOk = true; }
+				if (!bOk) { continue; }
+				double Area = -1.0;
+				if (E->TryGetNumberField(TEXT("area_code"), Area) && Area >= 0.0)
+				{
+					FBox& Box = D.AreaBoxes.FindOrAdd(int32(Area));
+					if (!Box.IsValid) { Box = FBox(EForceInit::ForceInit); }
+					Box += Loc;
+				}
+				FString Type;
+				if (E->TryGetStringField(TEXT("type"), Type) && Type == TEXT("point")) { AddEntry(N, E); }
+			}
+			for (auto& Pair : D.AreaBoxes) { Pair.Value = Pair.Value.ExpandBy(1500.0); }   // doors/walls sit just outside the points
+		}
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION trigger_file %s: %d extra points"), *Full, Added);
 		return Added;
 	}
@@ -373,9 +543,24 @@ namespace
 		case FMissionCondition::EType::Flag: return FString::Printf(TEXT("flag %s"), *C.Name.ToString());
 		case FMissionCondition::EType::All: return TEXT("all-of");
 		case FMissionCondition::EType::Any: return TEXT("any-of");
+		case FMissionCondition::EType::HasItem: return FString::Printf(TEXT("has_item %s"), *C.Name.ToString());
+		case FMissionCondition::EType::Attempt: return FString::Printf(TEXT("attempt %s %d"), C.bAttemptEq ? TEXT("==") : TEXT(">="), C.AttemptN);
+		case FMissionCondition::EType::LeaveArea: return FString::Printf(TEXT("leave_area %d"), C.Area);
 		default: return TEXT("none");
 		}
 	}
+
+	/** Recursive event search (the smoke harness finds its smoke_fail exercise even inside an any()/all() fail). */
+	bool CondHasEvent(const FMissionCondition& C, FName Ev)
+	{
+		if (C.Type == FMissionCondition::EType::Event && C.Name == Ev) { return true; }
+		for (const FMissionCondition& K : C.Children) { if (CondHasEvent(K, Ev)) { return true; } }
+		return false;
+	}
+
+	/** System-produced events (speech:<id>, heat:zero, npc_arrived:<id>, npc_ko:<id>, minigame ids) are never
+	 *  auto-fired by the smoke driver — it drives the producing system instead. */
+	bool SystemEvent(FName Ev) { return Ev.ToString().Contains(TEXT(":")); }
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -448,6 +633,7 @@ void UMissionSubsystem::Deinitialize()
 {
 	if (ACameraActor* Cam = CutsceneCam.Get()) { Cam->Destroy(); CutsceneCam = nullptr; }
 	DestroyOwnedTriggers();
+	DespawnMissionNpcs(TEXT("world teardown"));
 	if (Hud.IsValid()) { Hud->Hide(); Hud.Reset(); }
 	Super::Deinitialize();
 }
@@ -577,6 +763,7 @@ bool UMissionSubsystem::LoadMission(const FString& Id, FMissionDef& D, FString& 
 		if (!O->TryGetObjectField(TEXT("complete"), CO)) { Err = FString::Printf(TEXT("stage %d (%s) has no \"complete\" condition"), Index, *St.Id.ToString()); return false; }
 		if (!ParseCondition(*CO, D, St.Complete, Err)) { Err = FString::Printf(TEXT("stage %d complete: %s"), Index, *Err); return false; }
 		if (O->TryGetObjectField(TEXT("fail"), CO) && !ParseCondition(*CO, D, St.Fail, Err)) { Err = FString::Printf(TEXT("stage %d fail: %s"), Index, *Err); return false; }
+		O->TryGetStringField(TEXT("fail_text"), St.FailText);
 		if (O->TryGetObjectField(TEXT("checkpoint"), CO))
 		{
 			St.bHasCheckpoint = ReadLocation(**CO, D, St.CheckpointLocation);
@@ -587,6 +774,12 @@ bool UMissionSubsystem::LoadMission(const FString& Id, FMissionDef& D, FString& 
 			Err = FString::Printf(TEXT("stage %d: %s"), Index, *Err); return false;
 		}
 		D.Stages.Add(MoveTemp(St));
+	}
+	// optional root-level fail: evaluated every tick of every stage (e.g. leave_area for a mission set in one building)
+	if (const FObj* RF = nullptr; Root->TryGetObjectField(TEXT("fail"), RF))
+	{
+		if (!ParseCondition(*RF, D, D.RootFail, Err)) { Err = FString::Printf(TEXT("mission fail: %s"), *Err); return false; }
+		Root->TryGetStringField(TEXT("fail_text"), D.RootFailText);
 	}
 	if (!ParseActions(Root, TEXT("on_complete"), D, D.OnComplete, Err)) { return false; }
 	return true;
@@ -646,6 +839,11 @@ void UMissionSubsystem::StopMission(const FString& Reason)
 	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION stop id=%s (%s)"), Mission.IsValid() ? *Mission->Id : TEXT("?"), *Reason);
 	ReleaseCutsceneCamera(0.f);   // never leave gameplay looking through a cutscene camera
 	DestroyOwnedTriggers();
+	DespawnMissionNpcs(*Reason);
+	Speech.bActive = false;
+	Minigame = FMinigameState();
+	HeatPoints = 0.f;
+	if (Hud.IsValid()) { Hud->SetCountdown(-1.f); Hud->SetProgress(-1.f); }
 	if (Hud.IsValid()) { Hud->ClearObjective(); Hud->Hide(); }
 	State = EState::Idle;
 	if (Mission.IsValid() && !bWasDone) { OnMissionFinished.Broadcast(*Mission, false); }
@@ -670,13 +868,15 @@ void UMissionSubsystem::FailMission(const FString& Reason)
 {
 	if (State != EState::Running || !Mission.IsValid()) { return; }
 	const FMissionStage& St = Mission->Stages[StageIndex];
+	const FString Why = St.FailText.IsEmpty() ? Reason : St.FailText;   // a stage can carry a keyed fail line
 	State = EState::Failed;
 	FailTime = GetWorld()->GetTimeSeconds();
-	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION stage %d: %s -> FAIL (%s) attempt %d"), StageIndex + 1, *St.Objective, *Reason, Attempt);
+	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION stage %d: %s -> FAIL (%s) attempt %d"), StageIndex + 1, *St.Objective, *Why, Attempt);
 	if (Hud.IsValid())
 	{
 		Hud->SetBlip(false); Hud->SetPrompt(TEXT(""));
-		Hud->ShowBanner(TEXT("MISSION FAILED"), Reason, Mission->FailDelay + 0.5f, true);
+		Hud->SetCountdown(-1.f); Hud->SetProgress(-1.f);
+		Hud->ShowBanner(TEXT("MISSION FAILED"), Why, Mission->FailDelay + 0.5f, true);
 	}
 }
 
@@ -685,6 +885,8 @@ void UMissionSubsystem::RetryNow()
 	if (!Mission.IsValid()) { return; }
 	if (Mission->Retry == FMissionDef::ERetry::None) { StopMission(TEXT("failed, retry disabled")); return; }
 	++Attempt;
+	// campaign attempt counting is retry-aware (the original's attempt count gates first-attempt tutorial cards)
+	if (UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(GetWorld())) { Camp->NoteAttempt(Mission->Id); }
 	if (Mission->Retry == FMissionDef::ERetry::Stage)
 	{
 		const FMissionStage& St = Mission->Stages[StageIndex];
@@ -729,6 +931,10 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	const FMissionStage& St = Mission->Stages[Index];
 	StageStartTime = GetWorld()->GetTimeSeconds();
 	StageEvents.Reset();
+	// chapter-1 primitives are stage-scoped: a new stage disarms a leftover minigame/speech beat (its own on_start re-arms)
+	Minigame = FMinigameState();
+	Speech.bActive = false;
+	if (Hud.IsValid()) { Hud->SetProgress(-1.f); Hud->SetCountdown(-1.f); }
 	if (APawn* P = GetPlayerPawn()) { StageStartPawnLoc = P->GetActorLocation(); }
 
 	// actors for actor_tag interact conditions
@@ -802,6 +1008,12 @@ void UMissionSubsystem::CompleteMission()
 	// StopMission, which releases it there). If on_complete deliberately set a camera, that's respected on the chain.
 	if (!bChains) { ReleaseCutsceneCamera(0.6f); }
 	DestroyOwnedTriggers();
+	// mission npcs of a terminal mission clean up here; a chaining mission's npcs live until the next StartMission's
+	// StopMission (brief overlap is deliberate: outro walk-offs read through the hand-off)
+	if (!bChains) { DespawnMissionNpcs(TEXT("complete")); }
+	Speech.bActive = false;
+	Minigame = FMinigameState();
+	HeatPoints = 0.f;
 	OnMissionFinished.Broadcast(*Mission, true);
 }
 
@@ -926,6 +1138,118 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			break;
 		case FMissionAction::EType::ForceComplete:
 			if (UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(GetWorld())) { Camp->NotifyPassed(A.Name.ToString()); }
+			break;
+		case FMissionAction::EType::SpawnNpc:
+			SpawnMissionNpc(A);
+			break;
+		case FMissionAction::EType::NpcMove:
+		case FMissionAction::EType::NpcLead:
+		{
+			ABullyScriptedNPC* N = NpcById(A.NpcId);
+			if (!N) { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION %s: unknown npc '%s'"), A.Type == FMissionAction::EType::NpcLead ? TEXT("npc_lead") : TEXT("npc_move_to"), *A.NpcId.ToString()); break; }
+			const FName Ev = !A.Sub.IsEmpty() ? FName(*A.Sub) : FName(*FString::Printf(TEXT("npc_arrived:%s"), *A.NpcId.ToString()));
+			if (A.Type == FMissionAction::EType::NpcLead)
+			{
+				// lead the player: walk the goal in legs, pausing while the player trails (see TickLeads)
+				FLeadOrder L;
+				L.Npc = N;
+				L.Goal = A.Location;
+				L.Radius = A.Dist > 0.f ? A.Dist : 600.f;
+				L.Event = Ev;
+				L.bRun = A.bRun;
+				Leads.RemoveAll([&](const FLeadOrder& E) { return E.Npc.Get() == N; });
+				Leads.Add(L);
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_lead %s -> %s (event %s)"), *A.NpcId.ToString(), *A.Location.ToCompactString(), *Ev.ToString());
+			}
+			else
+			{
+				N->ClearCommands(true);
+				N->GoToPoint(A.Location, A.bRun ? EBullyGait::Run : EBullyGait::Walk, 70.f, FString::Printf(TEXT("mission %s move_to"), *A.NpcId.ToString()));
+				PendingArrive.Add(N, Ev);
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_move_to %s -> %s (event %s)"), *A.NpcId.ToString(), *A.Location.ToCompactString(), *Ev.ToString());
+			}
+			break;
+		}
+		case FMissionAction::EType::NpcFace:
+			if (ABullyScriptedNPC* N = NpcById(A.NpcId))
+			{
+				if (A.bFacePlayer) { N->FacePlayer(true); }
+				else { N->FaceLocation(A.Location, false); }
+			}
+			break;
+		case FMissionAction::EType::NpcDespawn:
+			if (ABullyScriptedNPC* N = NpcById(A.NpcId))
+			{
+				Leads.RemoveAll([&](const FLeadOrder& E) { return E.Npc.Get() == N; });
+				PendingArrive.Remove(N);
+				Npcs.Remove(A.NpcId);
+				N->Despawn();
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_despawn %s"), *A.NpcId.ToString());
+			}
+			break;
+		case FMissionAction::EType::PairAnim:
+		{
+			// v1 stub: the two face each other and the NPC plays a generic clip; the paired give/receive anims are
+			// action-tree work for a later wave.
+			ABullyScriptedNPC* N = NpcById(A.NpcId);
+			APawn* P = GetPlayerPawn();
+			if (!N || !P) { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION pair_anim: unknown npc '%s' or no player"), *A.NpcId.ToString()); break; }
+			N->ClearCommands(true);
+			N->FacePlayer(true);
+			const FVector D = N->GetActorLocation() - P->GetActorLocation();
+			TeleportPlayer(P->GetActorLocation(), FMath::RadiansToDegrees(FMath::Atan2(D.Y, D.X)), true);
+			TArray<FString> Clips;
+			FString(A.Text).ParseIntoArray(Clips, TEXT(","), true);
+			if (Clips.Num() > 0) { N->PlayGesture(Clips, false, 0.f); }
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION pair_anim %s (%.1fs, stub)"), *A.NpcId.ToString(), A.Seconds);
+			break;
+		}
+		case FMissionAction::EType::SpeechSequence:
+			Speech.Lines = A.Lines;
+			Speech.DoneEvent = FName(*FString::Printf(TEXT("speech:%s"), *A.Name.ToString()));
+			Speech.Index = 0;
+			Speech.LineEndsAt = 0.0;
+			Speech.bActive = Speech.Lines.Num() > 0;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION speech_sequence '%s': %d line(s)"), *A.Name.ToString(), Speech.Lines.Num());
+			if (!Speech.bActive) { FireEvent(Speech.DoneEvent); }
+			break;
+		case FMissionAction::EType::MinigameLaunch:
+			Minigame.bArmed = true;
+			Minigame.bRunning = false;
+			Minigame.Progress = 0.f;
+			Minigame.At = A.Location;
+			Minigame.Radius = A.Radius;
+			Minigame.Seconds = FMath::Max(0.5f, A.Seconds);
+			Minigame.Success = A.SuccessEvent;
+			Minigame.Fail = A.FailEvent;
+			Minigame.Label = A.Text;
+			if (Hud.IsValid()) { Hud->SetProgress(0.f, Minigame.Label); }
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION minigame_launch '%s' at %s (%.1fs hold)"), *A.Name.ToString(), *A.Location.ToCompactString(), Minigame.Seconds);
+			break;
+		case FMissionAction::EType::GiveItem:
+		case FMissionAction::EType::TakeItem:
+			if (UBullyProgressSubsystem* Prog = UBullyProgressSubsystem::Get(GetWorld()))
+			{
+				if (A.Type == FMissionAction::EType::GiveItem) { Prog->AddItem(A.Name, A.Amount); }
+				else { Prog->TakeItem(A.Name, A.Amount); }
+			}
+			break;
+		case FMissionAction::EType::MoneyEnsure:
+			if (UBullyProgressSubsystem* Prog = UBullyProgressSubsystem::Get(GetWorld())) { Prog->EnsureMoney(A.Money); }
+			break;
+		case FMissionAction::EType::MoneyTake:
+			if (UBullyProgressSubsystem* Prog = UBullyProgressSubsystem::Get(GetWorld())) { Prog->TakeMoney(A.Money); }
+			break;
+		case FMissionAction::EType::HeatSet:
+			// punishment-lite stub: heat points that decay only while the player is hidden; fires "heat:zero" at 0
+			HeatPoints = float(A.Amount);
+			HeatDecay = A.Amp > 0.f ? A.Amp : 25.f;
+			SetFlag(TEXT("player_hidden"), false);
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION heat_set %d (decay %.0f/s while hidden)"), A.Amount, HeatDecay);
+			break;
+		case FMissionAction::EType::Hide:
+			SetFlag(TEXT("player_hidden"), A.bOn);
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION hide %s"), A.bOn ? TEXT("on") : TEXT("off"));
 			break;
 		}
 	}
@@ -1056,6 +1380,25 @@ bool UMissionSubsystem::Evaluate(const FMissionCondition& C) const
 	case FMissionCondition::EType::Event: return StageEvents.Contains(C.Name) || (C.bLatched && MissionEvents.Contains(C.Name));
 	case FMissionCondition::EType::Timer: return GetWorld()->GetTimeSeconds() - StageStartTime >= C.Seconds;
 	case FMissionCondition::EType::Flag: return Flags.Contains(C.Name);
+	case FMissionCondition::EType::HasItem:
+	{
+		const UBullyProgressSubsystem* Prog = UBullyProgressSubsystem::Get(GetWorld());
+		return Prog && Prog->GetItemCount(C.Name) > 0;
+	}
+	case FMissionCondition::EType::Attempt:
+	{
+		const UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(GetWorld());
+		const int32 A = (Camp && Mission.IsValid()) ? Camp->GetAttempts(Mission->Id) : 1;
+		return C.bAttemptEq ? A == C.AttemptN : A >= C.AttemptN;
+	}
+	case FMissionCondition::EType::LeaveArea:
+	{
+		const APawn* P = GetPlayerPawn();
+		if (!P || !Mission.IsValid()) { return false; }
+		const FBox* Box = Mission->AreaBoxes.Find(C.Area);
+		if (!Box) { return false; }   // no area data loaded: never fails
+		return !Box->IsInside(P->GetActorLocation());
+	}
 	case FMissionCondition::EType::All:
 		for (const FMissionCondition& K : C.Children) { if (!Evaluate(K)) { return false; } }
 		return true;
@@ -1109,9 +1452,21 @@ bool UMissionSubsystem::DoInteract()
 	{
 		if (InteractInRange(*C))
 		{
+			if (C->MoneyCost > 0)   // social: the wallet must cover the ask (gifts, pay-offs)
+			{
+				UBullyProgressSubsystem* Prog = UBullyProgressSubsystem::Get(GetWorld());
+				if (!Prog || Prog->GetMoney() < C->MoneyCost)
+				{
+					if (Hud.IsValid()) { Hud->ShowHint(FString::Printf(TEXT("You need $%d."), C->MoneyCost), 2.5f); }
+					UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION interact '%s' refused: needs $%d"), *C->Name.ToString(), C->MoneyCost);
+					continue;
+				}
+				Prog->TakeMoney(C->MoneyCost);
+			}
 			const FName Ev(*FString::Printf(TEXT("interact:%s"), *C->Name.ToString()));
 			StageEvents.Add(Ev);
 			MissionEvents.Add(Ev);
+			if (!C->FlagToSet.IsNone()) { SetFlag(C->FlagToSet, true); }
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION interact '%s' (stage %d)"), *C->Name.ToString(), StageIndex + 1);
 			OnMissionEvent.Broadcast(Ev);
 			bFired = true;
@@ -1307,8 +1662,38 @@ void UMissionSubsystem::Tick(float Dt)
 			if (PC->WasInputKeyJustPressed(EKeys::E) || PC->WasInputKeyJustPressed(EKeys::Gamepad_FaceButton_Top)) { DoInteract(); }
 		}
 		RefreshHudPerFrame(Dt);
+		TickSpeech(Dt);
+		TickMinigame(Dt);
+		TickHeat(Dt);
+		TickLeads(Dt);
+		// visible fail timer -> HUD countdown
 		const FMissionStage& St = Mission->Stages[StageIndex];
+		if (Hud.IsValid())
+		{
+			if (St.Fail.Type == FMissionCondition::EType::Timer && St.Fail.bVisible)
+			{
+				Hud->SetCountdown(St.Fail.Seconds - float(World->GetTimeSeconds() - StageStartTime));
+			}
+			else { Hud->SetCountdown(-1.f); }
+		}
+		// mission-critical npcs: scripted npcs can't be KO'd in combat today, so the fail path is their unexpected
+		// expiry (a future combat-integrated npc reports real KO/hit through the same event)
+		for (const FName& Id : MissionCriticalNpcs)
+		{
+			const TWeakObjectPtr<ABullyScriptedNPC>* N = Npcs.Find(Id);
+			if (N && !N->IsValid())
+			{
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION mission-critical npc '%s' expired -> event npc_ko:%s"), *Id.ToString(), *Id.ToString());
+				FireEvent(FName(*FString::Printf(TEXT("npc_ko:%s"), *Id.ToString())));
+				MissionCriticalNpcs.Remove(Id);
+				break;   // one per tick; the set shrinks
+			}
+		}
 		if (St.Fail.IsValid() && Evaluate(St.Fail)) { FailMission(TEXT("objective failed")); }
+		else if (Mission->RootFail.IsValid() && Evaluate(Mission->RootFail))
+		{
+			FailMission(Mission->RootFailText.IsEmpty() ? TEXT("mission area left") : Mission->RootFailText);
+		}
 		else if (Evaluate(St.Complete)) { CompleteStage(); }
 	}
 	else if (State == EState::Failed && Mission.IsValid())
@@ -1320,6 +1705,7 @@ void UMissionSubsystem::Tick(float Dt)
 		Hud->ClearObjective();
 		Hud->Hide();
 	}
+	bSmokeDriveMinigame = false;   // TickSmoke re-arms it each tick while it hold-drives a minigame
 }
 
 void UMissionSubsystem::LogStatus() const
@@ -1459,7 +1845,8 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		if (Smoke.Elapsed > 3.0 && GetPlayerPawn())
 		{
 			Smoke.bStarted = true;
-			if (!StartMission(Smoke.MissionId, 0, /*bDevOverride*/ true)) { Quit(false, TEXT("mission failed to load")); return; }
+			// an empty MissionId = drive-current mode (DriveSmoke("")): the mission is already running
+			if (!Smoke.MissionId.IsEmpty() && !StartMission(Smoke.MissionId, 0, /*bDevOverride*/ true)) { Quit(false, TEXT("mission failed to load")); return; }
 			// Only expect a fail/retry exercise if this mission actually defines a smoke_fail stage (day_one does;
 			// a plain errand mission need not). Keeps the harness usable for any mission.
 			Smoke.bWantFailTest = false;
@@ -1467,7 +1854,7 @@ void UMissionSubsystem::TickSmoke(float Dt)
 			{
 				for (const FMissionStage& St : Mission->Stages)
 				{
-					if (St.Fail.Type == FMissionCondition::EType::Event && St.Fail.Name == FName("smoke_fail")) { Smoke.bWantFailTest = true; break; }
+					if (St.Fail.IsValid() && CondHasEvent(St.Fail, FName("smoke_fail"))) { Smoke.bWantFailTest = true; break; }
 				}
 			}
 		}
@@ -1476,6 +1863,15 @@ void UMissionSubsystem::TickSmoke(float Dt)
 	if (Smoke.Elapsed > (Smoke.bWrongWay ? 300.0 : 150.0)) { Quit(false, TEXT("timeout")); return; }
 	if (State == EState::Complete)
 	{
+		// chained hand-off (a start_mission action is pending): with the no-quit driver, keep driving the next mission
+		if (Smoke.bNoQuit && !PendingAutoStart.IsEmpty())
+		{
+			Smoke.LastStage = -1;
+			Smoke.StagesSeen.Reset();
+			Smoke.bFailTested = true;      // the fail/retry exercise belongs to the first mission of a chain
+			Smoke.bWantFailTest = false;   // (and Attempt is per-mission, so the Attempt>=2 verdict can't span a chain)
+			return;
+		}
 		NoteWrongWayDone();
 		const bool bAll = Mission.IsValid() && Smoke.StagesSeen.Num() == Mission->Stages.Num();
 		FString Why = bAll ? TEXT("mission completed") : TEXT("completed without visiting every stage");
@@ -1506,12 +1902,12 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		Smoke.InsideSince = -1.0;
 	}
 
-	// exercise the fail -> retry path once: a stage whose fail condition is the event "smoke_fail"
-	if (Smoke.bWantFailTest && !Smoke.bFailTested && St.Fail.Type == FMissionCondition::EType::Event && St.Fail.Name == FName("smoke_fail") && Smoke.Elapsed - Smoke.LastDrive > 0.6)
+	// exercise the fail -> retry path once: a stage whose fail condition holds the event "smoke_fail"
+	if (Smoke.bWantFailTest && !Smoke.bFailTested && CondHasEvent(St.Fail, FName("smoke_fail")) && Smoke.Elapsed - Smoke.LastDrive > 0.6)
 	{
 		Smoke.bFailTested = true;
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE firing smoke_fail on stage %d to exercise fail/retry"), StageIndex + 1);
-		FireEvent(St.Fail.Name);
+		FireEvent(FName("smoke_fail"));
 		return;
 	}
 
@@ -1570,6 +1966,29 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		}
 	}
 
+	// campaign-spine drives: a speech beat is skipped (exercises the skip path); an armed minigame is walked to and
+	// hold-driven; heat/lead stages are covered by the interact + teleport paths below (':'-events are never fired).
+	if (Speech.bActive && Smoke.Elapsed - Smoke.LastDrive > 1.2)
+	{
+		Smoke.LastDrive = Smoke.Elapsed;
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE skipping the speech beat (stage %d)"), StageIndex + 1);
+		SkipSpeechSequence();
+		return;
+	}
+	if (Minigame.bArmed)
+	{
+		const APawn* Pawn = GetPlayerPawn();
+		if (Pawn && FVector::Dist2D(Pawn->GetActorLocation(), Minigame.At) > Minigame.Radius * 0.8f)
+		{
+			Smoke.LastDrive = Smoke.Elapsed;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE teleport player to minigame %s"), *Minigame.At.ToCompactString());
+			TeleportPlayer(Minigame.At + FVector(0, 0, 100), 0.f, false);
+			return;
+		}
+		bSmokeDriveMinigame = true;   // the driver's hold-E
+		return;
+	}
+
 	TArray<const FMissionCondition*> Interacts;
 	CollectInteracts(St.Complete, Interacts);
 	if (Interacts.Num() > 0 && InteractInRange(*Interacts[0]))
@@ -1578,21 +1997,55 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		if (Smoke.Elapsed - Smoke.InsideSince > 0.4) { UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE pressing interact (stage %d, prompt shown: '%s')"), StageIndex + 1, Hud.IsValid() ? *Hud->GetState().PromptText : TEXT("-")); DoInteract(); }
 		return;
 	}
-	if (St.Complete.Type == FMissionCondition::EType::Event) { Smoke.LastDrive = Smoke.Elapsed; FireEvent(St.Complete.Name); return; }
+	if (St.Complete.Type == FMissionCondition::EType::Event && !SystemEvent(St.Complete.Name)) { Smoke.LastDrive = Smoke.Elapsed; FireEvent(St.Complete.Name); return; }
 	// any-of over events only (free_fight: enemy_beaten OR enemy_knocked_out): fire the first one, like a plain event stage
 	if (St.Complete.Type == FMissionCondition::EType::Any && !SkippablePositional(St.Complete))
 	{
 		for (const FMissionCondition& K : St.Complete.Children)
 		{
-			if (K.Type == FMissionCondition::EType::Event) { Smoke.LastDrive = Smoke.Elapsed; FireEvent(K.Name); return; }
+			if (K.Type == FMissionCondition::EType::Event && !SystemEvent(K.Name)) { Smoke.LastDrive = Smoke.Elapsed; FireEvent(K.Name); return; }
 		}
 	}
 	FVector Target;
 	if (PrimaryGoal(St.Complete, Target))
 	{
 		Smoke.LastDrive = Smoke.Elapsed;
+		// npc-coincident goals (actor_tag interacts): landing ON the capsule bounce-loops the player, and a wide
+		// sidestep can land past the floor's edge -- land 80 cm off toward the player, but only with floor under it
+		auto FloorUnder = [&](const FVector& At)
+		{
+			FHitResult H;
+			FCollisionQueryParams Q(SCENE_QUERY_STAT(BullySmokeGround), true);
+			return GetWorld()->LineTraceSingleByObjectType(H, At + FVector(0, 0, 200), At + FVector(0, 0, -600), FCollisionObjectQueryParams(ECC_WorldStatic), Q);
+		};
+		for (const auto& Pair : Npcs)
+		{
+			if (!Pair.Value.IsValid()) { continue; }
+			const FVector D2 = (Target - Pair.Value->GetActorLocation()) * FVector(1.0, 1.0, 0.0);
+			if (D2.Size() < 150.f)
+			{
+				const APawn* P2 = GetPlayerPawn();
+				FVector Dir = P2 ? (P2->GetActorLocation() - Pair.Value->GetActorLocation()) * FVector(1.0, 1.0, 0.0) : FVector(1.f, 0.f, 0.f);
+				if (!Dir.Normalize()) { Dir = FVector(1.f, 0.f, 0.f); }   // degenerate (player on top of the npc): any side
+				const FVector Candidate = Pair.Value->GetActorLocation() + Dir * 80.f;
+				if (FloorUnder(Candidate)) { Target = Candidate; }   // no floor off to the side: keep the npc's own spot
+				break;
+			}
+		}
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE teleport player to stage %d target %s"), StageIndex + 1, *Target.ToCompactString());
 		TeleportPlayer(Target + FVector(0, 0, 100), 0.f, false);
+		return;
+	}
+	// drive heartbeat: if a stage ever wedges the driver silently, this says where and why nothing looked actionable
+	if (Smoke.Elapsed - Smoke.LastBeatLog > 10.0)
+	{
+		Smoke.LastBeatLog = Smoke.Elapsed;
+		const APawn* P = GetPlayerPawn();
+		FVector Goal;
+		const bool bGoal = PrimaryGoal(St.Complete, Goal);
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE heartbeat: stage %d '%s' t=%.0f player=%s goal=%s interacts=%d"),
+			StageIndex + 1, *St.Id.ToString(), Smoke.Elapsed, P ? *P->GetActorLocation().ToCompactString() : TEXT("none"),
+			bGoal ? *Goal.ToCompactString() : TEXT("none"), [&]{ TArray<const FMissionCondition*> I2; CollectInteracts(St.Complete, I2); return I2.Num(); }());
 	}
 }
 
@@ -1620,6 +2073,210 @@ bool UMissionSubsystem::PrimaryGoal(const FMissionCondition& C, FVector& Out) co
 		return false;
 	}
 	return ConditionTarget(C, Out);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// chapter-1 primitives runtime (spawn_npc / npc_move_to / npc_lead / pair_anim / speech_sequence / minigame / heat)
+
+ABullyScriptedNPC* UMissionSubsystem::NpcById(FName Id) const
+{
+	const TWeakObjectPtr<ABullyScriptedNPC>* N = Npcs.Find(Id);
+	return (N && N->IsValid()) ? N->Get() : nullptr;
+}
+
+ABullyScriptedNPC* UMissionSubsystem::SpawnMissionNpc(const FMissionAction& A)
+{
+	UWorld* World = GetWorld();
+	if (!World) { return nullptr; }
+	if (ABullyScriptedNPC* Existing = NpcById(A.NpcId))
+	{
+		// stage retry / re-run: reuse the actor (repositioned) instead of duplicating it
+		Existing->ClearCommands(true);
+		Existing->SetActorLocationAndRotation(A.Location + FVector(0, 0, 90.f), FRotator(0.f, A.Yaw, 0.f), false, nullptr, ETeleportType::TeleportPhysics);
+		if (A.bFacePlayer) { Existing->FacePlayer(true); }
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION spawn_npc %s: reused (retry)"), *A.NpcId.ToString());
+		return Existing;
+	}
+	const FString MeshPath = FString::Printf(TEXT("/Game/Imported/Characters/%s/SK_%s.SK_%s"), *A.Mesh, *A.Mesh, *A.Mesh);
+	ABullyScriptedNPC* N = World->SpawnActorDeferred<ABullyScriptedNPC>(ABullyScriptedNPC::StaticClass(),
+		FTransform(FRotator(0.f, A.Yaw, 0.f), A.Location + FVector(0, 0, 90.f)), nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (!N) { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION spawn_npc %s: spawn failed"), *A.NpcId.ToString()); return nullptr; }
+	N->MeshPath = MeshPath;
+	N->NpcId = A.NpcId.ToString();
+	N->GroupId = Mission.IsValid() ? Mission->Id : TEXT("mission");
+	N->Tags.Add(A.Name.IsNone() ? FName(*FString::Printf(TEXT("br_npc_%s"), *A.NpcId.ToString())) : A.Name);
+	N->FinishSpawning(N->GetActorTransform());
+	N->OnCommandDone.AddUObject(this, &UMissionSubsystem::OnNpcCommandDone);
+	if (A.bFacePlayer) { N->FacePlayer(true); }
+	Npcs.Add(A.NpcId, N);
+	if (A.bMissionCritical) { MissionCriticalNpcs.Add(A.NpcId); }
+	// invulnerable / untargetable / min_health: scripted NPCs are not combat pawns, so nothing can target or damage
+	// them today; the flags are recorded on the log line and a critical one expiring unexpectedly fires npc_ko:<id>.
+	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION spawn_npc %s mesh=%s at %s%s%s%s"),
+		*A.NpcId.ToString(), *A.Mesh, *A.Location.ToCompactString(),
+		A.bMissionCritical ? TEXT(" critical") : TEXT(""), A.bInvulnerable ? TEXT(" invuln") : TEXT(""), A.bUntargetable ? TEXT(" untargetable") : TEXT(""));
+	return N;
+}
+
+void UMissionSubsystem::OnNpcCommandDone(ABullyScriptedNPC* Npc, const FSNPCCommand& Cmd, const FString& /*Result*/)
+{
+	if (!Npc || (Cmd.Type != ESNPCCmd::GoTo && Cmd.Type != ESNPCCmd::FollowPath)) { return; }
+	FName Ev;
+	bool bFound = false;
+	for (const auto& Pair : PendingArrive) { if (Pair.Key.Get() == Npc) { Ev = Pair.Value; bFound = true; break; } }
+	if (!bFound) { return; }
+	PendingArrive.Remove(Npc);
+	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc %s arrived -> event %s"), *Npc->NpcId, *Ev.ToString());
+	FireEvent(Ev);
+}
+
+void UMissionSubsystem::DespawnMissionNpcs(const TCHAR* Why)
+{
+	if (Npcs.Num() == 0 && Leads.Num() == 0) { return; }
+	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION despawn %d mission npc(s) (%s)"), Npcs.Num(), Why);
+	for (auto& Pair : Npcs) { if (Pair.Value.IsValid()) { Pair.Value->Despawn(); } }
+	Npcs.Reset();
+	PendingArrive.Reset();
+	Leads.Reset();
+	MissionCriticalNpcs.Reset();
+}
+
+void UMissionSubsystem::TickLeads(float /*Dt*/)
+{
+	if (Leads.Num() == 0) { return; }
+	const APawn* P = GetPlayerPawn();
+	for (int32 i = Leads.Num() - 1; i >= 0; --i)
+	{
+		FLeadOrder& L = Leads[i];
+		ABullyScriptedNPC* N = L.Npc.Get();
+		if (!N) { Leads.RemoveAt(i); continue; }
+		const float DNpc = FVector::Dist2D(N->GetActorLocation(), L.Goal);
+		const double Now = GetWorld()->GetTimeSeconds();
+		if (DNpc <= 120.f)
+		{
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_lead %s arrived -> event %s"), *N->NpcId, *L.Event.ToString());
+			FireEvent(L.Event);
+			Leads.RemoveAt(i);
+			continue;
+		}
+		// no ground gained for 3 s (blocked on geometry): snap to the goal, like the walker's own stuck policy --
+		// its snap does not fire while the player stands on the goal, which is exactly the lead case
+		if (DNpc < L.LastDist - 50.f) { L.LastDist = DNpc; L.NoProgressAt = Now; }
+		else if (Now - L.NoProgressAt > 3.0)
+		{
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_lead %s: no progress toward %s (%.0f cm short) -- snapped to the goal"), *N->NpcId, *L.Goal.ToCompactString(), DNpc);
+			N->ClearCommands(true);
+			N->SetActorLocation(L.Goal + FVector(0, 0, 90.f), false, nullptr, ETeleportType::TeleportPhysics);
+			FireEvent(L.Event);
+			Leads.RemoveAt(i);
+			continue;
+		}
+		if (!L.bWaitingForPlayer)
+		{
+			// pause while the player trails (compared by distance-to-goal, so a teleport past the npc reads as caught up)
+			if (P && FVector::Dist2D(P->GetActorLocation(), L.Goal) > DNpc + 200.f)
+			{
+				N->ClearCommands(true);
+				L.bWaitingForPlayer = true;
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_lead %s: waiting for the player"), *N->NpcId);
+				continue;
+			}
+			if (!N->IsBusy()) { N->GoToPoint(L.Goal, L.bRun ? EBullyGait::Run : EBullyGait::Walk, 90.f, FString::Printf(TEXT("mission %s lead"), *N->NpcId)); }
+		}
+		else if (!P || FVector::Dist2D(P->GetActorLocation(), L.Goal) <= DNpc + 200.f)
+		{
+			L.bWaitingForPlayer = false;   // player caught up (same distance-to-goal threshold as the pause)
+		}
+	}
+}
+
+void UMissionSubsystem::TickSpeech(float /*Dt*/)
+{
+	if (!Speech.bActive) { return; }
+	UWorld* World = GetWorld();
+	if (!World) { return; }
+	if (APlayerController* PC = World->GetFirstPlayerController())
+	{
+		if (PC->WasInputKeyJustPressed(EKeys::Enter) || PC->WasInputKeyJustPressed(EKeys::Gamepad_FaceButton_Right)) { SkipSpeechSequence(); return; }
+	}
+	if (World->GetTimeSeconds() < Speech.LineEndsAt) { return; }
+	if (Speech.Index >= Speech.Lines.Num())
+	{
+		Speech.bActive = false;
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION speech_sequence done -> event %s"), *Speech.DoneEvent.ToString());
+		FireEvent(Speech.DoneEvent);
+		return;
+	}
+	const FSpeechLine& L = Speech.Lines[Speech.Index++];
+	if (Hud.IsValid()) { Hud->Say(L.Speaker, L.Text, L.Seconds); }
+	Speech.LineEndsAt = World->GetTimeSeconds() + L.Seconds;
+}
+
+void UMissionSubsystem::SkipSpeechSequence()
+{
+	if (!Speech.bActive) { return; }
+	Speech.bActive = false;
+	if (Hud.IsValid()) { Hud->Say(TEXT(""), TEXT(""), 0.f); }
+	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION speech_sequence skipped -> event %s"), *Speech.DoneEvent.ToString());
+	FireEvent(Speech.DoneEvent);
+}
+
+void UMissionSubsystem::TickMinigame(float Dt)
+{
+	if (!Minigame.bArmed) { return; }
+	UWorld* World = GetWorld();
+	const APawn* P = GetPlayerPawn();
+	if (!World || !P) { return; }
+	const bool bInRange = FVector::Dist2D(P->GetActorLocation(), Minigame.At) <= Minigame.Radius
+		&& FMath::Abs(P->GetActorLocation().Z - Minigame.At.Z) <= 400.f;
+	if (!Minigame.bRunning)
+	{
+		bool bStart = false;
+		if (bInRange)
+		{
+			if (APlayerController* PC = World->GetFirstPlayerController()) { bStart = PC->WasInputKeyJustPressed(EKeys::E); }
+			bStart = bStart || bSmokeDriveMinigame;
+		}
+		if (bStart)
+		{
+			Minigame.bRunning = true;
+			Minigame.Progress = 0.f;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION minigame started (%.1fs)"), Minigame.Seconds);
+		}
+		return;
+	}
+	if (!bInRange)   // stepped out mid-hold: fail event, re-arm at zero
+	{
+		Minigame.bRunning = false;
+		Minigame.Progress = 0.f;
+		if (Hud.IsValid()) { Hud->SetProgress(0.f, Minigame.Label); }
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION minigame interrupted -> event %s"), *Minigame.Fail.ToString());
+		FireEvent(Minigame.Fail);
+		return;
+	}
+	Minigame.Progress += Dt;
+	if (Hud.IsValid()) { Hud->SetProgress(Minigame.Progress / Minigame.Seconds, Minigame.Label); }
+	if (Minigame.Progress >= Minigame.Seconds)
+	{
+		Minigame.bArmed = false;
+		Minigame.bRunning = false;
+		if (Hud.IsValid()) { Hud->SetProgress(-1.f); }
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION minigame complete -> event %s"), *Minigame.Success.ToString());
+		FireEvent(Minigame.Success);
+	}
+}
+
+void UMissionSubsystem::TickHeat(float Dt)
+{
+	if (HeatPoints <= 0.f) { return; }
+	if (!Flags.Contains(TEXT("player_hidden"))) { return; }   // heat only drains from a hiding spot
+	HeatPoints -= HeatDecay * Dt;
+	if (HeatPoints <= 0.f)
+	{
+		HeatPoints = 0.f;
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION heat decayed -> event heat:zero"));
+		FireEvent(TEXT("heat:zero"));
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------

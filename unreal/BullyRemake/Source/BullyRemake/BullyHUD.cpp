@@ -336,6 +336,49 @@ public:
 				]
 			]
 
+			// countdown, top centre (visible fail timer; red in the last 10 s)
+			+ SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Top).Padding(FMargin(0.f, 96.f, 0.f, 0.f))
+			[
+				SNew(SBox)
+				.Visibility_Lambda([S]() { return S->CountdownLeft >= 0.f ? EVisibility::HitTestInvisible : EVisibility::Collapsed; })
+				[
+					SNew(SBorder).BorderImage(White).BorderBackgroundColor(Panel).Padding(FMargin(14.f, 4.f, 16.f, 6.f))
+					[
+						SNew(STextBlock).Font(Big)
+						.ColorAndOpacity_Lambda([S]() { return S->CountdownLeft < 10.f ? Red : Cream; })
+						.ShadowOffset(FVector2D(1, 1)).ShadowColorAndOpacity(FLinearColor(0, 0, 0, 0.8f))
+						.Text_Lambda([S]()
+						{
+							const int32 Sec = FMath::Max(0, FMath::CeilToInt(S->CountdownLeft));
+							return FText::FromString(FString::Printf(TEXT("%d:%02d"), Sec / 60, Sec % 60));
+						})
+					]
+				]
+			]
+
+			// minigame progress bar, lower centre (above the button prompt)
+			+ SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Bottom).Padding(FMargin(0.f, 0.f, 0.f, 230.f))
+			[
+				SNew(SBox).WidthOverride(320.f)
+				.Visibility_Lambda([S]() { return S->ProgressFrac >= 0.f ? EVisibility::HitTestInvisible : EVisibility::Collapsed; })
+				[
+					SNew(SVerticalBox)
+					+ SVerticalBox::Slot().AutoHeight().HAlign(HAlign_Center).Padding(0, 0, 0, 4)
+					[
+						SNew(STextBlock).Font(Small).ColorAndOpacity(Cream)
+						.Text_Lambda([S]() { return FText::FromString(S->ProgressLabel); })
+					]
+					+ SVerticalBox::Slot().AutoHeight()
+					[
+						SNew(SBorder).BorderImage(White).BorderBackgroundColor(FLinearColor(0.02f, 0.02f, 0.04f, 0.85f)).Padding(FMargin(3.f))
+						[
+							SNew(SBox).WidthOverride_Lambda([S]() { return 314.f * FMath::Clamp(S->ProgressFrac, 0.f, 1.f); }).HeightOverride(10.f).HAlign(HAlign_Left)
+							[ SNew(SBorder).BorderImage(White).BorderBackgroundColor(Gold) ]
+						]
+					]
+				]
+			]
+
 			// banner, upper centre
 			+ SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Top).Padding(FMargin(0.f, 150.f, 0.f, 0.f))
 			[
@@ -438,6 +481,7 @@ void FBullyHUD::ClearObjective()
 	S.ObjectiveText.Reset(); S.MissionTitle.Reset(); S.StageNumber = 0; S.StageCount = 0; S.bBlip = false; S.PromptText.Reset();
 	// retract any cinematic furniture so a mission hand-off / end never leaves bars or a line stuck on screen
 	S.LetterboxTarget = 0.f; S.DialogueLeft = 0.f; S.SpeakerText.Reset(); S.DialogueText.Reset();
+	S.CountdownLeft = -1.f; S.ProgressFrac = -1.f;   // campaign spine: visible fail timer / minigame bar
 }
 
 void FBullyHUD::SetBlip(bool bOn, const FVector& World)
@@ -484,4 +528,18 @@ void FBullyHUD::Say(const FString& Speaker, const FString& Line, float Seconds)
 	S.DialogueLeft = Seconds;
 	S.DialogueTotal = FMath::Max(0.01f, Seconds);
 	UE_LOG(LogBullyHUD, Display, TEXT("BR_HUD say (%.1fs) %s: %s"), Seconds, Speaker.IsEmpty() ? TEXT("-") : *Speaker, *Line);
+}
+
+void FBullyHUD::SetCountdown(float SecondsLeft)
+{
+	State.Get().CountdownLeft = SecondsLeft;
+}
+
+void FBullyHUD::SetProgress(float Frac, const FString& Label)
+{
+	FBullyHUDState& S = State.Get();
+	const bool bWas = S.ProgressFrac >= 0.f;
+	if (bWas != (Frac >= 0.f)) { UE_LOG(LogBullyHUD, Display, TEXT("BR_HUD progress %s %s"), *Label, Frac >= 0.f ? TEXT("shown") : TEXT("hidden")); }
+	S.ProgressFrac = Frac;
+	if (Frac >= 0.f) { S.ProgressLabel = Label; }
 }

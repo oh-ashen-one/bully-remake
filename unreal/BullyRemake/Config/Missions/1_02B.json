@@ -1,25 +1,225 @@
 {
   "_format": "bully-remake.mission/1",
-  "_note": "Placeholder spine stub for 1_02B 'This Is Your School' (campaign-spine v1): the full school-systems tour (apology/lockpick/hide/gift, all inside ischool) is a later wave — see docs/re-notes/ch1/1_02B-this-is-your-school.md. These two outdoor beats exist so the campaign star -> start -> pass -> chain edge is playable and headless-verifiable; wording is original. Chains into 1_02C exactly like the original's shared.b102finished handoff. Points come from imported/triggers (1_02B_spawnPlayerMainmap / 1_02C_ClassLocation).",
+  "_note": "1_02B 'This Is Your School' — full campaign-spine port of the school-systems tour (recon: docs/re-notes/ch1/1_02B-this-is-your-school.md). Structure follows the original beats: Gary lead-in, Russell apology + gift, lockpick, prefect bust + bin hide, Eunice/chocolates, cafeteria outro into 1_02C. v1 stubs (marked in MissionSubsystem.h): social = approach+E (+money gate), lockpick = timed hold bar (not the dial), heat = punishment-lite (decays while hidden), pair_anim = face + generic clip, bust NIS = scripted speech beat + fade walk. The original's baked 1-02D cafeteria cutscene is a title-card beat. Chocolates route is pay-only in v1 (the humiliate/beat-up routes from recon §S9 are noted, not built). Wording is original. Points: imported/triggers/1_02B.json (Trigger.img extract); ped_model_id records the original model id for the future import pass, mesh is the imported stand-in.",
   "id": "1_02B",
   "title": "This Is Your School",
   "retry": "stage",
-  "points": {
-    "tour_start": { "location_cm": [27130.3, 11614.4, 649.7] },
-    "class_approach": { "location_cm": [-60408.4, 29279.8, 3.0] }
-  },
+  "start": { "location_cm": [-62872.4, 32350.4, 17.2], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_02B.json",
+  "fail": { "type": "leave_area", "area": 2 },
+  "fail_text": "You left the school in the middle of the tour.",
+  "triggers": [
+    { "id": "bin_trig", "point": "1_02B_blipGarbage", "half_extent_cm": [160, 160, 200], "interact": true, "prompt": "Hide in the trash bin" }
+  ],
   "stages": [
     {
-      "id": "tour",
-      "objective": "Let Gary show you around the school.",
-      "complete": { "type": "reach_location", "point": "tour_start", "radius_cm": 400 },
-      "on_start": [ { "type": "banner", "text": "THIS IS YOUR SCHOOL", "sub": "Gary knows the ropes. Keep up.", "seconds": 3 } ]
+      "id": "meet_gary",
+      "objective": "Meet Gary by the lockers.",
+      "on_start": [
+        { "type": "banner", "text": "THIS IS YOUR SCHOOL", "sub": "Chapter 1 at Bullworth Academy", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "gary", "point": "1_02B_spawnGaryNew", "mesh": "GN_Boy01", "ped_model_id": 130, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "spawn_npc", "npc": "russell", "point": "1_02B_spawnBully01", "mesh": "GN_Bully05", "ped_model_id": 75, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "algie", "point": "1_02B_spawnGaryVictim", "mesh": "GN_Boy02", "ped_model_id": 4, "untargetable": true },
+        { "type": "speech_sequence", "id": "meet", "lines": [
+          { "speaker": "GARY", "text": "There you are. Stick with me — I'll show you how this place works.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "1_02B_spawnGaryNew", "radius_cm": 400 },
+        { "type": "event", "name": "speech:meet", "latched": true }
+      ] },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:gary" },
+        { "type": "event", "name": "npc_ko:russell" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "The tour guide got knocked out."
     },
     {
-      "id": "to_class",
-      "objective": "Tour's over. Get moving toward your first class.",
-      "complete": { "type": "reach_location", "point": "class_approach", "radius_cm": 400 }
+      "id": "follow_gary",
+      "objective": "Follow Gary to your locker.",
+      "on_start": [
+        { "type": "npc_lead", "npc": "gary", "point": "1_02B_GaryLocker", "run": true, "radius_cm": 600 },
+        { "type": "hint", "text": "Follow Gary.", "seconds": 4 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:gary", "latched": true },
+        { "type": "reach_location", "point": "1_02B_GaryLocker", "radius_cm": 600 }
+      ] }
+    },
+    {
+      "id": "russell_spot",
+      "objective": "Russell is blocking the lockers.",
+      "blip": "1_02B_movePlayerRussell1",
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "teleport", "point": "1_02B_movePlayerRussell1", "yaw": 0 },
+        { "type": "npc_move_to", "npc": "gary", "point": "1_02B_moveGaryRussell1" },
+        { "type": "npc_face", "npc": "russell", "face": "player" },
+        { "type": "camera", "location_cm": [-60470, 30220, 170], "look": "player", "fov": 50, "blend": 0.8 },
+        { "type": "money_ensure", "money": 2 },
+        { "type": "speech_sequence", "id": "russell", "lines": [
+          { "speaker": "GARY", "text": "That's Russell. Big guy, short fuse.", "seconds": 3 },
+          { "speaker": "RUSSELL", "text": "New meat. You're standing in my hallway.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:russell", "latched": true },
+      "on_complete": [ { "type": "camera", "release": true, "blend": 0.6 }, { "type": "letterbox", "on": false } ]
+    },
+    {
+      "id": "apologize",
+      "objective": "Apologize to Russell.",
+      "on_start": [ { "type": "hint", "text": "Walk up to Russell and apologize (E).", "seconds": 5 } ],
+      "complete": { "type": "social", "actor_tag": "br_npc_russell", "radius_cm": 250, "prompt": "Apologize" }
+    },
+    {
+      "id": "russell_gift",
+      "objective": "Russell wants a gift. Pay him off.",
+      "on_start": [
+        { "type": "say", "speaker": "RUSSELL", "text": "Words are cheap, new kid. Show me you're sorry.", "seconds": 3 },
+        { "type": "money_ensure", "money": 2 }
+      ],
+      "complete": { "type": "social", "actor_tag": "br_npc_russell", "radius_cm": 250, "prompt": "Pay Russell ($2)", "money": 2 },
+      "on_complete": [
+        { "type": "pair_anim", "npc": "russell", "seconds": 1.5, "clips": "G_PUNCH_FINISH_GV,VICTORY01" },
+        { "type": "say", "speaker": "GARY", "text": "See? Everyone's friendly once you pay up.", "seconds": 3 },
+        { "type": "npc_move_to", "npc": "russell", "point": "1_02B_garyFleeLocker", "run": true }
+      ]
+    },
+    {
+      "id": "lockpick",
+      "objective": "Pick the lock on your locker.",
+      "blip": "1_02B_objLocker",
+      "on_start": [
+        { "type": "npc_despawn", "npc": "russell" },
+        { "type": "say", "speaker": "GARY", "text": "Your locker's stuck. Pop it — easy does it.", "seconds": 3 },
+        { "type": "minigame_launch", "id": "lockpick", "point": "1_02B_objLocker", "radius_cm": 250, "seconds": 4, "text": "Picking the lock..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:lockpick_ok", "latched": true },
+      "on_complete": [
+        { "type": "banner", "text": "LOCKER OPEN", "sub": "Someone left a hat in here.", "seconds": 3 },
+        { "type": "give_item", "item": "S_Bhat1", "n": 1 },
+        { "type": "log", "text": "clothing grant recorded: S_Bhat1 (wardrobe system pending)" }
+      ]
+    },
+    {
+      "id": "karl_bust",
+      "objective": "A prefect spotted you.",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "karl", "point": "1_02B_spawnKarl", "mesh": "PFH1_Seth", "ped_model_id": 52, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "location_cm": [-60910, 32180, 170], "look": "player", "fov": 45, "blend": 0.6 },
+        { "type": "speech_sequence", "id": "bust", "lines": [
+          { "speaker": "PREFECT", "text": "You there! Lockers are off-limits between classes.", "seconds": 3 },
+          { "speaker": "GARY", "text": "Run. Seriously — run.", "seconds": 2.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:bust", "latched": true },
+      "on_complete": [
+        { "type": "camera", "release": true, "blend": 0.4 },
+        { "type": "letterbox", "on": false },
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "1_02B_movePlayerLocker" },
+        { "type": "heat_set", "points": 200, "decay": 25 },
+        { "type": "npc_move_to", "npc": "karl", "point": "1_02B_blipGarbage", "run": true },
+        { "type": "banner", "text": "TROUBLE", "sub": "Hide until the heat dies down.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "hide_bin",
+      "objective": "Hide in the trash bin.",
+      "blip": "1_02B_blipGarbage",
+      "complete": { "type": "all", "conditions": [
+        { "type": "interact", "trigger": "bin_trig", "set_flag": "player_hidden" },
+        { "type": "event", "name": "heat:zero", "latched": true }
+      ] },
+      "on_complete": [
+        { "type": "hide", "on": false },
+        { "type": "npc_despawn", "npc": "karl" },
+        { "type": "say", "speaker": "GARY", "text": "Psst. Coast is clear. Over here.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "eunice_beat",
+      "objective": "Someone is crying in the hall.",
+      "blip": "1_02B_spawnEunice",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "eunice", "point": "1_02B_spawnEunice", "mesh": "GN_Asiangirl", "ped_model_id": 74, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "npc_move_to", "npc": "gary", "point": "1_02B_GaryEunice", "run": true },
+        { "type": "letterbox", "on": true },
+        { "type": "fade", "out": 0.3, "hold": 0.2, "in": 0.5, "point": "1_02B_movePlayerEunice" },
+        { "type": "speech_sequence", "id": "eunice", "lines": [
+          { "speaker": "GARY", "text": "Eunice is having a rough morning. Go on — be nice to her.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:eunice", "latched": true },
+      "on_complete": [ { "type": "letterbox", "on": false } ],
+      "fail": { "type": "event", "name": "npc_ko:eunice" },
+      "fail_text": "Eunice got hurt."
+    },
+    {
+      "id": "greet_eunice",
+      "objective": "Cheer Eunice up.",
+      "on_start": [ { "type": "hint", "text": "Say something nice to Eunice (E).", "seconds": 5 } ],
+      "complete": { "type": "social", "actor_tag": "br_npc_eunice", "radius_cm": 250, "prompt": "Say something nice" },
+      "on_complete": [
+        { "type": "say", "speaker": "EUNICE", "text": "...Thanks, I guess.", "seconds": 2.5 },
+        { "type": "npc_face", "npc": "eunice", "face": "player" },
+        { "type": "say", "speaker": "GARY", "text": "She wants chocolates. Constantine's got some — he's in the bathroom, naturally.", "seconds": 4 },
+        { "type": "spawn_npc", "npc": "constantine", "point": "1_02B_spawnConstantine", "mesh": "GN_Greekboy", "ped_model_id": 70, "untargetable": true },
+        { "type": "money_ensure", "money": 1 }
+      ]
+    },
+    {
+      "id": "get_chocolates",
+      "objective": "Get the chocolates from Constantine.",
+      "on_start": [ { "type": "say", "speaker": "CONSTANTINE", "text": "Chocolates? Sure. For a dollar.", "seconds": 3 } ],
+      "complete": { "type": "social", "actor_tag": "br_npc_constantine", "radius_cm": 250, "prompt": "Buy the chocolates ($1)", "money": 1 },
+      "on_complete": [
+        { "type": "give_item", "item": "chocolates", "n": 1 },
+        { "type": "pair_anim", "npc": "constantine", "seconds": 1.5, "clips": "GIVE,VICTORY01" },
+        { "type": "say", "speaker": "CONSTANTINE", "text": "Pleasure doing business.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "return_chocolates",
+      "objective": "Bring Eunice the chocolates.",
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "chocolates" },
+        { "type": "social", "actor_tag": "br_npc_eunice", "radius_cm": 250, "prompt": "Give Eunice the chocolates" }
+      ] },
+      "on_complete": [
+        { "type": "take_item", "item": "chocolates", "n": 1 },
+        { "type": "pair_anim", "npc": "eunice", "seconds": 1.5, "clips": "GIVE,CHEER" },
+        { "type": "say", "speaker": "EUNICE", "text": "For me? ...Okay, you're cute.", "seconds": 3 },
+        { "type": "say", "speaker": "GARY", "text": "Smooth. Real smooth.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "follow_cafe",
+      "objective": "Follow Gary to the cafeteria.",
+      "on_start": [ { "type": "npc_lead", "npc": "gary", "point": "1_02B_objCafe", "run": true, "radius_cm": 600 } ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:gary", "latched": true },
+        { "type": "reach_location", "point": "1_02B_objCafe", "radius_cm": 600 }
+      ] }
+    },
+    {
+      "id": "outro",
+      "objective": "See where everyone eats.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "fade", "out": 0.4, "hold": 0.2, "in": 0.6, "point": "1_02B_exitedCafe" },
+        { "type": "spawn_npc", "npc": "edward", "point": "1_02B_outroPrefect", "mesh": "PFH1_Seth", "ped_model_id": 51, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "npc_move_to", "npc": "gary", "point": "1_02B_outroGaryFlee", "run": true },
+        { "type": "banner", "text": "THE CAFETERIA", "sub": "Every clique has its table.", "seconds": 3 },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "PREFECT", "text": "New kid. Classes are starting — move.", "seconds": 3 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [ { "type": "letterbox", "on": false } ]
     }
   ],
-  "on_complete": [ { "type": "start_mission", "mission": "1_02C", "seconds": 0.5 } ]
+  "on_complete": [ { "type": "start_mission", "mission": "1_02C", "seconds": 1.5 } ]
 }

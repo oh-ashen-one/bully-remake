@@ -41,6 +41,12 @@ struct FBullyHUDState
 	FString WalletText;         // reward loop: running "$money" (+ respect) shown top-right; empty = hidden
 	float WalletFlash = 0.f;    // seconds left of the gold flash when it changes
 
+	// campaign spine: visible countdown (a stage's "visible" fail timer, e.g. the 1_02C class bell) and the
+	// minigame progress bar (lockpick v1 hold-interact)
+	float CountdownLeft = -1.f;   // seconds remaining; < 0 = hidden
+	float ProgressFrac = -1.f;    // 0..1 fill; < 0 = hidden
+	FString ProgressLabel;
+
 	// cinematic (in-engine cutscenes): letterbox bars slide in/out; a dialogue line reads at the bottom
 	float Letterbox = 0.f;       // current bar coverage 0..1 (eased toward LetterboxTarget each tick)
 	float LetterboxTarget = 0.f; // 0 = retracted, 1 = full cinematic bars
@@ -76,6 +82,11 @@ public:
 	void SetLetterbox(bool bOn);
 	/** Cinematic: show one cutscene dialogue line (speaker label + text) for Seconds. */
 	void Say(const FString& Speaker, const FString& Line, float Seconds);
+
+	/** Campaign spine: show a countdown (seconds left; < 0 hides) — a stage fail timer marked "visible". */
+	void SetCountdown(float SecondsLeft);
+	/** Campaign spine: minigame progress bar (Frac 0..1; < 0 hides). */
+	void SetProgress(float Frac, const FString& Label = FString());
 
 	const FBullyHUDState& GetState() const { return State.Get(); }
 

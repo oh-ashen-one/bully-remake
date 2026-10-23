@@ -1,25 +1,56 @@
 {
   "_format": "bully-remake.mission/1",
-  "_note": "Placeholder spine stub for 1_02C, the first-class connector (campaign-spine v1): the original rings the bell, sets the clock to 9:00, pauses it for the first-attempt class tutorials, and fails on a 57 s countdown (docs/re-notes/ch1/1_02C-first-class.md). This stub keeps the clock beats (set 9:00, pause for the tutorial hint, unpause on pass) so the campaign clock actions are exercised; the countdown fail comes with the real mission. Wording is original. Point: 1_02C_ClassExit (imported/triggers/1_02C.json).",
+  "_note": "1_02C — the first-class connector (recon: docs/re-notes/ch1/1_02C-first-class.md). Clock to 9:00 and paused for the first-attempt tutorial cards (retries skip them via the attempt condition, like the original's GetMissionAttemptCount gate), bell banner + event, then a 57 s visible countdown to reach the Chemistry door and interact; expiry fails the stage (retry replays it). Pass: clock unpaused, world loot-tables flag (the loot system itself is pending), and the original's chain into the C_Chem_1 class is logged as out of scope (class system pending). No bell audio: Config/Sfx.json has no bell cue yet. Points: imported/triggers/1_02C.json (Trigger.img extract).",
   "id": "1_02C",
   "title": "First Class",
   "retry": "stage",
-  "points": {
-    "class_door": { "location_cm": [-60408.1, 29419.7, 3.5] }
-  },
+  "start": { "location_cm": [-63865.7, 29428.3, 17.0], "yaw": 180 },
+  "trigger_file": "imported/triggers/1_02C.json",
+  "triggers": [
+    { "id": "class_door", "center_cm": [-60408.4, 29279.8, 103.0], "half_extent_cm": [150, 150, 200], "interact": true, "prompt": "Enter Chemistry class" }
+  ],
   "stages": [
+    {
+      "id": "settle",
+      "objective": "Morning. The school day is starting.",
+      "blip": false,
+      "complete": { "type": "timer", "seconds": 1.0 },
+      "on_start": [
+        { "type": "fade", "out": 0.0, "hold": 0.1, "in": 0.8 },
+        { "type": "clock", "set": "9:00" },
+        { "type": "clock", "pause": true }
+      ]
+    },
+    {
+      "id": "tutorials",
+      "objective": "Classes run on the school clock.",
+      "blip": false,
+      "complete": { "type": "any", "conditions": [
+        { "type": "attempt", "n": 2 },
+        { "type": "timer", "seconds": 6.0 }
+      ] },
+      "on_start": [
+        { "type": "hint", "text": "Classes start when the bell rings.", "seconds": 2.5 },
+        { "type": "hint", "text": "Watch the clock — being late has consequences.", "seconds": 2.5 },
+        { "type": "hint", "text": "Follow the marker to your class.", "seconds": 2.5 }
+      ],
+      "on_complete": [ { "type": "clock", "unpause": true } ]
+    },
     {
       "id": "get_to_class",
       "objective": "Get to Chemistry before the bell.",
-      "complete": { "type": "reach_location", "point": "class_door", "radius_cm": 300 },
+      "complete": { "type": "interact", "trigger": "class_door", "radius_cm": 250, "prompt": "Enter Chemistry class" },
+      "fail": { "type": "timer", "seconds": 57, "visible": true },
+      "fail_text": "The bell rang. You missed Chemistry.",
       "on_start": [
-        { "type": "clock", "set": "9:00" },
-        { "type": "clock", "pause": true },
-        { "type": "hint", "text": "Classes run on the school clock. Don't be late.", "seconds": 4 }
+        { "type": "banner", "text": "FIRST PERIOD", "sub": "The bell rings across Bullworth.", "seconds": 3 },
+        { "type": "event", "name": "bell_rung" }
       ],
       "on_complete": [
         { "type": "clock", "unpause": true },
-        { "type": "log", "text": "1_02C passed: the school schedule is live" }
+        { "type": "event", "name": "world_loot_enabled" },
+        { "type": "log", "text": "world loot tables on (crates/mailboxes); loot system pending" },
+        { "type": "log", "text": "C_Chem_1 class launch out of scope (class system pending)" }
       ]
     }
   ]

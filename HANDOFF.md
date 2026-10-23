@@ -4,6 +4,40 @@ Date: 2026-10-20 · Branch: `phase2` = `main` (**merged to main 2026-10-20 on th
 `~/bully-remake` on `phase2`) · Laptop checkout `~/bully-remake` also on `phase2` (edit/commit/push there, pull on the Studio).
 Status: **built + headless-verified + rendered stills reviewed; owner feel-playtest pending.**
 
+---
+
+## kimi-backend (2026-10-22/23, branch `kimi-backend`): campaign spine + full 1_02B/1_02C
+
+Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless-verified on the Studio.
+
+- **Wave 1 (spine)**: `UClockSubsystem` (game clock, pause/unpause/set, midnight-wrapping windows, hour delegate),
+  `UBullyCampaignSubsystem` (Config/Campaign.json: 19-row Chapter 1 table from the recon docs — prereq chains, windows,
+  SMissPass-style on_pass: give_weapon/give_ammo with numeric-id mapping, respect set-values, force_complete, chapter_set,
+  money cents→wallet, clock), `AMissionStar` + `UMissionStarSubsystem` (world star markers, polled containment, harness-suppressed
+  except its own `-BRCampaignSmoke`), MissionSubsystem glue (new actions + availability gate with dev override). Verified:
+  `tools/ue/run_campaign_smoke.sh` **PASS 4/4**; day_one/side_errand/arrival regressions PASS.
+- **Wave 2 (1_02B + 1_02C full missions)**: new framework primitives (all in MissionSubsystem, schema documented in
+  MissionSubsystem.h): `spawn_npc` (friendly `ABullyScriptedNPC` at a point; id-reuse on retry), `npc_move_to`/`npc_lead`
+  (arrive events; lead pauses when the player trails, snaps after 3 s of no progress), `npc_face`/`npc_despawn`, `pair_anim`
+  (stub), `speech_sequence` (multi-line, Enter/pad-B skippable), `minigame_launch` (v1 = timed hold bar, not the dial),
+  `give_item`/`take_item` + `money_ensure`/`money_take` (wallet + session item inventory in BullyProgressSubsystem),
+  `heat_set`/`hide` (punishment-lite: decays while hidden → `heat:zero`), conditions `has_item` / `attempt` (retry-aware,
+  gates 1_02C's tutorial cards) / `leave_area` (area bbox from the trigger file) / `social` (interact + money gate) /
+  timer `"visible"` (HUD countdown) + stage `fail_text` + mission-root `fail`. Trigger-file loader reads the
+  `imported/triggers/*.json` "entities" layout. Smoke driver: `:`-namespaced system events are never auto-fired (it skips
+  speech beats, hold-drives minigames instead), `smoke_fail` found recursively, drive-current mode + chain continuation
+  (`DriveSmoke("", false)`).
+- **Missions**: `Config/Missions/1_02B.json` (14 stages: Gary lead-in, Russell apology+gift ($2 wallet gate), lockpick,
+  prefect bust + bin hide, Eunice/chocolates ($1), cafeteria outro, chains to 1_02C), `1_02C.json` (3 stages: clock to
+  9:00/paused, attempt-gated tutorial cards, bell + 57 s visible countdown, interact at the Chemistry door; pass unpauses
+  the clock + sets the world-loot flag; C_Chem_1 class launch logged as out of scope). All wording original; points from
+  `imported/triggers/1_02B.json`/`1_02C.json`; `ped_model_id` records the original model ids next to the stand-in meshes.
+- **Verified** (Studio): `run_mission_smoke.sh 1_02B` **PASS 14/14** (incl. fail/retry), `1_02C` **PASS 3/3**,
+  `run_campaign_smoke.sh` **PASS 4/4**, regressions day_one 26/26, side_errand 5/5, arrival 6/6 — all PASS, no windows.
+- **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
+  are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
+  Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.
+
 ## What this session did (owner ask: "do the rest — pull the models from the game like we've been doing")
 
 Owner overruled the previous session's "no game models" line: game assets are pulled from the owner's own install exactly like

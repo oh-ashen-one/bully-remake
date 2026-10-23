@@ -205,15 +205,7 @@ void UMissionStarSubsystem::TickSmoke(float Dt)
 	const double InPhase = Smoke.Elapsed - Smoke.PhaseAt;
 	const UMissionSubsystem::EState MState = M->GetState();
 
-	// generic driver for the stub missions the star starts: hop onto the current stage's positional target
-	auto Drive = [&]()
-	{
-		if (MState == UMissionSubsystem::EState::Running && Smoke.Elapsed >= Smoke.NextDriveAt)
-		{
-			Smoke.NextDriveAt = Smoke.Elapsed + 1.2;
-			M->GotoStageTarget();
-		}
-	};
+	// the star-started missions are driven by the real mission smoke driver in drive-current mode (DriveSmoke(""))
 
 	switch (Smoke.Phase)
 	{
@@ -246,11 +238,15 @@ void UMissionStarSubsystem::TickSmoke(float Dt)
 			else { SmokeCheck(TEXT("2_star_start_chain"), false, TEXT("no 1_02B star to walk into")); Smoke.Phase = 6; Smoke.PhaseAt = Smoke.Elapsed; }
 		}
 		return;
-	case 3:   // check 2a: the 1_02B star starts its mission; drive it to completion
+	case 3:   // check 2a: the 1_02B star starts its mission; the mission smoke driver (drive-current) runs it
 	{
 		if (!Smoke.bStarted102B)
 		{
-			if (MState == UMissionSubsystem::EState::Running && M->GetMission() && M->GetMission()->Id == TEXT("1_02B")) { Smoke.bStarted102B = true; }
+			if (MState == UMissionSubsystem::EState::Running && M->GetMission() && M->GetMission()->Id == TEXT("1_02B"))
+			{
+				Smoke.bStarted102B = true;
+				M->DriveSmoke(TEXT(""), /*bQuitOnDone*/ false);   // drive whatever is running, across the chain
+			}
 			else if (InPhase > 15.0)
 			{
 				SmokeCheck(TEXT("2_star_start_chain"), false, TEXT("walking into the 1_02B star did not start the mission"));
@@ -258,7 +254,6 @@ void UMissionStarSubsystem::TickSmoke(float Dt)
 			}
 			return;
 		}
-		Drive();
 		if (Smoke.FinishedId == TEXT("1_02B"))
 		{
 			const bool bOk = Smoke.bFinishedOk;
@@ -267,9 +262,9 @@ void UMissionStarSubsystem::TickSmoke(float Dt)
 			Smoke.Phase = 4; Smoke.PhaseAt = Smoke.Elapsed;
 			Smoke.bStarted102B = false;
 		}
-		else if (InPhase > 90.0)
+		else if (InPhase > 150.0)
 		{
-			SmokeCheck(TEXT("2_star_start_chain"), false, TEXT("1_02B did not complete in 90 s"));
+			SmokeCheck(TEXT("2_star_start_chain"), false, TEXT("1_02B did not complete in 150 s"));
 			Smoke.Phase = 6; Smoke.PhaseAt = Smoke.Elapsed;
 		}
 		return;
@@ -288,9 +283,8 @@ void UMissionStarSubsystem::TickSmoke(float Dt)
 		}
 		return;
 	}
-	case 5:   // drive 1_02C; its clock actions (set 9:00, pause during the tutorial, unpause on pass) are part of check 2
-		Drive();
-		if (Smoke.FinishedId == TEXT("1_02C") || InPhase > 60.0)
+	case 5:   // 1_02C runs under the same driver (the chain kept it armed); its clock actions are part of check 2
+		if (Smoke.FinishedId == TEXT("1_02C") || InPhase > 90.0)
 		{
 			const bool bChainOk = Smoke.FinishedId == TEXT("1_02C") && Smoke.bFinishedOk;
 			const bool bClockOk = !Clock->IsPaused() && Clock->GetHour() == 9;

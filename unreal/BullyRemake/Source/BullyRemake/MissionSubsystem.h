@@ -23,10 +23,25 @@
 //
 //   conditions: { "type": "reach_location", "point": "name" | "location_cm": [..], "radius_cm": 300, "z_tolerance_cm": 400 }
 //               { "type": "trigger_enter" | "trigger_exit", "trigger": "id" }
-//               { "type": "interact", "trigger": "id" | "actor_tag": "tag", "radius_cm": 250, "prompt": "Open the door" }
+//               { "type": "interact", "trigger": "id" | "actor_tag": "tag", "radius_cm": 250, "prompt": "Open the door",
+//                                       "money": 2, "set_flag": "player_hidden" }   // money: wallet must cover it (taken on
+//                                                                                    //  fire; short = hint, no fire). set_flag:
+//                                                                                    //  latch a mission flag when it fires.
+//                                                                                    //  "social" is an alias with the same fields.
 //               { "type": "event", "name": "...", "latched": false }   // latched = also true if fired earlier in the mission
-//               { "type": "timer", "seconds": 5 }   { "type": "flag", "name": "..." }
+//               { "type": "timer", "seconds": 5, "visible": true }     // visible: HUD countdown while it runs (use on a fail timer)
+//               { "type": "flag", "name": "..." }
+//               { "type": "has_item", "name": "chocolates" }           // session item inventory (BullyProgressSubsystem)
+//               { "type": "attempt", "n": 1, "eq": true }              -- campaign attempt count for this mission (gte unless eq)
+//               { "type": "leave_area", "area": 2 }                    -- player outside the trigger-file area's bounds
+//                                                                         (bbox of that area's trigger-file points + margin)
 //               { "type": "all" | "any", "conditions": [ ... ] }
+//   stage extras: "fail_text": "..." (the fail banner's reason line); a root-level "fail" condition + "fail_text" on the
+//   mission itself is evaluated every tick of every stage (e.g. 1_02B's leave-the-school fail).
+//
+//   NOTE for the smoke driver: events whose names contain ':' are system-produced (speech:<id>, heat:zero,
+//   npc_arrived:<id>, minigame ids, npc_ko:<id>) and are never auto-fired by the driver; it exercises the producing
+//   system instead (skips the speech beat, hold-drives the minigame, hides and waits out the heat decay).
 //   actions:    { "type": "hint", "text": "...", "seconds": 5 } | { "type": "banner", "text": "...", "sub": "..." }
 //               { "type": "event", "name": "..." } | { "type": "set_flag" | "clear_flag", "name": "..." }
 //               { "type": "teleport", "point": "name" | "location_cm": [..], "yaw": 0 } | { "type": "log", "text": "..." }
@@ -51,6 +66,36 @@
 //               { "type": "chapter_set", "chapter": 2 }                              // advance the campaign chapter
 //               { "type": "force_complete", "mission": "id" | "missions": ["id",..] } // mark passed without playing (applies on_pass)
 //
+//   campaign-spine chapter-1 primitives (1_02B/1_02C):
+//               { "type": "spawn_npc", "npc": "gary", "point": "name", "mesh": "GN_Boy01",  // friendly scripted NPC
+//                 "yaw": 0, "mission_critical": true, "invulnerable": true, "min_health": 0, // (ABullyScriptedNPC; a
+//                 "untargetable": true, "face": "player", "tag": "br_npc_gary",              //  critical NPC expiring
+//                 "ped_model_id": 130 }                                                     //  fires "npc_ko:<id>").
+//                 spawn_npc with an existing id REUSES it (re-positioned) so stage retries don't duplicate.
+//               { "type": "npc_move_to", "npc": "gary", "point": "name", "run": true,        // walk/run there; fires
+//                 "event": "npc_arrived:gary" }                                              // the event on arrival
+//               { "type": "npc_lead", "npc": "gary", "point": "name", "radius_cm": 600 }     // lead the player: pause
+//                                                                                            //  while he trails behind
+//               { "type": "npc_face", "npc": "gary", "face": "player" | "point": "name" }
+//               { "type": "npc_despawn", "npc": "gary" }
+//               { "type": "pair_anim", "npc": "eunice", "seconds": 1.5, "clips": "A,B" }     // v1 STUB: the pair face
+//                                                                                            //  each other; the NPC plays
+//                                                                                            //  a generic clip; timed
+//               { "type": "speech_sequence", "id": "russell", "lines": [{ "speaker": "GARY", // ordered multi-speaker
+//                 "text": "...", "seconds": 3 }] }                                           //  lines; Enter/pad-B skips
+//                                                                                            //  to the end; fires
+//                                                                                            //  "speech:<id>" when done
+//               { "type": "minigame_launch", "id": "lockpick", "point": "name" | "trigger": "id", "seconds": 4,
+//                 "success": "minigame:lockpick_ok", "fail": "minigame:lockpick_fail", "text": "Picking lock..." }
+//                 -- v1 STUB: press E in range to start a timed progress bar; stay in range until it fills (success),
+//                    step out early (fail). NOT the original's dial minigame.
+//               { "type": "give_item", "item": "chocolates", "n": 1 } | { "type": "take_item", ... }  // session inventory
+//               { "type": "money_ensure", "money": 2 } | { "type": "money_take", "money": 2 }          // wallet floor / take
+//               { "type": "heat_set", "points": 200, "decay": 25 }   // punishment-lite STUB: heat points, decaying
+//                                                                    //  `decay`/s only while the player is hidden;
+//                                                                    //  fires "heat:zero" at 0
+//               { "type": "hide", "on": true }                       // the player ducks into a hiding spot
+//
 // Campaign spine: StartMission consults UBullyCampaignSubsystem::IsAvailable (ids outside the campaign table are
 // always available) unless the start came from -BRMission=, the Mission.Start console exec, or a smoke/shots
 // harness (bDevOverride — harness runs must keep working); star-marker starts go through the gate. CompleteMission
@@ -65,26 +110,44 @@ class AMissionTrigger;
 class FBullyHUD;
 class APawn;
 class ACameraActor;
+class ABullyScriptedNPC;
+struct FSNPCCommand;
 
 struct FMissionCondition
 {
-	enum class EType : uint8 { None, Reach, TriggerEnter, TriggerExit, Interact, Event, Timer, Flag, All, Any };
+	enum class EType : uint8 { None, Reach, TriggerEnter, TriggerExit, Interact, Event, Timer, Flag, All, Any, HasItem, Attempt, LeaveArea };
 	EType Type = EType::None;
 	FVector Location = FVector::ZeroVector;   // Reach
 	float Radius = 300.f;                     // Reach radius / Interact actor range
 	float ZTolerance = 400.f;
-	FName Name;                               // trigger id / event name / flag / actor tag
+	FName Name;                               // trigger id / event name / flag / actor tag / item id (has_item)
 	bool bActorTag = false;                   // Interact: Name is an actor tag instead of a trigger id
 	bool bLatched = false;                    // Event
 	float Seconds = 0.f;                      // Timer
 	FString Prompt;                           // Interact
 	TArray<FMissionCondition> Children;       // All / Any
+	// campaign spine: Interact/Social extras (money gate + flag latch), Attempt (attempt-count gate),
+	// LeaveArea (area bounds from the trigger file), Timer "visible" (HUD countdown)
+	int32 MoneyCost = 0;
+	FName FlagToSet;
+	int32 AttemptN = 0;
+	bool bAttemptEq = false;
+	int32 Area = -1;
+	bool bVisible = false;
 	bool IsValid() const { return Type != EType::None; }
+};
+
+/** One line of a speech_sequence action. */
+struct FSpeechLine
+{
+	FString Speaker, Text;
+	float Seconds = 4.f;
 };
 
 struct FMissionAction
 {
-	enum class EType : uint8 { Hint, Banner, Event, SetFlag, ClearFlag, Teleport, Log, StartMission, SpawnEnemy, Fade, Reward, Letterbox, Say, Camera, Shake, GiveWeapon, GiveAmmo, SetRespect, Clock, ChapterSet, ForceComplete };
+	enum class EType : uint8 { Hint, Banner, Event, SetFlag, ClearFlag, Teleport, Log, StartMission, SpawnEnemy, Fade, Reward, Letterbox, Say, Camera, Shake, GiveWeapon, GiveAmmo, SetRespect, Clock, ChapterSet, ForceComplete,
+		SpawnNpc, NpcMove, NpcLead, NpcFace, NpcDespawn, PairAnim, SpeechSequence, MinigameLaunch, GiveItem, TakeItem, MoneyEnsure, MoneyTake, HeatSet, Hide };
 	EType Type = EType::Log;
 	FString Text, Sub;
 	FName Name;
@@ -120,6 +183,23 @@ struct FMissionAction
 	// Amount 1 = pause, 2 = unpause.
 	int32 WeaponId = -1;
 	int32 Amount = 0;
+	// chapter-1 primitives: npc actions (NpcId = script id; spawn_npc: Text = ped mesh folder name, Location/Yaw = spawn,
+	// flags below; npc_move_to/npc_lead: Location = goal, Sub = arrived-event override (default "npc_arrived:<id>"),
+	// Dist = lead follow radius; npc_face: Location or bFacePlayer; npc_despawn: NpcId; pair_anim: NpcId + Text =
+	// comma-separated clip candidates, Seconds). spawn_npc reusing an existing id repositions it (stage retries).
+	FName NpcId;
+	bool bMissionCritical = false, bInvulnerable = false, bUntargetable = false, bFacePlayer = false, bRun = false;
+	float MinHealth = 0.f;
+	FString Mesh;
+	// speech_sequence: Lines play in order on the HUD; Enter / gamepad right face button skips to the end; fires
+	// "speech:<id>" (Name = id) when done or skipped.
+	TArray<FSpeechLine> Lines;
+	// minigame_launch (v1 = timed hold-interact progress bar, NOT the original's dial): Name = id, trigger id in Sub
+	// (optional), Location/Radius = the spot, Seconds = fill time, SuccessEvent/FailEvent, Text = HUD label.
+	FName SuccessEvent, FailEvent;
+	float Radius = 250.f;
+	// heat_set: Amount = points, Amp reused as decay-per-second. hide: bOn. give_item/take_item: Name = item, Amount = n.
+	// money_ensure/money_take: Money field (dollars, the wallet's unit).
 };
 
 struct FMissionStage
@@ -130,6 +210,7 @@ struct FMissionStage
 	FVector BlipLocation = FVector::ZeroVector;
 	FMissionCondition Complete;
 	FMissionCondition Fail;
+	FString FailText;                         // optional fail-banner reason line (keyed fail text)
 	bool bHasCheckpoint = false;
 	FVector CheckpointLocation = FVector::ZeroVector;
 	float CheckpointYaw = 0.f;
@@ -158,6 +239,11 @@ struct FMissionDef
 	TArray<FMissionTriggerDef> Triggers;
 	TArray<FMissionStage> Stages;
 	TArray<FMissionAction> OnComplete;
+	// root-level fail: evaluated every tick of every stage (e.g. leaving the school mid-mission)
+	FMissionCondition RootFail;
+	FString RootFailText;
+	// trigger-file area bounds (area code -> bbox of that area's entities + margin), for leave_area conditions
+	TMap<int32, FBox> AreaBoxes;
 };
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FMissionStageDelegate, const FMissionDef& /*Mission*/, int32 /*StageIndex (0-based)*/);
@@ -252,6 +338,53 @@ private:
 	void ReleaseCutsceneCamera(float Blend);     // hand the view back to the player; destroy the owned camera actor
 	void ApplyShake(const FMissionAction& A);    // kick the player's camera (cutscene impact beats)
 
+	// chapter-1 primitives runtime (spawn_npc / npc_move_to / npc_lead / pair_anim / speech_sequence / minigame_launch /
+	// heat_set / hide). Mission-scoped: all of it is torn down on Stop/Complete; spawn_npc reuses an id on stage retry.
+	ABullyScriptedNPC* SpawnMissionNpc(const FMissionAction& A);
+	ABullyScriptedNPC* NpcById(FName Id) const;
+	void OnNpcCommandDone(ABullyScriptedNPC* Npc, const FSNPCCommand& Cmd, const FString& Result);
+	void DespawnMissionNpcs(const TCHAR* Why);
+	void TickLeads(float Dt);
+	void TickSpeech(float Dt);
+	void SkipSpeechSequence();             // Enter / pad right button, and the smoke driver: jump to the end of the beat
+	void TickMinigame(float Dt);
+	void TickHeat(float Dt);
+
+	TMap<FName, TWeakObjectPtr<ABullyScriptedNPC>> Npcs;
+	TMap<TWeakObjectPtr<ABullyScriptedNPC>, FName> PendingArrive;   // npc -> event fired when its move finishes
+	struct FLeadOrder
+	{
+		TWeakObjectPtr<ABullyScriptedNPC> Npc;
+		FVector Goal = FVector::ZeroVector;
+		float Radius = 600.f;          // pause while the player trails farther than this (goal-distance compared)
+		FName Event;                   // fired on arrival
+		bool bRun = true;              // gait
+		bool bWaitingForPlayer = false;
+		float LastDist = TNumericLimits<float>::Max();   // progress watch: no ground gained for 3 s -> snap to the goal
+		double NoProgressAt = 0.0;                       // (the walker's own snap won't fire while the player stands on it)
+	};
+	TArray<FLeadOrder> Leads;
+	TSet<FName> MissionCriticalNpcs;   // spawn_npc mission_critical: if one expires unexpectedly, "npc_ko:<id>" fires
+	struct FSpeechSeqState
+	{
+		bool bActive = false;
+		FName DoneEvent;
+		int32 Index = 0;
+		double LineEndsAt = 0.0;
+		TArray<FSpeechLine> Lines;
+	} Speech;
+	struct FMinigameState
+	{
+		bool bArmed = false, bRunning = false;
+		FVector At = FVector::ZeroVector;
+		float Radius = 250.f, Seconds = 4.f, Progress = 0.f;
+		FName Success, Fail;
+		FString Label;
+	} Minigame;
+	bool bSmokeDriveMinigame = false;   // set by TickSmoke while a minigame is armed (the driver's hold-E)
+	float HeatPoints = 0.f, HeatDecay = 25.f;   // punishment-lite stub: decays only while the player is hidden
+	bool bPlayerHidden = false;
+
 	// rendered cutscene capture (-BRMissionShots=<id> in a -game -RenderOffScreen run): grab one HighResShot a beat
 	// after each stage begins -- real mission cameras, spawned characters, the authored framings -- so the cutscene
 	// composition gets a pixel pass (headless logs confirm the cuts fire; only a render shows what they frame).
@@ -292,6 +425,7 @@ private:
 		double InsideSince = -1.0;
 		bool bStarted = false;
 		bool bFailTested = false;
+		double LastBeatLog = -10.0;   // heartbeat: one line per 10 game-s while driving (wedge forensics)
 		bool bDone = false;
 		bool bWantFailTest = true;
 		bool bNoQuit = false;          // DriveSmoke(.., false): log PASS/FAIL but keep running (campaign smoke)

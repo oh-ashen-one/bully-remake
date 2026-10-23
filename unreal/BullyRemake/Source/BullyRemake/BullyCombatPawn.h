@@ -38,6 +38,9 @@ public:
 	/** Arena centre for the tether (defaults to the spawn point). */
 	FVector TetherCenter = FVector::ZeroVector;
 	bool bHasTether = false;
+	/** Mission wave members with a victim override (spawn_wave "target"): the AI fights this character (a defend-NPC
+	 *  victim like 1_07's Bucky) instead of the player while it's alive and standing. */
+	TWeakObjectPtr<ABullyCharacter> PreferredVictim;
 
 	virtual void PostInitializeComponents() override;
 	virtual void Tick(float DeltaSeconds) override;

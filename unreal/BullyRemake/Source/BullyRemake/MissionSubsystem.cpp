@@ -473,6 +473,7 @@ namespace
 				if (O->TryGetNumberField(TEXT("advance_at"), N2)) { A.AdvanceAt = int32(N2); }
 				bool b = true;
 				if (O->TryGetBoolField(TEXT("hostile"), b)) { A.bHostile = b; }
+				if (O->TryGetStringField(TEXT("target"), S)) { A.Sub = S; }   // every other member fights this defender
 			}
 			else if (Type == TEXT("spotter"))
 			{
@@ -516,6 +517,46 @@ namespace
 				double N2 = 0.0;
 				if (O->TryGetNumberField(TEXT("count"), N2)) { A.Amount = int32(N2); }
 				if (A.Text.IsEmpty()) { O->TryGetStringField(TEXT("prompt"), A.Text); }
+			}
+			else if (Type == TEXT("spawn_defender"))
+			{
+				A.Type = FMissionAction::EType::SpawnDefender;
+				if (!O->TryGetStringField(TEXT("npc"), S)) { Err = TEXT("spawn_defender: missing \"npc\" id"); return false; }
+				A.NpcId = FName(*S);
+				if (!ReadLocation(*O, D, A.Location)) { Err = TEXT("spawn_defender: unknown point / no location"); return false; }
+				O->TryGetStringField(TEXT("mesh"), A.Mesh);
+				double N2 = 0.0;
+				if (O->TryGetNumberField(TEXT("health"), N2)) { A.Health = float(N2); }
+				if (O->TryGetNumberField(TEXT("drain_hp"), N2)) { A.Amount = int32(N2); }
+				if (O->TryGetNumberField(TEXT("drain_every"), N2)) { A.Seconds = float(N2); }
+			}
+			else if (Type == TEXT("npc_drain"))
+			{
+				A.Type = FMissionAction::EType::NpcDrain;
+				if (!O->TryGetStringField(TEXT("npc"), S)) { Err = TEXT("npc_drain: missing \"npc\" id"); return false; }
+				A.NpcId = FName(*S);
+				bool b = true; O->TryGetBoolField(TEXT("on"), b); A.bOn = b;
+			}
+			else if (Type == TEXT("dialogue_choice"))
+			{
+				A.Type = FMissionAction::EType::DialogueChoice;
+				if (!O->TryGetStringField(TEXT("id"), S)) { Err = TEXT("dialogue_choice: missing \"id\""); return false; }
+				A.Name = FName(*S);
+				if (A.Text.IsEmpty()) { O->TryGetStringField(TEXT("prompt"), A.Text); }
+				const TArray<TSharedPtr<FJsonValue>>* Opts = nullptr;
+				if (!O->TryGetArrayField(TEXT("options"), Opts) || Opts->Num() == 0) { Err = TEXT("dialogue_choice: needs \"options\""); return false; }
+				for (const TSharedPtr<FJsonValue>& Ov : *Opts)
+				{
+					FObj OO = Ov->AsObject();
+					if (!OO.IsValid()) { continue; }
+					FChoiceOption Op;
+					OO->TryGetStringField(TEXT("label"), Op.Label);
+					if (!OO->TryGetStringField(TEXT("event"), S)) { Err = TEXT("dialogue_choice: option missing \"event\""); return false; }
+					Op.Event = FName(*S);
+					FString It;
+					if (OO->TryGetStringField(TEXT("requires_item"), It)) { Op.RequiresItem = FName(*It); }
+					A.Options.Add(MoveTemp(Op));
+				}
 			}
 			else { Err = FString::Printf(TEXT("unknown action type \"%s\""), *Type); return false; }
 			Out.Add(MoveTemp(A));
@@ -751,9 +792,11 @@ void UMissionSubsystem::Deinitialize()
 	DespawnMissionNpcs(TEXT("world teardown"));
 	DespawnWaves();
 	Spotters.Reset();
+	DespawnDefenders();
 	Follows.Reset();
 	Countdown.bActive = false;
 	Lesson.bActive = false;
+	Choice.bActive = false;
 	if (Hud.IsValid()) { Hud->Hide(); Hud.Reset(); }
 	Super::Deinitialize();
 }
@@ -962,9 +1005,12 @@ void UMissionSubsystem::StopMission(const FString& Reason)
 	DespawnMissionNpcs(*Reason);
 	DespawnWaves();
 	Spotters.Reset();
+	DespawnDefenders();
 	Follows.Reset();
 	Countdown.bActive = false;
 	Lesson.bActive = false;
+	Choice.bActive = false;
+	if (Hud.IsValid()) { Hud->ClearChoice(); }
 	Speech.bActive = false;
 	Minigame = FMinigameState();
 	HeatPoints = 0.f;
@@ -1012,6 +1058,18 @@ void UMissionSubsystem::RetryNow()
 	++Attempt;
 	// campaign attempt counting is retry-aware (the original's attempt count gates first-attempt tutorial cards)
 	if (UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(GetWorld())) { Camp->NoteAttempt(Mission->Id); }
+	// defenders revive on retry (a KO'd escortee would otherwise re-fail instantly on the latched npc_ko event)
+	for (auto& Pair : Defenders)
+	{
+		if (ABullyCombatPawn* D = Pair.Value.Pawn.Get())
+		{
+			D->SetActorLocation(Pair.Value.SpawnAt + FVector(0, 0, 20.f), false, nullptr, ETeleportType::TeleportPhysics);
+			if (D->GetCombat()) { D->GetCombat()->Revive(); }
+		}
+		const FName Ev(*FString::Printf(TEXT("npc_ko:%s"), *Pair.Key.ToString()));
+		StageEvents.Remove(Ev);
+		MissionEvents.Remove(Ev);
+	}
 	if (Mission->Retry == FMissionDef::ERetry::Stage)
 	{
 		const FMissionStage& St = Mission->Stages[StageIndex];
@@ -1060,6 +1118,8 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	Minigame = FMinigameState();
 	Speech.bActive = false;
 	Lesson.bActive = false;   // the lesson is stage-scoped (a retry re-arms it from on_start)
+	Choice.bActive = false;   // a dialogue choice is stage-scoped too
+	if (Hud.IsValid()) { Hud->ClearChoice(); }
 	DespawnWaves();   // a wave/spotter belongs to its stage
 	Spotters.Reset();
 	LeashFarSince = -1.0;
@@ -1069,23 +1129,7 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	if (APawn* P = GetPlayerPawn()) { StageStartPawnLoc = P->GetActorLocation(); }
 
 	// actors for actor_tag interact conditions
-	TagActors.Reset();
-	TArray<const FMissionCondition*> Interacts;
-	CollectInteracts(St.Complete, Interacts);
-	if (St.Fail.IsValid()) { CollectInteracts(St.Fail, Interacts); }
-	for (const FMissionCondition* C : Interacts)
-	{
-		if (C->bActorTag)
-		{
-			TArray<AActor*> Found;
-			UGameplayStatics::GetAllActorsWithTag(GetWorld(), C->Name, Found);
-			for (AActor* A : Found) { TagActors.Add(A); }
-		}
-		else if (!Triggers.Contains(C->Name))
-		{
-			UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION stage %d interacts with unknown trigger '%s'"), Index + 1, *C->Name.ToString());
-		}
-	}
+	RefreshStageActors();
 
 	if (Hud.IsValid())
 	{
@@ -1144,9 +1188,12 @@ void UMissionSubsystem::CompleteMission()
 	if (!bChains) { DespawnMissionNpcs(TEXT("complete")); }
 	DespawnWaves();
 	Spotters.Reset();
+	DespawnDefenders();
 	Follows.Reset();
 	Countdown.bActive = false;
 	Lesson.bActive = false;
+	Choice.bActive = false;
+	if (Hud.IsValid()) { Hud->ClearChoice(); }
 	Speech.bActive = false;
 	Minigame = FMinigameState();
 	HeatPoints = 0.f;
@@ -1482,6 +1529,66 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			}
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION lesson '%s': perform %s x%d (window %.0f s)"), *Lesson.Id.ToString(), *Lesson.Move.ToString(), Lesson.Needed, Lesson.Window);
 			break;
+		case FMissionAction::EType::SpawnDefender:
+		{
+			UWorld* World = GetWorld();
+			if (!World) { break; }
+			if (ABullyCombatPawn* Existing = DefenderById(A.NpcId))
+			{
+				// stage retry / re-run: revive and re-position him instead of duplicating
+				Existing->SetActorLocation(A.Location + FVector(0, 0, 20.f), false, nullptr, ETeleportType::TeleportPhysics);
+				if (Existing->GetCombat()) { Existing->GetCombat()->Revive(); }
+				FDefenderState& D = Defenders[A.NpcId];
+				D.SpawnAt = A.Location;
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION spawn_defender %s: revived/repositioned (retry)"), *A.NpcId.ToString());
+				break;
+			}
+			FActorSpawnParameters SP;
+			SP.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+			SP.bDeferConstruction = true;
+			ABullyCombatPawn* E = World->SpawnActor<ABullyCombatPawn>(ABullyCombatPawn::StaticClass(), A.Location + FVector(0, 0, 20.f), FRotator::ZeroRotator, SP);
+			if (!E) { break; }
+			if (!A.Mesh.IsEmpty()) { E->PedMeshPath = FString::Printf(TEXT("/Game/Imported/Characters/%s/SK_%s.SK_%s"), *A.Mesh, *A.Mesh, *A.Mesh); }
+			E->bStationary = true;             // he holds his ground
+			E->bAttackAllowed = false;         // and never swings (a cowering escortee)
+			E->Tags.Add(FName(*FString::Printf(TEXT("br_npc:%s"), *A.NpcId.ToString())));   // his KO fires npc_ko:<id>
+			E->FinishSpawning(FTransform(FRotator::ZeroRotator, A.Location + FVector(0, 0, 20.f)));
+			if (E->GetCombat())
+			{
+				E->GetCombat()->Team = EBullyCombatTeam::Player;   // enemies may target him; the player's swings skip him
+				if (A.Health > 0.f) { E->GetCombat()->SetMaxHealth(A.Health); }
+			}
+			FDefenderState D;
+			D.Pawn = E;
+			D.SpawnAt = A.Location;
+			D.DrainHp = float(A.Amount);
+			D.DrainEvery = A.Seconds > 0.f ? A.Seconds : 5.f;
+			D.bDrain = A.Amount > 0;
+			Defenders.Add(A.NpcId, D);
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION spawn_defender %s mesh=%s hp=%.0f drain=%d/%.0fs"), *A.NpcId.ToString(), *A.Mesh, A.Health, A.Amount, D.DrainEvery);
+			break;
+		}
+		case FMissionAction::EType::NpcDrain:
+			if (FDefenderState* D = Defenders.Find(A.NpcId))
+			{
+				D->bDrain = A.bOn;
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_drain %s %s"), *A.NpcId.ToString(), A.bOn ? TEXT("on") : TEXT("off"));
+			}
+			break;
+		case FMissionAction::EType::DialogueChoice:
+		{
+			Choice.bActive = true;
+			Choice.Id = A.Name;
+			Choice.Options = A.Options;
+			if (Hud.IsValid())
+			{
+				TArray<FString> Labels;
+				for (const FChoiceOption& Op : A.Options) { Labels.Add(Op.Label); }
+				Hud->SetChoice(A.Text, Labels);
+			}
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION dialogue_choice '%s': %d option(s)"), *A.Name.ToString(), A.Options.Num());
+			break;
+		}
 		}
 	}
 }
@@ -1665,6 +1772,29 @@ void UMissionSubsystem::CollectInteracts(const FMissionCondition& C, TArray<cons
 {
 	if (C.Type == FMissionCondition::EType::Interact) { Out.Add(&C); }
 	for (const FMissionCondition& K : C.Children) { CollectInteracts(K, Out); }
+}
+
+void UMissionSubsystem::RefreshStageActors()
+{
+	TagActors.Reset();
+	if (!Mission.IsValid() || StageIndex >= Mission->Stages.Num()) { return; }
+	const FMissionStage& St = Mission->Stages[StageIndex];
+	TArray<const FMissionCondition*> Interacts;
+	CollectInteracts(St.Complete, Interacts);
+	if (St.Fail.IsValid()) { CollectInteracts(St.Fail, Interacts); }
+	for (const FMissionCondition* C : Interacts)
+	{
+		if (C->bActorTag)
+		{
+			TArray<AActor*> Found;
+			UGameplayStatics::GetAllActorsWithTag(GetWorld(), C->Name, Found);
+			for (AActor* A : Found) { TagActors.Add(A); }
+		}
+		else if (!Triggers.Contains(C->Name))
+		{
+			UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION stage %d interacts with unknown trigger '%s'"), StageIndex + 1, *C->Name.ToString());
+		}
+	}
 }
 
 bool UMissionSubsystem::InteractInRange(const FMissionCondition& C, FVector* OutAt) const
@@ -1923,6 +2053,8 @@ void UMissionSubsystem::Tick(float Dt)
 		TickSpotters();
 		TickCountdown();
 		TickLesson();
+		TickDefenders(Dt);
+		TickChoice();
 		// visible fail timer -> HUD countdown
 		const FMissionStage& St = Mission->Stages[StageIndex];
 		if (Hud.IsValid())
@@ -2254,6 +2386,24 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		return;
 	}
 
+	// dialogue-choice drive: pick the first option whose item gate passes (the gate check runs for real)
+	if (Choice.bActive)
+	{
+		Smoke.LastDrive = Smoke.Elapsed;
+		UBullyProgressSubsystem* Prog = UBullyProgressSubsystem::Get(World);
+		for (int32 i = 0; i < Choice.Options.Num(); ++i)
+		{
+			const FChoiceOption& O = Choice.Options[i];
+			if (O.RequiresItem.IsNone() || (Prog && Prog->GetItemCount(O.RequiresItem) > 0))
+			{
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE picks dialogue option %d (%s)"), i + 1, *O.Label);
+				ChooseDialogueOption(i);
+				break;
+			}
+		}
+		return;
+	}
+
 	// lesson drive: perform the taught move through the real combat pipeline (StartMove fires player_move:<move>)
 	if (Lesson.bActive)
 	{
@@ -2424,6 +2574,7 @@ ABullyScriptedNPC* UMissionSubsystem::SpawnMissionNpc(const FMissionAction& A)
 	if (A.bFacePlayer) { N->FacePlayer(true); }
 	Npcs.Add(A.NpcId, N);
 	if (A.bMissionCritical) { MissionCriticalNpcs.Add(A.NpcId); }
+	RefreshStageActors();   // a mid-stage spawn joins the current stage's actor_tag interact set
 	// invulnerable / untargetable / min_health: scripted NPCs are not combat pawns, so nothing can target or damage
 	// them today; the flags are recorded on the log line and a critical one expiring unexpectedly fires npc_ko:<id>.
 	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION spawn_npc %s mesh=%s at %s%s%s%s"),
@@ -2621,6 +2772,11 @@ void UMissionSubsystem::SpawnWave(const FMissionAction& A)
 		if (!A.Mesh.IsEmpty()) { E->PedMeshPath = FString::Printf(TEXT("/Game/Imported/Characters/%s/SK_%s.SK_%s"), *A.Mesh, *A.Mesh, *A.Mesh); }
 		E->bStationary = !A.bHostile;
 		E->HitsToBeat = A.HitsToBeat;
+		// "target": every other member fights the named defender instead of the player (the pack splits, like the original)
+		if (!A.Sub.IsEmpty() && G.Members.Num() % 2 == 0)
+		{
+			if (ABullyCombatPawn* Victim = DefenderById(FName(*A.Sub))) { E->PreferredVictim = Victim; }
+		}
 		E->FinishSpawning(FTransform(FRotator::ZeroRotator, *P + FVector(0, 0, 20.f)));
 		G.Members.Add(E);
 	}
@@ -2759,6 +2915,72 @@ void UMissionSubsystem::TickLesson()
 		if (Hud.IsValid()) { Hud->ShowHint(Lesson.Prompt, 3.f); }
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION lesson '%s': re-prompt (%d/%d)"), *Lesson.Id.ToString(), Lesson.Count, Lesson.Needed);
 	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// wave-D runtime: defenders (combat-pawn escortees) + dialogue choices
+
+ABullyCombatPawn* UMissionSubsystem::DefenderById(FName Id) const
+{
+	const FDefenderState* D = Defenders.Find(Id);
+	return (D && D->Pawn.IsValid()) ? D->Pawn.Get() : nullptr;
+}
+
+void UMissionSubsystem::TickDefenders(float /*Dt*/)
+{
+	if (Defenders.Num() == 0) { return; }
+	const double Now = GetWorld()->GetTimeSeconds();
+	for (auto& Pair : Defenders)
+	{
+		FDefenderState& D = Pair.Value;
+		ABullyCombatPawn* P = D.Pawn.Get();
+		if (!P) { continue; }   // (his KO fires through the combat component's tag hook)
+		if (D.bDrain && Now - D.LastDrain >= D.DrainEvery && P->GetCombat() && !P->GetCombat()->IsOut())
+		{
+			D.LastDrain = Now;
+			P->GetCombat()->ApplyWeaponHit(EBullyHitReaction::Flinch, D.DrainHp);   // scripted pressure during the approach
+		}
+	}
+}
+
+void UMissionSubsystem::DespawnDefenders()
+{
+	for (auto& Pair : Defenders)
+	{
+		if (Pair.Value.Pawn.IsValid()) { Pair.Value.Pawn->Destroy(); }
+	}
+	Defenders.Reset();
+}
+
+bool UMissionSubsystem::ChooseDialogueOption(int32 Index)
+{
+	if (!Choice.bActive || !Choice.Options.IsValidIndex(Index)) { return false; }
+	const FChoiceOption& O = Choice.Options[Index];
+	if (!O.RequiresItem.IsNone())
+	{
+		UBullyProgressSubsystem* Prog = UBullyProgressSubsystem::Get(GetWorld());
+		if (!Prog || Prog->GetItemCount(O.RequiresItem) <= 0)
+		{
+			if (Hud.IsValid()) { Hud->ShowHint(TEXT("You don't have that."), 2.5f); }
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION dialogue_choice '%s': option %d needs item %s"), *Choice.Id.ToString(), Index + 1, *O.RequiresItem.ToString());
+			return false;
+		}
+	}
+	Choice.bActive = false;
+	if (Hud.IsValid()) { Hud->ClearChoice(); }
+	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION dialogue_choice '%s': picked %d (%s) -> event %s"), *Choice.Id.ToString(), Index + 1, *O.Label, *O.Event.ToString());
+	FireEvent(O.Event);
+	return true;
+}
+
+void UMissionSubsystem::TickChoice()
+{
+	if (!Choice.bActive) { return; }
+	APlayerController* PC = GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	if (!PC) { return; }
+	if (PC->WasInputKeyJustPressed(EKeys::J) || PC->WasInputKeyJustPressed(EKeys::Gamepad_DPad_Left)) { ChooseDialogueOption(0); }
+	else if (PC->WasInputKeyJustPressed(EKeys::K) || PC->WasInputKeyJustPressed(EKeys::Gamepad_DPad_Up)) { ChooseDialogueOption(1); }
+	else if (PC->WasInputKeyJustPressed(EKeys::L) || PC->WasInputKeyJustPressed(EKeys::Gamepad_DPad_Right)) { ChooseDialogueOption(2); }
 }
 
 // ---------------------------------------------------------------------------------------------------------------

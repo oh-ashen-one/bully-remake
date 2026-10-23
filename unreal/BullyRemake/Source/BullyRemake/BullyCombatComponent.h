@@ -125,6 +125,11 @@ public:
 	 *  mission events and the health floor all behave as with a melee hit. */
 	void ApplyWeaponHit(EBullyHitReaction Reaction, float Damage);
 
+	/** Mission defenders (spawn_defender): set a custom max health (e.g. Bucky's 300), and revive on a stage retry
+	 *  (a KO'd escortee would otherwise re-fail instantly on the latched npc_ko event). */
+	void SetMaxHealth(float M) { MaxHealth = M; Health = M; }
+	void Revive();
+
 	// --- tuning (Config) ----------------------------------------------------------------------------------
 	UPROPERTY(Config, EditAnywhere, Category = "Combat|Health") float PlayerMaxHealth = 100.f;
 	UPROPERTY(Config, EditAnywhere, Category = "Combat|Health") float EnemyMaxHealth = 60.f;
@@ -299,6 +304,8 @@ private:
 	void ShakePlayerCamera(float Amplitude);
 	void Fire(FName Event);
 	void FireMission(FName Event);
+	/** A mission-spawned, tagged combat pawn (br_npc:<id>) fires npc_ko:<id> when it is KO'd — the defend-NPC fail path. */
+	void FireNpcKoTag();
 	void Note(const FString& S) const;
 	bool IsPlayer() const { return Team == EBullyCombatTeam::Player; }
 	float DamageScale() const { return IsPlayer() ? PlayerDamageScale : EnemyDamageScale; }

@@ -62,6 +62,21 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   hobo meet, radio fetch (ground-level stand-in — no ladder traversal), hand-over, the jab lesson (clock paused), outro;
   transistors collectible via on_pass). Verified: `run_mission_smoke.sh 1_05` **PASS 10/10**, `1_06_01` **PASS 7/7**
   (both incl. fail/retry), campaign **PASS 4/4**, all six prior mission smokes re-PASS.
+- **Wave D (1_07 + 1_08 full missions)**: **combat retargeting to NPC victims** (closes the 1_05 debt): `spawn_defender`
+  (a combat pawn on the PLAYER's team — enemy swings can land on him, the player's can't; stationary, never attacks;
+  tagged `br_npc:<id>` so his KO fires `npc_ko:<id>` via a tag hook in ReceiveHit; scripted drain pressure;
+  stage-retry revive), `npc_drain`, spawn_wave `target` (every other member takes the defender as PreferredVictim —
+  the pack splits like the original), `dialogue_choice` (HUD option list, J/K/L or D-pad, `requires_item` gates;
+  the smoke driver picks the first option whose gate passes). Combat component gained `SetMaxHealth`/`Revive`; the AI
+  honors `PreferredVictim`. Bugs the harness caught: wave spawns in a previous stage's on_complete are wiped by the
+  stage-scoped cleanup (spawns belong to the stage that uses them — 1_07 fixed), and actor_tag interact targets were
+  gathered before the stage's own on_start spawns ran (`RefreshStageActors` now re-collects on spawn).
+- **Missions**: `1_07.json` (7 stages: Bucky under scripted drain, three targeted waves, gate rendezvous, hobo + give-back
+  outro; pass = skateboard 437 (logged ride), force-complete 1_E01, respect bullies 0/nerds 65 via campaign on_pass) and
+  `1_08.json` (9 stages: Gary's plan, Fatty meet, cafeteria chocolate run under the cook's spotter, pay-or-bully
+  dialogue choice, gym locker rig (minigame) under the prefect's spotter, Mandy payoff, deliver the notes to Beatrice;
+  pass = 309 x5 top-up via campaign on_pass). Verified: `run_mission_smoke.sh 1_07` **PASS 7/7**, `1_08` **PASS 9/9**
+  (both incl. fail/retry), campaign **PASS 4/4**, all eight prior smokes re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

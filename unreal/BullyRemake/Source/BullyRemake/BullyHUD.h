@@ -47,6 +47,10 @@ struct FBullyHUDState
 	float ProgressFrac = -1.f;    // 0..1 fill; < 0 = hidden
 	FString ProgressLabel;
 
+	// dialogue choice (1_08): prompt + numbered options (J/K/L or D-pad); empty labels = hidden
+	FString ChoicePrompt;
+	TArray<FString> ChoiceLabels;
+
 	// cinematic (in-engine cutscenes): letterbox bars slide in/out; a dialogue line reads at the bottom
 	float Letterbox = 0.f;       // current bar coverage 0..1 (eased toward LetterboxTarget each tick)
 	float LetterboxTarget = 0.f; // 0 = retracted, 1 = full cinematic bars
@@ -87,6 +91,10 @@ public:
 	void SetCountdown(float SecondsLeft);
 	/** Campaign spine: minigame progress bar (Frac 0..1; < 0 hides). */
 	void SetProgress(float Frac, const FString& Label = FString());
+
+	/** Dialogue choice: show the prompt + numbered options (empty labels hide it). */
+	void SetChoice(const FString& Prompt, const TArray<FString>& Labels);
+	void ClearChoice();
 
 	const FBullyHUDState& GetState() const { return State.Get(); }
 

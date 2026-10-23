@@ -132,6 +132,19 @@
 //                 // Fires "lesson:<id>_done". Player moves report as "player_move:<Move>" mission events.
 //                 // (The original's per-button sequence widget is a later wave; v1 = perform-the-move.)
 //   actions: ...
+//   chapter-1 wave-D primitives (1_07 defend, 1_08 conversation):
+//               { "type": "spawn_defender", "npc": "bucky", "point": "name", "mesh": "NDH3_Bucky", "health": 300,
+//                 "drain_hp": 25, "drain_every": 5 }   // a combat pawn on the PLAYER's team (enemies can hit him,
+//                 //  the player's swings skip him): stationary, never attacks, tagged br_npc:<id> (his KO fires
+//                 //  npc_ko:<id>). drain_* = scripted health pressure (the original's 25 hp / 5 s during the approach);
+//                 //  toggle with npc_drain. A stage retry revives him (reposition + full health + un-latch npc_ko).
+//               { "type": "npc_drain", "npc": "bucky", "on": false }
+//               spawn_wave gains "target": "bucky" — every other member (even indices) takes that mission defender as
+//               its PreferredVictim (the rest fight the player), so a pack splits like the original's.
+//               { "type": "dialogue_choice", "id": "fatty", "prompt": "...", "options": [
+//                 { "label": "Hand over the chocolate", "event": "dlg:pay", "requires_item": "chocolate" },
+//                 { "label": "Bully him", "event": "dlg:bully" } ] }   // HUD option list; J/K/L or D-pad left/up/right
+//                 //  pick; requires_item greys the option (a hint instead of firing). Stage-scoped; a retry re-arms.
 //
 // Campaign spine: StartMission consults UBullyCampaignSubsystem::IsAvailable (ids outside the campaign table are
 // always available) unless the start came from -BRMission=, the Mission.Start console exec, or a smoke/shots
@@ -182,11 +195,19 @@ struct FSpeechLine
 	float Seconds = 4.f;
 };
 
+/** One option of a dialogue_choice action. */
+struct FChoiceOption
+{
+	FString Label;
+	FName Event;
+	FName RequiresItem;   // option fires only while the player holds one (else a hint)
+};
+
 struct FMissionAction
 {
 	enum class EType : uint8 { Hint, Banner, Event, SetFlag, ClearFlag, Teleport, Log, StartMission, SpawnEnemy, Fade, Reward, Letterbox, Say, Camera, Shake, GiveWeapon, GiveAmmo, SetRespect, Clock, ChapterSet, ForceComplete,
 		SpawnNpc, NpcMove, NpcLead, NpcFace, NpcDespawn, PairAnim, SpeechSequence, MinigameLaunch, GiveItem, TakeItem, MoneyEnsure, MoneyTake, HeatSet, Hide,
-		SpawnWave, Spotter, NpcFollow, CountdownStart, CountdownCancel, LessonStart };
+		SpawnWave, Spotter, NpcFollow, CountdownStart, CountdownCancel, LessonStart, SpawnDefender, NpcDrain, DialogueChoice };
 	EType Type = EType::Log;
 	FString Text, Sub;
 	FName Name;
@@ -256,6 +277,10 @@ struct FMissionAction
 	// bCountdownVisible (HUD). lesson_start: Name = id (fires "lesson:<id>_done"), Sub = move name, Amount = count,
 	// Seconds = per-attempt window, Text = HUD prompt.
 	bool bResume = false, bCountdownVisible = false;
+	// spawn_defender: NpcId + Location + Mesh + Health (max hp) + Amount (drain_hp) + Seconds (drain_every).
+	// npc_drain: NpcId + bOn. spawn_wave: Sub = target defender id (every other member). dialogue_choice: Name = id,
+	// Text = prompt, Options.
+	TArray<FChoiceOption> Options;
 };
 
 struct FMissionStage
@@ -381,6 +406,9 @@ private:
 	void RunActions(const TArray<FMissionAction>& Actions);
 	bool Evaluate(const FMissionCondition& C) const;
 	void CollectInteracts(const FMissionCondition& C, TArray<const FMissionCondition*>& Out) const;
+	/** (Re)collect actors for the current stage's actor_tag interact conditions. Runs at BeginStage AND when a
+	 *  spawn_npc lands mid-stage (an on_start spawn must join the stage's tag set). */
+	void RefreshStageActors();
 	bool InteractInRange(const FMissionCondition& C, FVector* OutAt = nullptr) const;
 	bool ConditionTarget(const FMissionCondition& C, FVector& Out) const;
 	bool StageTarget(FVector& Out) const;
@@ -499,6 +527,28 @@ private:
 		FString Prompt;
 	} Lesson;
 	void TickLesson();
+
+	// wave-D runtime: mission defenders (combat-pawn escortees on the player's team) and the dialogue choice
+	struct FDefenderState
+	{
+		TWeakObjectPtr<ABullyCombatPawn> Pawn;
+		FVector SpawnAt = FVector::ZeroVector;
+		float DrainHp = 0.f, DrainEvery = 5.f;
+		double LastDrain = 0.0;
+		bool bDrain = false;
+	};
+	TMap<FName, FDefenderState> Defenders;
+	void TickDefenders(float Dt);
+	ABullyCombatPawn* DefenderById(FName Id) const;
+	void DespawnDefenders();
+	struct FChoiceState
+	{
+		bool bActive = false;
+		FName Id;
+		TArray<FChoiceOption> Options;
+	} Choice;
+	void TickChoice();
+	bool ChooseDialogueOption(int32 Index);
 	bool bPlayerHidden = false;
 
 	// rendered cutscene capture (-BRMissionShots=<id> in a -game -RenderOffScreen run): grab one HighResShot a beat

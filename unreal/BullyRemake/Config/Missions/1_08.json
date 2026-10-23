@@ -1,0 +1,149 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_08 'That Bitch' — Gary's plan: trade Fatty for stink bombs, rig Mandy's gym locker, get Beatrice's notes back (recon: docs/re-notes/ch1/1_08-that-bitch.md). The original's stage machine is partly conversation-tree-driven (undecoded); ours runs the beats explicitly with a dialogue_choice (pay the chocolate vs bully him — both routes converge on the bombs). v1 simplifications (see the recon's gap table): the baked 1-08 cutscene + Gary walk-and-talk is a title card + speech beats; the cafeteria lady and the gym prefect are stealth spotters (cone + range + line of sight); the lockpick variant is the v1 timed plant (minigame_launch), the rig-the-locker branch is the intended beat per the recon; the stink-trap collapse + toilet loop are a speech beat; the make-out pair-anim is a stub; carrying stink bombs at the start does NOT skip the intro in v1. Pass grants (stink bombs 309 x5 if none) live in the campaign table's on_pass for 1_08. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "1_08",
+  "title": "That Bitch",
+  "retry": "stage",
+  "start": { "location_cm": [24778.5, 1872.5, 711.3], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_08.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Gary has a plan.",
+      "blip": "1_08_Book",
+      "on_start": [
+        { "type": "banner", "text": "THAT BITCH", "sub": "Gary's got a score to settle.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "gary", "point": "1_08_StartPoint", "mesh": "GN_Boy01", "ped_model_id": 130, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "GARY", "text": "Beatrice wants her notes back. And Mandy's locker needs... seasoning.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "meet_fatty",
+      "objective": "Follow Gary to the dice game.",
+      "on_start": [
+        { "type": "npc_lead", "npc": "gary", "point": "PlayerWithFatty", "gait": "sprint", "radius_cm": 700 },
+        { "type": "spawn_npc", "npc": "fatty", "point": "1_08_Book", "mesh": "NDH3_Bucky", "ped_model_id": 155, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:gary", "latched": true },
+        { "type": "reach_location", "point": "PlayerWithFatty", "radius_cm": 600 }
+      ] }
+    },
+    {
+      "id": "fatty_talk",
+      "objective": "Hear what the dice nerd wants.",
+      "on_start": [
+        { "type": "speech_sequence", "id": "meet", "lines": [
+          { "speaker": "FATTY", "text": "Stink bombs? Maybe I have some. Bring me something sweet first.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:meet", "latched": true }
+    },
+    {
+      "id": "cake_run",
+      "objective": "Find a chocolate bar in the cafeteria.",
+      "blip": "ChocolateBar",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "edna", "point": "EdnaPoint", "mesh": "TO_Poorwoman", "ped_model_id": 58, "invulnerable": true, "untargetable": true, "yaw": 90 },
+        { "type": "spotter", "npc": "edna", "range_cm": 1200, "cone_deg": 60, "seconds": 1.5 },
+        { "type": "hint", "text": "The kitchen is off-limits. Don't let the cook see you.", "seconds": 4 }
+      ],
+      "complete": { "type": "reach_location", "point": "ChocolateBar", "radius_cm": 400 },
+      "fail": { "type": "event", "name": "spotted_by:edna", "latched": true },
+      "fail_text": "The cook caught you.",
+      "on_complete": [
+        { "type": "give_item", "item": "chocolate", "n": 1 },
+        { "type": "log", "text": "chocolate bar collected (item 478; the kitchen bust routes through the punishment system when it exists)" }
+      ]
+    },
+    {
+      "id": "return_fatty",
+      "objective": "Bring it back to Fatty.",
+      "blip": "1_08_Book",
+      "complete": { "type": "reach_location", "point": "1_08_Book", "radius_cm": 600 }
+    },
+    {
+      "id": "fatty_choice",
+      "objective": "Get the stink bombs off Fatty.",
+      "blip": "1_08_Book",
+      "on_start": [
+        { "type": "dialogue_choice", "id": "fatty", "prompt": "Fatty eyes you hopefully. How do you get the stink bombs?", "options": [
+          { "label": "Hand over the chocolate bar", "event": "dlg:pay", "requires_item": "chocolate" },
+          { "label": "Bully him into it", "event": "dlg:bully" }
+        ] }
+      ],
+      "complete": { "type": "any", "conditions": [
+        { "type": "event", "name": "dlg:pay", "latched": true },
+        { "type": "event", "name": "dlg:bully", "latched": true }
+      ] },
+      "on_complete": [
+        { "type": "give_ammo", "weapon": "stinkbomb", "n": 5 },
+        { "type": "take_item", "item": "chocolate", "n": 1 },
+        { "type": "say", "speaker": "FATTY", "text": "Pleasure doing business. Mostly.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "rig_locker",
+      "objective": "Plant a stink bomb in Mandy's locker (gym).",
+      "blip": "LockerPos",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "girl", "point": "GymLookAtPt", "mesh": "GN_Asiangirl", "ped_model_id": 38, "untargetable": true },
+        { "type": "npc_move_to", "npc": "girl", "point": "1_08_GymJocks", "gait": "sprint" },
+        { "type": "spawn_npc", "npc": "prefect", "point": "1_08_GymJocks", "mesh": "PFH1_Seth", "ped_model_id": 50, "invulnerable": true, "untargetable": true },
+        { "type": "spotter", "npc": "prefect", "range_cm": 1200, "cone_deg": 60, "seconds": 1.5 },
+        { "type": "minigame_launch", "id": "rig", "point": "LockerPos", "radius_cm": 250, "seconds": 3, "text": "Planting the stink bomb..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:rig_ok", "latched": true },
+      "fail": { "type": "event", "name": "spotted_by:prefect", "latched": true },
+      "fail_text": "The prefect caught you in the girls' locker room.",
+      "on_complete": [
+        { "type": "give_item", "item": "notes", "n": 1 },
+        { "type": "log", "text": "Beatrice's notes recovered (item 488; one stink bomb spent — ammo is not decremented in v1)" }
+      ]
+    },
+    {
+      "id": "mandy_payoff",
+      "objective": "Watch the trap spring.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_npc", "npc": "mandy", "point": "GymCutsceneLocations", "mesh": "TO_RichW1", "ped_model_id": 14, "invulnerable": true, "untargetable": true },
+        { "type": "npc_move_to", "npc": "mandy", "point": "LockerPos", "gait": "run" },
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "payoff", "lines": [
+          { "speaker": "MANDY", "text": "My notes should be right here... UGH. What is that SMELL?!", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:payoff", "latched": true },
+      "on_complete": [
+        { "type": "letterbox", "on": false },
+        { "type": "npc_despawn", "npc": "mandy" },
+        { "type": "npc_despawn", "npc": "girl" },
+        { "type": "npc_despawn", "npc": "prefect" }
+      ]
+    },
+    {
+      "id": "deliver",
+      "objective": "Return the notes to Beatrice outside.",
+      "blip": "BeatriceCutscene",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "beatrice", "point": "BeatriceCutscene", "mesh": "GN_Asiangirl", "ped_model_id": 3, "mission_critical": true, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "notes" },
+        { "type": "social", "actor_tag": "br_npc_beatrice", "radius_cm": 250, "prompt": "Return the notes" }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:beatrice", "latched": true },
+      "fail_text": "Beatrice got hurt.",
+      "on_complete": [
+        { "type": "take_item", "item": "notes", "n": 1 },
+        { "type": "pair_anim", "npc": "beatrice", "seconds": 1.5, "clips": "GIVE,KISSF" },
+        { "type": "say", "speaker": "BEATRICE", "text": "You got them back! Thank you!", "seconds": 3 },
+        { "type": "log", "text": "campaign on_pass for 1_08 tops up stink bombs (309 x5 if none; SMissPass); the make-out pair is a stub" }
+      ]
+    }
+  ]
+}

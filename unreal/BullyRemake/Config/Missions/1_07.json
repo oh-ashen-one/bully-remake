@@ -1,0 +1,99 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_07 'Defend Bucky' — three bully waves in the school garage yard while Bucky takes scripted damage pressure, then the gate rendezvous and the skateboard give-back (recon: docs/re-notes/ch1/1_07-defend-bucky.md). The defend-NPC loop is real: Bucky is a combat pawn on the player's team (enemies' swings can land on him, the player's can't), every other wave member takes him as PreferredVictim, his KO fires npc_ko:bucky and fails the stage (a retry revives him at full health). v1 simplifications (see the recon's gap table): the baked 1-07 cutscene is a title card + speech beat; the gate/garage-door prop choreography and the toolbox NIS are folded into dialogue beats; Bucky holds his ground (no cower-flee path set); the ending is a speech beat + the campaign on_pass (skateboard 437 = a ride, logged; force-completes the errand tutorial 1_E01; respect bullies 0 / nerds 65); the SK8_Examine pair-anim is a stub. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "1_07",
+  "title": "Defend Bucky",
+  "retry": "stage",
+  "start": { "location_cm": [27111.0, 11641.1, 667.8], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_07.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Bucky's in trouble at the garage.",
+      "blip": "1_07_Bucky",
+      "on_start": [
+        { "type": "banner", "text": "DEFEND BUCKY", "sub": "The garage yard, behind the school.", "seconds": 3 },
+        { "type": "spawn_defender", "npc": "bucky", "point": "1_07_Bucky", "mesh": "NDH3_Bucky", "ped_model_id": 8, "health": 300, "drain_hp": 25, "drain_every": 5 },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "BUCKY", "text": "Over here! Help! They're taking my stuff apart!", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "npc_ko:bucky" },
+      "fail_text": "Bucky got knocked out."
+    },
+    {
+      "id": "reach_bucky",
+      "objective": "Get to Bucky before they take him apart.",
+      "blip": "1_07_Bucky",
+      "complete": { "type": "reach_location", "point": "1_07_Bucky", "radius_cm": 800 },
+      "fail": { "type": "event", "name": "npc_ko:bucky", "latched": true },
+      "fail_text": "Bucky got knocked out.",
+      "on_complete": [
+        { "type": "npc_drain", "npc": "bucky", "on": false },
+        { "type": "say", "speaker": "BUCKY", "text": "Watch out — here they come!", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "wave_1",
+      "objective": "Drive off the first two.",
+      "on_start": [
+        { "type": "spawn_wave", "group": "w1", "points": ["1_07_G1", "1_07_G2"], "mesh": "GN_Bully01", "hostile": true, "target": "bucky" }
+      ],
+      "complete": { "type": "event", "name": "wave:w1", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:bucky" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Bucky got knocked out."
+    },
+    {
+      "id": "wave_2",
+      "objective": "Another pair at the gate.",
+      "on_start": [
+        { "type": "say", "speaker": "BUCKY", "text": "More of them!", "seconds": 2 },
+        { "type": "spawn_wave", "group": "w2", "points": ["1_07_SpawnPoint01", "1_07_SpawnPoint03"], "mesh": "GN_Bully05", "hostile": true, "target": "bucky" }
+      ],
+      "complete": { "type": "event", "name": "wave:w2", "latched": true },
+      "fail": { "type": "event", "name": "npc_ko:bucky", "latched": true },
+      "fail_text": "Bucky got knocked out."
+    },
+    {
+      "id": "wave_3",
+      "objective": "The last pair. Hold the yard.",
+      "on_start": [
+        { "type": "say", "speaker": "BUCKY", "text": "My toolbox! Don't let them near it!", "seconds": 3 },
+        { "type": "spawn_wave", "group": "w3", "points": ["1_07_SpawnPoint04", "1_07_SpawnPoint05"], "mesh": "GN_Bully03", "hostile": true, "target": "bucky" }
+      ],
+      "complete": { "type": "event", "name": "wave:w3", "latched": true },
+      "fail": { "type": "event", "name": "npc_ko:bucky", "latched": true },
+      "fail_text": "Bucky got knocked out."
+    },
+    {
+      "id": "rendezvous",
+      "objective": "Meet Bucky by the gate.",
+      "blip": "1_07_PlyrDoor",
+      "complete": { "type": "reach_location", "point": "1_07_PlyrDoor", "radius_cm": 300 }
+    },
+    {
+      "id": "outro",
+      "objective": "Bucky wants to thank you.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "point": "1_07_NISPoints", "look": "1_07_LookAtPt1", "fov": 45, "blend": 0.6 },
+        { "type": "spawn_npc", "npc": "hobo", "point": "1_07_Bum", "mesh": "TO_Construct01", "ped_model_id": 87, "untargetable": true },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "HOBO", "text": "Nice work, kid. Bucky owes you one.", "seconds": 3 },
+          { "speaker": "BUCKY", "text": "My skateboard — take it. You've earned it.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "camera", "release": true, "blend": 0.6 },
+        { "type": "letterbox", "on": false },
+        { "type": "log", "text": "campaign on_pass for 1_07: skateboard (437 — a ride, logged), force-complete 1_E01, respect bullies 0 / nerds 65; the SK8_Examine give-back pair-anim is a stub" }
+      ]
+    }
+  ]
+}

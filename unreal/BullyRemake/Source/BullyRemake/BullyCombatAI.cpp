@@ -57,7 +57,12 @@ void ABullyCombatAIController::Tick(float Dt)
 		Note(TEXT("retreat"));
 	}
 
-	UBullyCombatComponent* T = C->FindTarget(5000.f, 360.f, true);
+	UBullyCombatComponent* T = nullptr;
+	if (P && P->PreferredVictim.IsValid())   // mission wave victim override (defend-NPC beats)
+	{
+		if (UBullyCombatComponent* V = P->PreferredVictim->GetCombat(); V && !V->IsOut()) { T = V; }
+	}
+	if (!T) { T = C->FindTarget(5000.f, 360.f, true); }
 	if (C->IsOut() || C->GetState() == EBullyCombatState::Beaten || !T || T->IsOut())
 	{
 		C->SetBlockHeld(false);

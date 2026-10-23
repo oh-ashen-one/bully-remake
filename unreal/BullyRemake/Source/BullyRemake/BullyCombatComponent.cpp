@@ -394,6 +394,28 @@ void UBullyCombatComponent::FireMission(FName Event)
 	}
 }
 
+void UBullyCombatComponent::FireNpcKoTag()
+{
+	AActor* O = GetOwner();
+	if (!O || IsPlayer()) { return; }
+	for (const FName& T : O->Tags)
+	{
+		const FString S = T.ToString();
+		if (S.StartsWith(TEXT("br_npc:")))
+		{
+			FireMission(FName(*FString::Printf(TEXT("npc_ko:%s"), *S.RightChop(7))));
+		}
+	}
+}
+
+void UBullyCombatComponent::Revive()
+{
+	// mission retry: back on his feet at full health (the mission repositions him too)
+	Health = MaxHealth;
+	SetState(EBullyCombatState::Idle);
+	UE_LOG(LogBullyCombat, Display, TEXT("BR_COMBAT %s revived (hp %.0f)"), *GetNameSafe(GetOwner()), Health);
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // targeting
 
@@ -896,6 +918,7 @@ UBullyCombatComponent::EHitResult UBullyCombatComponent::ReceiveHit(UBullyCombat
 			else { PlayClip(M.VictimClip, false, 1.f, 0.f, KOLoopClip); }
 			Fire(TEXT("knocked_out"));
 			FireMission(IsPlayer() ? FName(TEXT("player_knocked_out")) : FName(TEXT("enemy_knocked_out")));
+			FireNpcKoTag();
 			return EHitResult::Hit;
 		}
 		EnterReaction(EBullyHitReaction::KO, Attacker, &M);
@@ -986,6 +1009,7 @@ void UBullyCombatComponent::EnterReaction(EBullyHitReaction R, UBullyCombatCompo
 		Push(Away, FMath::Max(Knock, 60.f), 0.3f);
 		Fire(TEXT("knocked_out"));
 		FireMission(IsPlayer() ? FName(TEXT("player_knocked_out")) : FName(TEXT("enemy_knocked_out")));
+		FireNpcKoTag();
 		break;
 	}
 	// juice: taking a hit rocks the player's camera harder than landing one

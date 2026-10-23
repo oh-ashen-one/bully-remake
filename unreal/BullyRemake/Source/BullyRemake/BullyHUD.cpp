@@ -379,6 +379,38 @@ public:
 				]
 			]
 
+			// dialogue choice, lower centre (above the button prompt): prompt + numbered options (J/K/L)
+			+ SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Bottom).Padding(FMargin(0.f, 0.f, 0.f, 300.f))
+			[
+				SNew(SBox).MaxDesiredWidth(560.f)
+				.Visibility_Lambda([S]() { return S->ChoiceLabels.Num() > 0 ? EVisibility::HitTestInvisible : EVisibility::Collapsed; })
+				[
+					SNew(SBorder).BorderImage(White).BorderBackgroundColor(Panel).Padding(FMargin(16.f, 10.f, 18.f, 12.f))
+					[
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot().AutoHeight()
+						[
+							SNew(STextBlock).Font(Body).AutoWrapText(true).ColorAndOpacity(Gold)
+							.Text_Lambda([S]() { return FText::FromString(S->ChoicePrompt); })
+						]
+						+ SVerticalBox::Slot().AutoHeight().Padding(0, 6, 0, 0)
+						[
+							SNew(STextBlock).Font(Hint).AutoWrapText(true).ColorAndOpacity(Cream)
+							.Text_Lambda([S]()
+							{
+								static const TCHAR* Keys[] = { TEXT("J"), TEXT("K"), TEXT("L") };
+								TArray<FString> Lines;
+								for (int32 i = 0; i < S->ChoiceLabels.Num() && i < 3; ++i)
+								{
+									Lines.Add(FString::Printf(TEXT("[%s]  %s"), Keys[i], *S->ChoiceLabels[i]));
+								}
+								return FText::FromString(FString::Join(Lines, TEXT("\n")));
+							})
+						]
+					]
+				]
+			]
+
 			// banner, upper centre
 			+ SOverlay::Slot().HAlign(HAlign_Center).VAlign(VAlign_Top).Padding(FMargin(0.f, 150.f, 0.f, 0.f))
 			[
@@ -482,6 +514,7 @@ void FBullyHUD::ClearObjective()
 	// retract any cinematic furniture so a mission hand-off / end never leaves bars or a line stuck on screen
 	S.LetterboxTarget = 0.f; S.DialogueLeft = 0.f; S.SpeakerText.Reset(); S.DialogueText.Reset();
 	S.CountdownLeft = -1.f; S.ProgressFrac = -1.f;   // campaign spine: visible fail timer / minigame bar
+	S.ChoicePrompt.Reset(); S.ChoiceLabels.Reset();  // dialogue choice
 }
 
 void FBullyHUD::SetBlip(bool bOn, const FVector& World)
@@ -542,4 +575,19 @@ void FBullyHUD::SetProgress(float Frac, const FString& Label)
 	if (bWas != (Frac >= 0.f)) { UE_LOG(LogBullyHUD, Display, TEXT("BR_HUD progress %s %s"), *Label, Frac >= 0.f ? TEXT("shown") : TEXT("hidden")); }
 	S.ProgressFrac = Frac;
 	if (Frac >= 0.f) { S.ProgressLabel = Label; }
+}
+
+void FBullyHUD::SetChoice(const FString& Prompt, const TArray<FString>& Labels)
+{
+	FBullyHUDState& S = State.Get();
+	S.ChoicePrompt = Prompt;
+	S.ChoiceLabels = Labels;
+	UE_LOG(LogBullyHUD, Display, TEXT("BR_HUD choice: %s (%d options)"), *Prompt, Labels.Num());
+}
+
+void FBullyHUD::ClearChoice()
+{
+	FBullyHUDState& S = State.Get();
+	S.ChoicePrompt.Reset();
+	S.ChoiceLabels.Reset();
 }

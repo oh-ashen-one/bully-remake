@@ -73,7 +73,8 @@ finish the story; several are required for 100%.
 | 40 | Lola's Race | 8AM–11PM |
 | 41 | Tenements | 8AM–11PM |
 | 42 | Discreet Deliveries (O) | 5PM–11PM |
-| 43 | Rumble | 8AM–11PM (chapter boss: Johnny Vincent) |
+| 43a | The Rumble | 8AM–11PM (script `3_06`; Peanut chase, New Coventry brawls) |
+| 43b | Fighting Johnny Vincent | chapter boss (script `3_B`; some lists fold 43a/43b into one "Rumble" entry) |
 
 ### Chapter 4 — "A Healthy Mind in a Healthy Body" (9)
 | # | Mission | Window |

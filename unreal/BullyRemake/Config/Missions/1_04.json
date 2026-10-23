@@ -1,0 +1,136 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_04 'Slingshot' — Gary hands over the slingshot, the player shoots out the bus windows in the parking lot, then snipes the jock workout squad from the tree while coach Burton patrols (recon: docs/re-notes/ch1/1_04-slingshot.md). v1 simplifications (see the recon's gap table): the baked 1-04 cutscene is a title card + speech beat; the bus windows are stationary one-hit target dummies near the lot (the real window breakables aren't world props we can drive yet — their coords aren't in the trigger extract either); there is no tree-climb, so the perch trigger sits at the tree base; hit attribution (slingshot projectile vs other) is not checked; getting down from the tree is a zone_timer exit countdown. The spotter is real: cone + range + line of sight. Pass grants (nerds respect -> 55) live in the campaign table's on_pass for 1_04. Wording is original. Meshes are imported stand-ins; ped_model_id records the original model ids.",
+  "id": "1_04",
+  "title": "Slingshot",
+  "retry": "stage",
+  "start": { "location_cm": [27111.0, 11641.1, 667.8], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_04.json",
+  "points": {
+    "win1": { "location_cm": [17841.9, -349.0, 555.9] },
+    "win2": { "location_cm": [17891.9, -199.0, 555.9] },
+    "win3": { "location_cm": [17941.9, -49.0, 555.9] },
+    "win4": { "location_cm": [17991.9, 101.0, 555.9] },
+    "win5": { "location_cm": [18041.9, 251.0, 555.9] },
+    "jock1": { "location_cm": [-1510.0, 10410.0, 119.0] },
+    "jock2": { "location_cm": [-1510.0, 10010.0, 119.0] },
+    "jock3": { "location_cm": [-1510.0, 9610.0, 119.0] },
+    "jock4": { "location_cm": [-1510.0, 9210.0, 119.0] },
+    "jock5": { "location_cm": [-1510.0, 8810.0, 119.0] },
+    "jock6": { "location_cm": [-1510.0, 8410.0, 119.0] }
+  },
+  "triggers": [
+    { "id": "tree_trig", "point": "1_04_tree1", "half_extent_cm": [250, 250, 300] }
+  ],
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Meet Gary — he found something.",
+      "blip": "1_04_NemesisStart",
+      "on_start": [
+        { "type": "banner", "text": "SLINGSHOT", "sub": "Gary's latest acquisition", "seconds": 3 },
+        { "type": "give_weapon", "weapon": "slingshot" },
+        { "type": "give_ammo", "weapon": "slingshot", "n": 30 },
+        { "type": "spawn_npc", "npc": "gary", "point": "1_04_NemesisStart", "mesh": "GN_Boy01", "ped_model_id": 130, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "GARY", "text": "Found this beauty in the shop. Try not to put an eye out.", "seconds": 3 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:gary" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Gary got knocked out."
+    },
+    {
+      "id": "follow_lot",
+      "objective": "Follow Gary to the parking lot.",
+      "on_start": [ { "type": "npc_lead", "npc": "gary", "point": "1_04_NemesisParking", "gait": "sprint", "radius_cm": 800 } ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:gary", "latched": true },
+        { "type": "reach_location", "point": "1_04_NemesisParking", "radius_cm": 800 }
+      ] }
+    },
+    {
+      "id": "parking_beat",
+      "objective": "Hear Gary out.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "location_cm": [18148.0, -602.0, 958.0], "look": "player", "fov": 50, "blend": 0.8 },
+        { "type": "speech_sequence", "id": "parking", "lines": [
+          { "speaker": "GARY", "text": "See that bus? Those windows are begging for it.", "seconds": 3 },
+          { "speaker": "GARY", "text": "Three good hits. Make them count.", "seconds": 3 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:parking", "latched": true },
+      "on_complete": [ { "type": "camera", "release": true, "blend": 0.6 }, { "type": "letterbox", "on": false } ]
+    },
+    {
+      "id": "windows",
+      "objective": "Shoot out the bus windows (three will do).",
+      "blip": "1_04_NemesisParking",
+      "on_start": [
+        { "type": "hint", "text": "Equip the slingshot (wheel) and fire (LMB).", "seconds": 5 },
+        { "type": "spawn_wave", "group": "windows", "points": ["win1", "win2", "win3", "win4", "win5"], "mesh": "GN_Bully03", "hostile": false, "hits_to_beat": 1, "advance_at": 3 }
+      ],
+      "complete": { "type": "event", "name": "wave:windows", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" },
+      "on_complete": [ { "type": "say", "speaker": "GARY", "text": "Ha! Glass everywhere. Love it.", "seconds": 3 } ]
+    },
+    {
+      "id": "to_field",
+      "objective": "Follow Gary to the football field.",
+      "on_start": [ { "type": "npc_lead", "npc": "gary", "point": "1_04_Field", "gait": "sprint", "radius_cm": 800 } ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:gary", "latched": true },
+        { "type": "reach_location", "point": "1_04_Field", "radius_cm": 1000 }
+      ] },
+      "on_complete": [ { "type": "npc_move_to", "npc": "gary", "path": "1_04_NemPathToBleachers", "point": "1_04_GaryBleachers" } ]
+    },
+    {
+      "id": "perch",
+      "objective": "Get to the tree overlooking the field.",
+      "blip": "tree_trig",
+      "complete": { "type": "trigger_enter", "trigger": "tree_trig" },
+      "on_complete": [
+        { "type": "say", "speaker": "GARY", "text": "Up there. The jocks won't know what hit them.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "snipe",
+      "objective": "Tag all six jocks from the tree.",
+      "on_start": [
+        { "type": "hint", "text": "Stay on the perch. If the coach spots you, it's over.", "seconds": 5 },
+        { "type": "spawn_wave", "group": "field", "points": ["jock1", "jock2", "jock3", "jock4", "jock5", "jock6"], "mesh": "GN_Bully03", "hostile": false, "hits_to_beat": 1 },
+        { "type": "spawn_npc", "npc": "burton", "point": "1_04_BurtonField", "mesh": "TO_Cop", "ped_model_id": 55, "invulnerable": true, "untargetable": true },
+        { "type": "spotter", "npc": "burton", "range_cm": 1500, "cone_deg": 60, "seconds": 2 },
+        { "type": "say", "speaker": "BURTON", "text": "Move it, ladies! Those knees better touch the sky!", "seconds": 3 }
+      ],
+      "complete": { "type": "event", "name": "wave:field", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "spotted_by:burton" },
+        { "type": "zone_timer", "trigger": "tree_trig", "seconds": 15, "visible": true }
+      ] },
+      "fail_text": "You blew the ambush."
+    },
+    {
+      "id": "outro",
+      "objective": "Clean shot. Every one of them.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "BURTON", "text": "Who did that?! Show yourself, coward!", "seconds": 3 },
+          { "speaker": "GARY", "text": "Beautiful. They'll blame the weather.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "letterbox", "on": false },
+        { "type": "log", "text": "campaign on_pass for 1_04 sets nerds respect (the original's in-script pass effect; no SMissPass entry exists for 1_04)" }
+      ]
+    }
+  ]
+}

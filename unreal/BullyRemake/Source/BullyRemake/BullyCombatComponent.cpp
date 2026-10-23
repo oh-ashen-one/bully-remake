@@ -5,6 +5,7 @@
 
 #include "Animation/AnimSequence.h"
 #include "BullyCharacter.h"
+#include "BullyCombatPawn.h"
 #include "Components/CapsuleComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
@@ -834,6 +835,12 @@ UBullyCombatComponent::EHitResult UBullyCombatComponent::ReceiveHit(UBullyCombat
 
 	// damage + the health floor (tutorial partner: MinHealth 5, then Beaten until humiliated)
 	LastHitTakenAt = Now;
+	// scripted hit-count health (spawn_wave hits_to_beat; the 1_03 Davis boss model): each landed hit takes
+	// MaxHealth/N, so exactly N hits drop him regardless of the weapon's damage number
+	if (const ABullyCombatPawn* Boss = Cast<ABullyCombatPawn>(O); Boss && Boss->HitsToBeat > 0 && !IsPlayer())
+	{
+		Damage = MaxHealth / float(Boss->HitsToBeat);
+	}
 	if (!bInvulnerable || M.Reaction == EBullyHitReaction::KO)
 	{
 		Health -= Damage;

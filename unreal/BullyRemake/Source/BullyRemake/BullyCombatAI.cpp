@@ -64,6 +64,12 @@ void ABullyCombatAIController::Tick(float Dt)
 		C->SetLockOnHeld(false);
 		return;
 	}
+	if (P && P->bStationary)   // mission target dummy: holds its spot, never moves, never attacks
+	{
+		C->SetBlockHeld(false);
+		C->SetLockOnHeld(false);
+		return;
+	}
 	const UMissionSubsystem* MS = UMissionSubsystem::Get(W);
 	const bool bMayAttack = (!P || P->bAttackAllowed) && !(MS && MS->HasFlag(TEXT("combat_ai_passive")));
 	const bool bMayBlock = (!P || P->bBlockAllowed) && !(MS && MS->HasFlag(TEXT("combat_ai_noblock")));

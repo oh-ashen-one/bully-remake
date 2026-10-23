@@ -30,6 +30,11 @@ public:
 	UPROPERTY(Config, EditAnywhere, Category = "Combat|Enemy") float TetherRadius = 500.f;
 	/** >0: health is floored here and the partner becomes Beaten (humiliation prompt) instead of KO. */
 	UPROPERTY(Config, EditAnywhere, Category = "Combat|Enemy") float HealthFloor = 0.f;
+	/** >0 (mission spawn_wave): scripted hit-count health — each landed hit takes MaxHealth/HitsToBeat, so exactly N
+	 *  hits drop him regardless of weapon (the original's 1_03 Davis boss model). 0 = normal damage. */
+	int32 HitsToBeat = 0;
+	/** Mission target dummy (spawn_wave hostile:false): never moves, never attacks; just takes hits. */
+	bool bStationary = false;
 	/** Arena centre for the tether (defaults to the spawn point). */
 	FVector TetherCenter = FVector::ZeroVector;
 	bool bHasTether = false;

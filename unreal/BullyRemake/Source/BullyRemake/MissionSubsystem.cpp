@@ -137,6 +137,22 @@ namespace
 			C.Area = int32(Num(TEXT("area"), -1.f));
 			if (C.Area < 0) { Err = TEXT("leave_area: missing \"area\""); return false; }
 		}
+		else if (Type == TEXT("leash"))
+		{
+			C.Type = FMissionCondition::EType::Leash;
+			if (!O->TryGetStringField(TEXT("npc"), S)) { Err = TEXT("leash: missing \"npc\""); return false; }
+			C.Name = FName(*S);
+			C.Radius = Num(TEXT("radius_cm"), 3500.f);
+			C.Seconds = Num(TEXT("seconds"), 10.f);
+		}
+		else if (Type == TEXT("zone_timer"))
+		{
+			C.Type = FMissionCondition::EType::ZoneTimer;
+			if (!O->TryGetStringField(TEXT("trigger"), S)) { Err = TEXT("zone_timer: missing \"trigger\""); return false; }
+			C.Name = FName(*S);
+			C.Seconds = Num(TEXT("seconds"), 15.f);
+			O->TryGetBoolField(TEXT("visible"), C.bVisible);
+		}
 		else if (Type == TEXT("event"))
 		{
 			C.Type = FMissionCondition::EType::Event;
@@ -349,6 +365,9 @@ namespace
 				if (O->TryGetStringField(TEXT("event"), S)) { A.Sub = S; }   // arrived-event override
 				double R = 0.0;
 				if (O->TryGetNumberField(TEXT("radius_cm"), R)) { A.Dist = float(R); }
+				O->TryGetStringArrayField(TEXT("via"), A.Via);             // extra waypoints (point or path names)
+				O->TryGetStringField(TEXT("path"), A.Text);                // a trigger-file path name
+				O->TryGetStringField(TEXT("gait"), A.Gait);                // "walk" | "run" | "sprint"
 			}
 			else if (Type == TEXT("npc_face"))
 			{
@@ -441,6 +460,31 @@ namespace
 				A.Type = FMissionAction::EType::Hide;
 				bool b = true; O->TryGetBoolField(TEXT("on"), b); A.bOn = b;
 			}
+			else if (Type == TEXT("spawn_wave"))
+			{
+				A.Type = FMissionAction::EType::SpawnWave;
+				if (!O->TryGetStringField(TEXT("group"), S)) { Err = TEXT("spawn_wave: missing \"group\""); return false; }
+				A.Name = FName(*S);
+				if (!O->TryGetStringArrayField(TEXT("points"), A.PointNames) || A.PointNames.Num() == 0) { Err = TEXT("spawn_wave: needs \"points\""); return false; }
+				O->TryGetStringField(TEXT("mesh"), A.Mesh);
+				double N2 = 0.0;
+				if (O->TryGetNumberField(TEXT("health"), N2)) { A.Health = float(N2); }
+				if (O->TryGetNumberField(TEXT("hits_to_beat"), N2)) { A.HitsToBeat = int32(N2); }
+				if (O->TryGetNumberField(TEXT("advance_at"), N2)) { A.AdvanceAt = int32(N2); }
+				bool b = true;
+				if (O->TryGetBoolField(TEXT("hostile"), b)) { A.bHostile = b; }
+			}
+			else if (Type == TEXT("spotter"))
+			{
+				A.Type = FMissionAction::EType::Spotter;
+				if (!O->TryGetStringField(TEXT("npc"), S)) { Err = TEXT("spotter: missing \"npc\" id"); return false; }
+				A.NpcId = FName(*S);
+				double N2 = 0.0;
+				if (O->TryGetNumberField(TEXT("range_cm"), N2)) { A.Radius = float(N2); }
+				if (O->TryGetNumberField(TEXT("cone_deg"), N2)) { A.Amp = float(N2); }
+				if (O->TryGetNumberField(TEXT("seconds"), N2)) { A.Seconds = float(N2); }
+				if (O->TryGetStringField(TEXT("event"), S)) { A.Sub = S; }   // spotted-event override
+			}
 			else { Err = FString::Printf(TEXT("unknown action type \"%s\""), *Type); return false; }
 			Out.Add(MoveTemp(A));
 		}
@@ -510,6 +554,29 @@ namespace
 				FString N;
 				if (!E.IsValid() || !(E->TryGetStringField(TEXT("name"), N) || E->TryGetStringField(TEXT("id"), N))) { continue; }
 				FVector Loc;
+				FString Type;
+				E->TryGetStringField(TEXT("type"), Type);
+				if (Type == TEXT("path"))   // paths carry no root location: waypoint lists only
+				{
+					const TArray<TSharedPtr<FJsonValue>>* Wps = nullptr;
+					if (E->TryGetArrayField(TEXT("waypoints"), Wps) && Wps->Num() > 0)
+					{
+						TArray<TPair<int32, FVector>> Ordered;
+						for (const TSharedPtr<FJsonValue>& Wv : *Wps)
+						{
+							FObj W = Wv->AsObject();
+							FVector WL;
+							if (!W.IsValid() || !ReadVec3(*W, TEXT("location_cm"), WL)) { continue; }
+							double Idx = 0.0;
+							W->TryGetNumberField(TEXT("index"), Idx);
+							Ordered.Add(TPair<int32, FVector>(int32(Idx), WL));
+						}
+						Ordered.Sort([](const TPair<int32, FVector>& A, const TPair<int32, FVector>& B) { return A.Key < B.Key; });
+						TArray<FVector>& Path = D.Paths.FindOrAdd(FName(*N));
+						for (const auto& Wp : Ordered) { Path.Add(Wp.Value); }
+					}
+					continue;
+				}
 				bool bOk = ReadVec3(*E, TEXT("location_cm"), Loc);
 				FVector G;
 				if (!bOk && ReadVec3(*E, TEXT("location_game"), G)) { Loc = GameToUe(G); bOk = true; }
@@ -521,8 +588,7 @@ namespace
 					if (!Box.IsValid) { Box = FBox(EForceInit::ForceInit); }
 					Box += Loc;
 				}
-				FString Type;
-				if (E->TryGetStringField(TEXT("type"), Type) && Type == TEXT("point")) { AddEntry(N, E); }
+				if (Type == TEXT("point")) { AddEntry(N, E); }
 			}
 			for (auto& Pair : D.AreaBoxes) { Pair.Value = Pair.Value.ExpandBy(1500.0); }   // doors/walls sit just outside the points
 		}
@@ -558,9 +624,26 @@ namespace
 		return false;
 	}
 
+	/** Recursive leash search (a chase stage's fail side): the driver follows the fleeing npc instead of teleporting
+	 *  to the destination, so the leash never trips mid-route. */
+	bool CondLeash(const FMissionCondition& C, FName& Out)
+	{
+		if (C.Type == FMissionCondition::EType::Leash) { Out = C.Name; return true; }
+		for (const FMissionCondition& K : C.Children) { if (CondLeash(K, Out)) { return true; } }
+		return false;
+	}
+
 	/** System-produced events (speech:<id>, heat:zero, npc_arrived:<id>, npc_ko:<id>, minigame ids) are never
 	 *  auto-fired by the smoke driver — it drives the producing system instead. */
 	bool SystemEvent(FName Ev) { return Ev.ToString().Contains(TEXT(":")); }
+
+	/** npc move/lead gait: "sprint" | "run" | "walk" (run:true is "run"; default walk). */
+	EBullyGait GaitFor(const FString& Gait, bool bRun)
+	{
+		if (Gait.Equals(TEXT("sprint"), ESearchCase::IgnoreCase)) { return EBullyGait::Sprint; }
+		if (Gait.Equals(TEXT("walk"), ESearchCase::IgnoreCase)) { return EBullyGait::Walk; }
+		return bRun || Gait.Equals(TEXT("run"), ESearchCase::IgnoreCase) ? EBullyGait::Run : EBullyGait::Walk;
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -634,6 +717,8 @@ void UMissionSubsystem::Deinitialize()
 	if (ACameraActor* Cam = CutsceneCam.Get()) { Cam->Destroy(); CutsceneCam = nullptr; }
 	DestroyOwnedTriggers();
 	DespawnMissionNpcs(TEXT("world teardown"));
+	DespawnWaves();
+	Spotters.Reset();
 	if (Hud.IsValid()) { Hud->Hide(); Hud.Reset(); }
 	Super::Deinitialize();
 }
@@ -840,6 +925,8 @@ void UMissionSubsystem::StopMission(const FString& Reason)
 	ReleaseCutsceneCamera(0.f);   // never leave gameplay looking through a cutscene camera
 	DestroyOwnedTriggers();
 	DespawnMissionNpcs(*Reason);
+	DespawnWaves();
+	Spotters.Reset();
 	Speech.bActive = false;
 	Minigame = FMinigameState();
 	HeatPoints = 0.f;
@@ -934,6 +1021,11 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	// chapter-1 primitives are stage-scoped: a new stage disarms a leftover minigame/speech beat (its own on_start re-arms)
 	Minigame = FMinigameState();
 	Speech.bActive = false;
+	DespawnWaves();   // a wave/spotter belongs to its stage
+	Spotters.Reset();
+	LeashFarSince = -1.0;
+	ZoneWasInside = false;
+	ZoneOutSince = -1.0;
 	if (Hud.IsValid()) { Hud->SetProgress(-1.f); Hud->SetCountdown(-1.f); }
 	if (APawn* P = GetPlayerPawn()) { StageStartPawnLoc = P->GetActorLocation(); }
 
@@ -1011,6 +1103,8 @@ void UMissionSubsystem::CompleteMission()
 	// mission npcs of a terminal mission clean up here; a chaining mission's npcs live until the next StartMission's
 	// StopMission (brief overlap is deliberate: outro walk-offs read through the hand-off)
 	if (!bChains) { DespawnMissionNpcs(TEXT("complete")); }
+	DespawnWaves();
+	Spotters.Reset();
 	Speech.bActive = false;
 	Minigame = FMinigameState();
 	HeatPoints = 0.f;
@@ -1148,25 +1242,48 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			ABullyScriptedNPC* N = NpcById(A.NpcId);
 			if (!N) { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION %s: unknown npc '%s'"), A.Type == FMissionAction::EType::NpcLead ? TEXT("npc_lead") : TEXT("npc_move_to"), *A.NpcId.ToString()); break; }
 			const FName Ev = !A.Sub.IsEmpty() ? FName(*A.Sub) : FName(*FString::Printf(TEXT("npc_arrived:%s"), *A.NpcId.ToString()));
+			// route: "via" names (points OR trigger-file paths) + a "path" between the npc and the goal
+			TArray<FVector> Route;
+			for (const FString& V : A.Via)
+			{
+				if (const FVector* P = Mission->Points.Find(FName(*V))) { Route.Add(*P); }
+				else if (const TArray<FVector>* Pth = Mission->Paths.Find(FName(*V))) { Route.Append(*Pth); }
+				else { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION %s: unknown via point/path '%s'"), *A.NpcId.ToString(), *V); }
+			}
+			if (!A.Text.IsEmpty())
+			{
+				if (const TArray<FVector>* P = Mission->Paths.Find(FName(*A.Text))) { Route.Append(*P); }
+				else { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION %s: unknown path '%s'"), *A.NpcId.ToString(), *A.Text); }
+			}
 			if (A.Type == FMissionAction::EType::NpcLead)
 			{
-				// lead the player: walk the goal in legs, pausing while the player trails (see TickLeads)
+				// lead the player: walk the route in legs, pausing while the player trails (see TickLeads)
 				FLeadOrder L;
 				L.Npc = N;
+				L.Wps = Route;
 				L.Goal = A.Location;
 				L.Radius = A.Dist > 0.f ? A.Dist : 600.f;
 				L.Event = Ev;
 				L.bRun = A.bRun;
+				L.Gait = A.Gait;
 				Leads.RemoveAll([&](const FLeadOrder& E) { return E.Npc.Get() == N; });
 				Leads.Add(L);
-				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_lead %s -> %s (event %s)"), *A.NpcId.ToString(), *A.Location.ToCompactString(), *Ev.ToString());
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_lead %s -> %s via %d waypoint(s) (event %s)"), *A.NpcId.ToString(), *A.Location.ToCompactString(), Route.Num(), *Ev.ToString());
 			}
 			else
 			{
 				N->ClearCommands(true);
-				N->GoToPoint(A.Location, A.bRun ? EBullyGait::Run : EBullyGait::Walk, 70.f, FString::Printf(TEXT("mission %s move_to"), *A.NpcId.ToString()));
+				if (Route.Num() > 0)
+				{
+					Route.Add(A.Location);
+					N->FollowPath(Route, GaitFor(A.Gait, A.bRun), 70.f, FString::Printf(TEXT("mission %s move_to"), *A.NpcId.ToString()));
+				}
+				else
+				{
+					N->GoToPoint(A.Location, GaitFor(A.Gait, A.bRun), 70.f, FString::Printf(TEXT("mission %s move_to"), *A.NpcId.ToString()));
+				}
 				PendingArrive.Add(N, Ev);
-				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_move_to %s -> %s (event %s)"), *A.NpcId.ToString(), *A.Location.ToCompactString(), *Ev.ToString());
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_move_to %s -> %s via %d waypoint(s) (event %s)"), *A.NpcId.ToString(), *A.Location.ToCompactString(), Route.Num(), *Ev.ToString());
 			}
 			break;
 		}
@@ -1250,6 +1367,23 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 		case FMissionAction::EType::Hide:
 			SetFlag(TEXT("player_hidden"), A.bOn);
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION hide %s"), A.bOn ? TEXT("on") : TEXT("off"));
+			break;
+		case FMissionAction::EType::SpawnWave:
+			SpawnWave(A);
+			break;
+		case FMissionAction::EType::Spotter:
+			if (ABullyScriptedNPC* N = NpcById(A.NpcId))
+			{
+				FSpotter S;
+				S.Npc = N;
+				S.Range = A.Radius;
+				S.CosHalf = FMath::Cos(FMath::DegreesToRadians(A.Amp > 0.f ? A.Amp : 60.f) * 0.5f);
+				S.Seconds = A.Seconds > 0.f ? A.Seconds : 2.f;
+				S.Event = !A.Sub.IsEmpty() ? FName(*A.Sub) : FName(*FString::Printf(TEXT("spotted_by:%s"), *A.NpcId.ToString()));
+				Spotters.Add(S);
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION spotter %s: range %.0f cone %.0f deg %.1fs -> event %s"), *A.NpcId.ToString(), S.Range, A.Amp, S.Seconds, *S.Event.ToString());
+			}
+			else { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION spotter: unknown npc '%s'"), *A.NpcId.ToString()); }
 			break;
 		}
 	}
@@ -1398,6 +1532,27 @@ bool UMissionSubsystem::Evaluate(const FMissionCondition& C) const
 		const FBox* Box = Mission->AreaBoxes.Find(C.Area);
 		if (!Box) { return false; }   // no area data loaded: never fails
 		return !Box->IsInside(P->GetActorLocation());
+	}
+	case FMissionCondition::EType::Leash:
+	{
+		// chase leash: true after the named npc is farther than Radius from the player for Seconds continuously
+		const APawn* P = GetPlayerPawn();
+		const TWeakObjectPtr<ABullyScriptedNPC>* N = Npcs.Find(C.Name);
+		if (!P || !N || !N->IsValid()) { LeashFarSince = -1.0; return false; }
+		if (FVector::Dist2D(P->GetActorLocation(), (*N)->GetActorLocation()) <= C.Radius) { LeashFarSince = -1.0; return false; }
+		if (LeashFarSince < 0.0) { LeashFarSince = GetWorld()->GetTimeSeconds(); }
+		return GetWorld()->GetTimeSeconds() - LeashFarSince >= C.Seconds;
+	}
+	case FMissionCondition::EType::ZoneTimer:
+	{
+		// zone-exit countdown: true after the player has been outside the trigger for Seconds continuously
+		// (re-entering cancels); arms only after the player has been inside once this stage
+		const TWeakObjectPtr<AMissionTrigger>* T = Triggers.Find(C.Name);
+		const bool bInside = T && T->IsValid() && (*T)->IsPlayerInside();
+		if (bInside) { ZoneWasInside = true; ZoneOutSince = -1.0; return false; }
+		if (!ZoneWasInside) { return false; }
+		if (ZoneOutSince < 0.0) { ZoneOutSince = GetWorld()->GetTimeSeconds(); }
+		return GetWorld()->GetTimeSeconds() - ZoneOutSince >= C.Seconds;
 	}
 	case FMissionCondition::EType::All:
 		for (const FMissionCondition& K : C.Children) { if (!Evaluate(K)) { return false; } }
@@ -1666,6 +1821,8 @@ void UMissionSubsystem::Tick(float Dt)
 		TickMinigame(Dt);
 		TickHeat(Dt);
 		TickLeads(Dt);
+		TickWaves();
+		TickSpotters();
 		// visible fail timer -> HUD countdown
 		const FMissionStage& St = Mission->Stages[StageIndex];
 		if (Hud.IsValid())
@@ -1673,6 +1830,10 @@ void UMissionSubsystem::Tick(float Dt)
 			if (St.Fail.Type == FMissionCondition::EType::Timer && St.Fail.bVisible)
 			{
 				Hud->SetCountdown(St.Fail.Seconds - float(World->GetTimeSeconds() - StageStartTime));
+			}
+			else if (St.Fail.Type == FMissionCondition::EType::ZoneTimer && St.Fail.bVisible && ZoneOutSince >= 0.0)
+			{
+				Hud->SetCountdown(St.Fail.Seconds - float(World->GetTimeSeconds() - ZoneOutSince));
 			}
 			else { Hud->SetCountdown(-1.f); }
 		}
@@ -1989,6 +2150,26 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		return;
 	}
 
+	// wave drive: hit the next living wave member through the real combat pipeline (reactions, KO, wave:<group>
+	// event all fire; hits_to_beat bosses take their scripted per-hit damage along the same path)
+	for (FWaveGroup& G : Waves)
+	{
+		if (G.bFired) { continue; }
+		ABullyCombatPawn* Alive = nullptr;
+		for (const TWeakObjectPtr<ABullyCombatPawn>& M : G.Members)
+		{
+			ABullyCombatPawn* P = M.Get();
+			if (P && P->GetCombat() && !P->GetCombat()->IsOut() && P->GetCombat()->GetState() != EBullyCombatState::Beaten) { Alive = P; break; }
+		}
+		if (Alive)
+		{
+			Smoke.LastDrive = Smoke.Elapsed;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE hits wave %s member %s"), *G.Group.ToString(), *Alive->GetName());
+			Alive->GetCombat()->ApplyWeaponHit(EBullyHitReaction::Flinch, 500.f);
+			return;
+		}
+	}
+
 	TArray<const FMissionCondition*> Interacts;
 	CollectInteracts(St.Complete, Interacts);
 	if (Interacts.Num() > 0 && InteractInRange(*Interacts[0]))
@@ -2007,6 +2188,23 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		}
 	}
 	FVector Target;
+	// chase stages (a leash on the fail side): follow the fleeing npc — land just behind him, on ground he just
+	// crossed (teleporting to the destination would trip the leash, which is the honest behavior being tested)
+	FName LeashId;
+	if (CondLeash(St.Fail, LeashId))
+	{
+		// follow him until he's home; once his arrival event has latched, drive the stage's own target instead
+		const FName ArrivedEv(*FString::Printf(TEXT("npc_arrived:%s"), *LeashId.ToString()));
+		const bool bArrived = StageEvents.Contains(ArrivedEv) || MissionEvents.Contains(ArrivedEv);
+		if (const TWeakObjectPtr<ABullyScriptedNPC>* N = Npcs.Find(LeashId); !bArrived && N && N->IsValid())
+		{
+			Smoke.LastDrive = Smoke.Elapsed;
+			const FVector Behind = (*N)->GetActorLocation() - (*N)->GetActorForwardVector().GetSafeNormal2D() * 120.f;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE chase: player follows %s"), *LeashId.ToString());
+			TeleportPlayer(Behind + FVector(0, 0, 100), 0.f, false);
+			return;
+		}
+	}
 	if (PrimaryGoal(St.Complete, Target))
 	{
 		Smoke.LastDrive = Smoke.Elapsed;
@@ -2150,40 +2348,44 @@ void UMissionSubsystem::TickLeads(float /*Dt*/)
 		FLeadOrder& L = Leads[i];
 		ABullyScriptedNPC* N = L.Npc.Get();
 		if (!N) { Leads.RemoveAt(i); continue; }
-		const float DNpc = FVector::Dist2D(N->GetActorLocation(), L.Goal);
 		const double Now = GetWorld()->GetTimeSeconds();
-		if (DNpc <= 120.f)
+		const FVector Cur = L.WpIndex < L.Wps.Num() ? L.Wps[L.WpIndex] : L.Goal;   // current leg target (via/path waypoints, then the goal)
+		const bool bFinal = L.WpIndex >= L.Wps.Num();
+		const float DNpc = FVector::Dist2D(N->GetActorLocation(), Cur);
+		if (DNpc <= (bFinal ? 120.f : 90.f))
 		{
+			if (!bFinal) { ++L.WpIndex; L.NoProgressAt = Now; L.LastDist = TNumericLimits<float>::Max(); continue; }   // next leg
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_lead %s arrived -> event %s"), *N->NpcId, *L.Event.ToString());
 			FireEvent(L.Event);
 			Leads.RemoveAt(i);
 			continue;
 		}
-		// no ground gained for 3 s (blocked on geometry): snap to the goal, like the walker's own stuck policy --
-		// its snap does not fire while the player stands on the goal, which is exactly the lead case
+		// no ground gained for 3 s (blocked on geometry): snap to the current leg target, like the walker's own
+		// stuck policy -- its snap does not fire while the player stands on the goal, which is exactly the lead case
 		if (DNpc < L.LastDist - 50.f) { L.LastDist = DNpc; L.NoProgressAt = Now; }
 		else if (Now - L.NoProgressAt > 3.0)
 		{
-			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_lead %s: no progress toward %s (%.0f cm short) -- snapped to the goal"), *N->NpcId, *L.Goal.ToCompactString(), DNpc);
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_lead %s: no progress toward %s (%.0f cm short) -- snapped"), *N->NpcId, *Cur.ToCompactString(), DNpc);
 			N->ClearCommands(true);
-			N->SetActorLocation(L.Goal + FVector(0, 0, 90.f), false, nullptr, ETeleportType::TeleportPhysics);
-			FireEvent(L.Event);
-			Leads.RemoveAt(i);
+			N->SetActorLocation(Cur + FVector(0, 0, 90.f), false, nullptr, ETeleportType::TeleportPhysics);
+			L.NoProgressAt = Now;
 			continue;
 		}
 		if (!L.bWaitingForPlayer)
 		{
-			// pause while the player trails (compared by distance-to-goal, so a teleport past the npc reads as caught up)
-			if (P && FVector::Dist2D(P->GetActorLocation(), L.Goal) > DNpc + 200.f)
+			// pause while the player trails (compared by distance to the FINAL goal, so a teleport past the npc
+			// reads as caught up)
+			const float DNpcGoal = FVector::Dist2D(N->GetActorLocation(), L.Goal);
+			if (P && FVector::Dist2D(P->GetActorLocation(), L.Goal) > DNpcGoal + 200.f)
 			{
 				N->ClearCommands(true);
 				L.bWaitingForPlayer = true;
 				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_lead %s: waiting for the player"), *N->NpcId);
 				continue;
 			}
-			if (!N->IsBusy()) { N->GoToPoint(L.Goal, L.bRun ? EBullyGait::Run : EBullyGait::Walk, 90.f, FString::Printf(TEXT("mission %s lead"), *N->NpcId)); }
+			if (!N->IsBusy()) { N->GoToPoint(Cur, GaitFor(L.Gait, L.bRun), 90.f, FString::Printf(TEXT("mission %s lead"), *N->NpcId)); }
 		}
-		else if (!P || FVector::Dist2D(P->GetActorLocation(), L.Goal) <= DNpc + 200.f)
+		else if (!P || FVector::Dist2D(P->GetActorLocation(), L.Goal) <= FVector::Dist2D(N->GetActorLocation(), L.Goal) + 200.f)
 		{
 			L.bWaitingForPlayer = false;   // player caught up (same distance-to-goal threshold as the pause)
 		}
@@ -2276,6 +2478,113 @@ void UMissionSubsystem::TickHeat(float Dt)
 		HeatPoints = 0.f;
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION heat decayed -> event heat:zero"));
 		FireEvent(TEXT("heat:zero"));
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// wave-B runtime: spawn_wave groups + stealth spotters
+
+void UMissionSubsystem::SpawnWave(const FMissionAction& A)
+{
+	UWorld* World = GetWorld();
+	if (!World || !Mission.IsValid()) { return; }
+	// re-issuing a group (stage retry) clears its previous members first
+	DespawnWaves(A.Name);
+	FWaveGroup G;
+	G.Group = A.Name;
+	G.AdvanceAt = A.AdvanceAt;
+	for (const FString& Pn : A.PointNames)
+	{
+		const FVector* P = Mission->Points.Find(FName(*Pn));
+		if (!P) { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION spawn_wave %s: unknown point '%s'"), *A.Name.ToString(), *Pn); continue; }
+		FActorSpawnParameters SP;
+		SP.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButAlwaysSpawn;
+		SP.bDeferConstruction = true;
+		ABullyCombatPawn* E = World->SpawnActor<ABullyCombatPawn>(ABullyCombatPawn::StaticClass(), *P + FVector(0, 0, 20.f), FRotator::ZeroRotator, SP);
+		if (!E) { continue; }
+		if (!A.Mesh.IsEmpty()) { E->PedMeshPath = FString::Printf(TEXT("/Game/Imported/Characters/%s/SK_%s.SK_%s"), *A.Mesh, *A.Mesh, *A.Mesh); }
+		E->bStationary = !A.bHostile;
+		E->HitsToBeat = A.HitsToBeat;
+		E->FinishSpawning(FTransform(FRotator::ZeroRotator, *P + FVector(0, 0, 20.f)));
+		G.Members.Add(E);
+	}
+	Waves.Add(MoveTemp(G));
+	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION spawn_wave %s: %d member(s), hostile=%d hits_to_beat=%d advance_at=%d -> event wave:%s"),
+		*A.Name.ToString(), Waves.Last().Members.Num(), A.bHostile ? 1 : 0, A.HitsToBeat, A.AdvanceAt, *A.Name.ToString());
+}
+
+void UMissionSubsystem::TickWaves()
+{
+	for (FWaveGroup& G : Waves)
+	{
+		if (G.bFired) { continue; }
+		int32 Down = 0;
+		for (const TWeakObjectPtr<ABullyCombatPawn>& M : G.Members)
+		{
+			const ABullyCombatPawn* P = M.Get();
+			if (!P || !P->GetCombat() || P->GetCombat()->IsOut() || P->GetCombat()->GetState() == EBullyCombatState::Beaten) { ++Down; }
+		}
+		const int32 Need = G.AdvanceAt > 0 ? FMath::Min(G.AdvanceAt, G.Members.Num()) : G.Members.Num();
+		if (Need > 0 && Down >= Need)
+		{
+			G.bFired = true;
+			const FName Ev(*FString::Printf(TEXT("wave:%s"), *G.Group.ToString()));
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION wave %s: %d/%d down -> event %s"), *G.Group.ToString(), Down, G.Members.Num(), *Ev.ToString());
+			FireEvent(Ev);
+		}
+	}
+}
+
+void UMissionSubsystem::TickSpotters()
+{
+	if (Spotters.Num() == 0) { return; }
+	const APawn* P = GetPlayerPawn();
+	if (!P || !GetWorld()) { return; }
+	const double Now = GetWorld()->GetTimeSeconds();
+	for (FSpotter& S : Spotters)
+	{
+		if (S.bFired) { continue; }
+		ABullyScriptedNPC* N = S.Npc.Get();
+		if (!N) { S.bFired = true; continue; }
+		const FVector NP = N->GetActorLocation();
+		const FVector PP = P->GetActorLocation();
+		bool bSeen = false;
+		if (FVector::Dist2D(NP, PP) <= S.Range && FMath::Abs(NP.Z - PP.Z) <= 500.f)
+		{
+			const FVector ToP = (PP - NP).GetSafeNormal2D();
+			if (FVector::DotProduct(N->GetActorForwardVector().GetSafeNormal2D(), ToP) >= S.CosHalf)
+			{
+				// eye-to-chest line of sight; world geometry blocks, props/foliage do not (v1)
+				FHitResult H;
+				FCollisionQueryParams Q(SCENE_QUERY_STAT(BullySpotter), true);
+				Q.AddIgnoredActor(N);
+				bSeen = !GetWorld()->LineTraceSingleByObjectType(H, NP + FVector(0, 0, 150), PP + FVector(0, 0, 90), FCollisionObjectQueryParams(ECC_WorldStatic), Q);
+			}
+		}
+		if (bSeen)
+		{
+			if (S.SeenSince < 0.0) { S.SeenSince = Now; }
+			if (Now - S.SeenSince >= S.Seconds)
+			{
+				S.bFired = true;
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION spotter %s saw the player -> event %s"), *N->NpcId, *S.Event.ToString());
+				FireEvent(S.Event);
+			}
+		}
+		else { S.SeenSince = -1.0; }
+	}
+}
+
+void UMissionSubsystem::DespawnWaves(FName Group)
+{
+	for (int32 i = Waves.Num() - 1; i >= 0; --i)
+	{
+		if (!Group.IsNone() && Waves[i].Group != Group) { continue; }
+		for (const TWeakObjectPtr<ABullyCombatPawn>& M : Waves[i].Members)
+		{
+			if (M.IsValid()) { M->Destroy(); }
+		}
+		Waves.RemoveAt(i);
 	}
 }
 

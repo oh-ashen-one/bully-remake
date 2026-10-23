@@ -96,6 +96,27 @@
 //                                                                    //  fires "heat:zero" at 0
 //               { "type": "hide", "on": true }                       // the player ducks into a hiding spot
 //
+//   chapter-1 wave-B primitives (1_03 chase/boss, 1_04 sniping):
+//               { "type": "spawn_wave", "group": "w1", "points": ["pt", ...], "mesh": "GN_Bully01",
+//                 "health": 60, "hostile": true, "hits_to_beat": 0, "advance_at": 0 }
+//                 -- hostile combat pawns at named points (hostile:false = stationary target dummies); fires
+//                    "wave:<group>" when advance_at members are down (0 = all). hits_to_beat N: scripted hit-count
+//                    health (N landed hits drop him, damage number irrelevant — the Davis boss model).
+//                    Object destruction (1_04's bus windows) is a v1 stand-in: stationary 1-hp dummies.
+//               { "type": "spotter", "npc": "burton", "range_cm": 1500, "cone_deg": 60, "seconds": 2 }
+//                 -- stealth spotter on a spawned scripted npc: player in range + view cone + line of sight for
+//                    `seconds` (continuous) fires "spotted_by:<id>" (once per stage arming).
+//               npc_move_to / npc_lead gain "via": ["pt", ...] (inline/file point names) and "path": "<trigger-file
+//               path name>" — the move follows those waypoints (the Trigger.img paths are nav-tested routes).
+//   conditions: ... plus
+//               { "type": "leash", "npc": "davis", "radius_cm": 3500, "seconds": 20 }
+//                 -- chase leash (use as a fail): true after the named scripted npc is farther than radius from the
+//                    player for `seconds` continuously.
+//               { "type": "zone_timer", "trigger": "id", "seconds": 15, "visible": true }
+//                 -- zone-exit countdown (the 1_04 tree perch): true after the player has been OUTSIDE the trigger
+//                    for `seconds` continuously; re-entering cancels. Only arms after the player has been inside at
+//                    least once this stage. "visible" shows the countdown on the HUD while out.
+//
 // Campaign spine: StartMission consults UBullyCampaignSubsystem::IsAvailable (ids outside the campaign table are
 // always available) unless the start came from -BRMission=, the Mission.Start console exec, or a smoke/shots
 // harness (bDevOverride — harness runs must keep working); star-marker starts go through the gate. CompleteMission
@@ -111,11 +132,12 @@ class FBullyHUD;
 class APawn;
 class ACameraActor;
 class ABullyScriptedNPC;
+class ABullyCombatPawn;
 struct FSNPCCommand;
 
 struct FMissionCondition
 {
-	enum class EType : uint8 { None, Reach, TriggerEnter, TriggerExit, Interact, Event, Timer, Flag, All, Any, HasItem, Attempt, LeaveArea };
+	enum class EType : uint8 { None, Reach, TriggerEnter, TriggerExit, Interact, Event, Timer, Flag, All, Any, HasItem, Attempt, LeaveArea, Leash, ZoneTimer };
 	EType Type = EType::None;
 	FVector Location = FVector::ZeroVector;   // Reach
 	float Radius = 300.f;                     // Reach radius / Interact actor range
@@ -147,7 +169,8 @@ struct FSpeechLine
 struct FMissionAction
 {
 	enum class EType : uint8 { Hint, Banner, Event, SetFlag, ClearFlag, Teleport, Log, StartMission, SpawnEnemy, Fade, Reward, Letterbox, Say, Camera, Shake, GiveWeapon, GiveAmmo, SetRespect, Clock, ChapterSet, ForceComplete,
-		SpawnNpc, NpcMove, NpcLead, NpcFace, NpcDespawn, PairAnim, SpeechSequence, MinigameLaunch, GiveItem, TakeItem, MoneyEnsure, MoneyTake, HeatSet, Hide };
+		SpawnNpc, NpcMove, NpcLead, NpcFace, NpcDespawn, PairAnim, SpeechSequence, MinigameLaunch, GiveItem, TakeItem, MoneyEnsure, MoneyTake, HeatSet, Hide,
+		SpawnWave, Spotter };
 	EType Type = EType::Log;
 	FString Text, Sub;
 	FName Name;
@@ -200,6 +223,18 @@ struct FMissionAction
 	float Radius = 250.f;
 	// heat_set: Amount = points, Amp reused as decay-per-second. hide: bOn. give_item/take_item: Name = item, Amount = n.
 	// money_ensure/money_take: Money field (dollars, the wallet's unit).
+	// spawn_wave: Name = group (fires "wave:<group>"), PointNames resolve against the mission points, Mesh = ped folder,
+	// Health (0 = combat default), bHostile (false = stationary target dummy), HitsToBeat (boss hit-count health),
+	// AdvanceAt members down to fire (0 = all). npc_move_to/npc_lead: Via = extra waypoints (point OR path names),
+	// Text = a trigger-file path name. spotter: NpcId, Radius = range, Amp = cone degrees, Seconds = continuous spot time.
+	// Gait: "walk" | "run" | "sprint" for the npc actions (run:true == "run").
+	FString Gait;
+	TArray<FString> PointNames;
+	TArray<FString> Via;
+	float Health = 0.f;
+	bool bHostile = true;
+	int32 HitsToBeat = 0;
+	int32 AdvanceAt = 0;
 };
 
 struct FMissionStage
@@ -244,6 +279,8 @@ struct FMissionDef
 	FString RootFailText;
 	// trigger-file area bounds (area code -> bbox of that area's entities + margin), for leave_area conditions
 	TMap<int32, FBox> AreaBoxes;
+	// trigger-file paths (name -> waypoints), for npc_move_to/npc_lead "path"/"via" routes
+	TMap<FName, TArray<FVector>> Paths;
 };
 
 DECLARE_MULTICAST_DELEGATE_TwoParams(FMissionStageDelegate, const FMissionDef& /*Mission*/, int32 /*StageIndex (0-based)*/);
@@ -355,10 +392,13 @@ private:
 	struct FLeadOrder
 	{
 		TWeakObjectPtr<ABullyScriptedNPC> Npc;
+		TArray<FVector> Wps;             // via/path waypoints before the goal
+		int32 WpIndex = 0;
 		FVector Goal = FVector::ZeroVector;
 		float Radius = 600.f;          // pause while the player trails farther than this (goal-distance compared)
 		FName Event;                   // fired on arrival
-		bool bRun = true;              // gait
+		bool bRun = true;              // gait (see Gait)
+		FString Gait;                  // "walk" | "run" | "sprint" (empty = bRun)
 		bool bWaitingForPlayer = false;
 		float LastDist = TNumericLimits<float>::Max();   // progress watch: no ground gained for 3 s -> snap to the goal
 		double NoProgressAt = 0.0;                       // (the walker's own snap won't fire while the player stands on it)
@@ -383,6 +423,33 @@ private:
 	} Minigame;
 	bool bSmokeDriveMinigame = false;   // set by TickSmoke while a minigame is armed (the driver's hold-E)
 	float HeatPoints = 0.f, HeatDecay = 25.f;   // punishment-lite stub: decays only while the player is hidden
+
+	// wave-B runtime: waves (spawn_wave) and stealth spotters, both stage-scoped
+	struct FWaveGroup
+	{
+		FName Group;
+		TArray<TWeakObjectPtr<ABullyCombatPawn>> Members;
+		int32 AdvanceAt = 0;             // downed members needed for the event (0 = all)
+		bool bFired = false;
+	};
+	TArray<FWaveGroup> Waves;
+	struct FSpotter
+	{
+		TWeakObjectPtr<ABullyScriptedNPC> Npc;
+		float Range = 1500.f, CosHalf = 0.5f, Seconds = 2.f;
+		double SeenSince = -1.0;
+		bool bFired = false;
+		FName Event;
+	};
+	TArray<FSpotter> Spotters;
+	// leash / zone_timer condition state (one of each per stage; reset in BeginStage)
+	mutable double LeashFarSince = -1.0;
+	mutable bool ZoneWasInside = false;
+	mutable double ZoneOutSince = -1.0;
+	void SpawnWave(const FMissionAction& A);
+	void TickWaves();
+	void TickSpotters();
+	void DespawnWaves(FName Group = NAME_None);
 	bool bPlayerHidden = false;
 
 	// rendered cutscene capture (-BRMissionShots=<id> in a -game -RenderOffScreen run): grab one HighResShot a beat

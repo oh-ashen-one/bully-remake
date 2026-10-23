@@ -34,6 +34,21 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   `imported/triggers/1_02B.json`/`1_02C.json`; `ped_model_id` records the original model ids next to the stand-in meshes.
 - **Verified** (Studio): `run_mission_smoke.sh 1_02B` **PASS 14/14** (incl. fail/retry), `1_02C` **PASS 3/3**,
   `run_campaign_smoke.sh` **PASS 4/4**, regressions day_one 26/26, side_errand 5/5, arrival 6/6 — all PASS, no windows.
+- **Wave B (1_03 + 1_04 full missions)**: new primitives (MissionSubsystem): `spawn_wave` (hostile combat pawns at
+  named points; `hostile:false` = stationary target dummies; `hits_to_beat` N = scripted hit-count health on the boss —
+  real per-hit damage override in `UBullyCombatComponent::ReceiveHit`, so exactly N landed hits drop him; fires
+  `wave:<group>` when `advance_at` members are down), `spotter` (cone + range + line-of-sight on a scripted npc →
+  `spotted_by:<id>`), `leash` condition (chase fail: npc farther than R from the player for T seconds), `zone_timer`
+  condition (exit-countdown that cancels on re-entry; the 1_04 tree perch), trigger-file **paths** (Trigger.img waypoint
+  routes) + `via`/`path` routing and a `gait` string on npc_move_to/npc_lead, smoke-driver chase-follow (follows a leash
+  npc instead of teleporting ahead) and wave drive (hits members through the real ApplyWeaponHit pipeline). Combat pawn
+  gained `bStationary` (AI gate) + `HitsToBeat`.
+- **Missions**: `1_03.json` (7 stages: intro, school chase on the original's SCHOOLFLEE/FleeToFountain paths, brag fight,
+  garage chase, yard wave, Davis boss (3 hits), outro; pass grants via campaign on_pass), `1_04.json` (8 stages: slingshot
+  hand-out, follow Gary, parking-lot beat, 3-of-5 window targets (stand-in dummies — the real breakables aren't drivable
+  world props yet), to the field, tree perch, snipe under Burton's spotter + zone_timer, outro). Verified:
+  `run_mission_smoke.sh 1_03` **PASS 7/7**, `1_04` **PASS 8/8** (both incl. fail/retry), campaign smoke **PASS 4/4**,
+  day_one/side_errand/arrival/1_02B/1_02C all re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

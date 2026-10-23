@@ -1,0 +1,107 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_03 'The Setup' — chase Davis across the school grounds to the auto-shop yard, fight his backup, knock him off the barrel stack and take his slingshot (recon: docs/re-notes/ch1/1_03-the-setup.md). Chase legs follow the original's own Trigger.img flee paths (SCHOOLFLEE -> FleeToFountain -> brag; FleeFromFountain -> FleeToGarage -> garage; FleeGarage -> barrels), so the route is nav-tested. v1 simplifications (see the recon's gap table): the baked 1-03 cutscene is a title card + speech beat; the player's scripted intro run is free control; gate/garage-door choreography and the barrel-ladder prop break are skipped (props not driven yet); the boss comes down and fights (his scripted per-hit health override is real: hits_to_beat 3); the slingshot pick-up pair-anim is a stub. Pass grants (slingshot 303, bullies respect -> 20) live in the campaign table's on_pass for 1_03. Wording is original. Meshes are imported stand-ins; ped_model_id records the original model ids.",
+  "id": "1_03",
+  "title": "The Setup",
+  "retry": "stage",
+  "start": { "location_cm": [21493.3, 7602.0, 858.5], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_03.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Davis is showing off something he shouldn't have.",
+      "blip": "1_03_DAVISStart",
+      "on_start": [
+        { "type": "banner", "text": "THE SETUP", "sub": "Davis has a slingshot.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "davis", "point": "1_03_DAVISStart", "mesh": "GN_Bully02", "ped_model_id": 99, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "spawn_npc", "npc": "peter", "point": "1_03_Peter", "mesh": "GN_Boy01", "ped_model_id": 134, "untargetable": true },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "DAVIS", "text": "Watch this, new kid. See what a real marksman looks like.", "seconds": 3 },
+          { "speaker": "DAVIS", "text": "You want it? Catch me first!", "seconds": 2.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:davis" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "The setup fell apart."
+    },
+    {
+      "id": "chase_school",
+      "objective": "Chase Davis across the school grounds!",
+      "on_start": [
+        { "type": "npc_move_to", "npc": "davis", "via": ["1_03_SCHOOLFLEE", "1_03_FleeToFountain"], "point": "1_03_DavisBrag", "gait": "sprint" },
+        { "type": "hint", "text": "Sprint to keep up with him.", "seconds": 4 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:davis", "latched": true },
+        { "type": "reach_location", "point": "1_03_DavisBrag", "radius_cm": 1500 }
+      ] },
+      "fail": { "type": "leash", "npc": "davis", "radius_cm": 3500, "seconds": 20 },
+      "fail_text": "Davis got away."
+    },
+    {
+      "id": "brag_fight",
+      "objective": "Deal with Davis's backup.",
+      "on_start": [
+        { "type": "say", "speaker": "DAVIS", "text": "Took you long enough. Boys — teach the new kid some manners.", "seconds": 3 },
+        { "type": "spawn_wave", "group": "w1", "points": ["1_03_Bully1"], "mesh": "GN_Bully01", "hostile": true }
+      ],
+      "complete": { "type": "event", "name": "wave:w1", "latched": true },
+      "on_complete": [
+        { "type": "npc_move_to", "npc": "davis", "via": ["1_03_FleeFromFountain", "1_03_FleeToGarage"], "point": "1_03_DavisInGarage", "gait": "sprint" },
+        { "type": "hint", "text": "He's running again. After him!", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "chase_garage",
+      "objective": "Davis is making for the auto shop.",
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:davis", "latched": true },
+        { "type": "reach_location", "point": "1_03_Door1Corona", "radius_cm": 800 }
+      ] },
+      "fail": { "type": "leash", "npc": "davis", "radius_cm": 3500, "seconds": 20 },
+      "fail_text": "Davis got away."
+    },
+    {
+      "id": "garage_wave",
+      "objective": "Fight through the yard crew.",
+      "on_start": [
+        { "type": "spawn_wave", "group": "w2", "points": ["1_03_Bully3", "1_03_Guard1"], "mesh": "GN_Bully04", "hostile": true }
+      ],
+      "complete": { "type": "event", "name": "wave:w2", "latched": true }
+    },
+    {
+      "id": "boss",
+      "objective": "Knock Davis off the barrels and take the slingshot.",
+      "blip": "1_03_BarrelsTop",
+      "on_start": [
+        { "type": "npc_despawn", "npc": "davis" },
+        { "type": "spawn_wave", "group": "boss", "points": ["1_03_BarrelsTop"], "mesh": "GN_Bully02", "hostile": true, "hits_to_beat": 3 },
+        { "type": "say", "speaker": "DAVIS", "text": "You want it that bad? Come up here and take it!", "seconds": 3 }
+      ],
+      "complete": { "type": "event", "name": "wave:boss", "latched": true }
+    },
+    {
+      "id": "outro",
+      "objective": "The slingshot is yours.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "point": "1_03_PlayerCS2", "look": "1_03_LookAt", "fov": 45, "blend": 0.6 },
+        { "type": "shake", "amp": 0.4, "seconds": 0.3 },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "DAVIS", "text": "Okay, okay! Take it — just don't hit me again.", "seconds": 3 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "camera", "release": true, "blend": 0.6 },
+        { "type": "letterbox", "on": false },
+        { "type": "hint", "text": "Slingshot: mouse wheel to equip, left click to fire.", "seconds": 5 },
+        { "type": "log", "text": "campaign on_pass for 1_03 grants the slingshot (303) + bullies respect (the original's pass banner and tutorial cards)" }
+      ]
+    }
+  ]
+}

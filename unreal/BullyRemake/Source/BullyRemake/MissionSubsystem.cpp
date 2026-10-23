@@ -485,6 +485,38 @@ namespace
 				if (O->TryGetNumberField(TEXT("seconds"), N2)) { A.Seconds = float(N2); }
 				if (O->TryGetStringField(TEXT("event"), S)) { A.Sub = S; }   // spotted-event override
 			}
+			else if (Type == TEXT("npc_follow"))
+			{
+				A.Type = FMissionAction::EType::NpcFollow;
+				if (!O->TryGetStringField(TEXT("npc"), S)) { Err = TEXT("npc_follow: missing \"npc\" id"); return false; }
+				A.NpcId = FName(*S);
+				double R = 0.0;
+				if (O->TryGetNumberField(TEXT("radius_cm"), R)) { A.Dist = float(R); }
+				O->TryGetStringField(TEXT("gait"), A.Gait);
+			}
+			else if (Type == TEXT("countdown_start"))
+			{
+				A.Type = FMissionAction::EType::CountdownStart;
+				if (!O->HasField(TEXT("seconds"))) { Err = TEXT("countdown_start: missing \"seconds\""); return false; }   // generic top already read it
+				if (O->TryGetStringField(TEXT("event"), S)) { A.Name = FName(*S); }
+				bool b = false;
+				if (O->TryGetBoolField(TEXT("resume"), b)) { A.bResume = b; }
+				if (O->TryGetBoolField(TEXT("visible"), b)) { A.bCountdownVisible = b; }
+			}
+			else if (Type == TEXT("countdown_cancel"))
+			{
+				A.Type = FMissionAction::EType::CountdownCancel;
+			}
+			else if (Type == TEXT("lesson_start"))
+			{
+				A.Type = FMissionAction::EType::LessonStart;
+				if (!O->TryGetStringField(TEXT("id"), S)) { Err = TEXT("lesson_start: missing \"id\""); return false; }
+				A.Name = FName(*S);
+				if (!O->TryGetStringField(TEXT("move"), A.Sub)) { Err = TEXT("lesson_start: missing \"move\""); return false; }
+				double N2 = 0.0;
+				if (O->TryGetNumberField(TEXT("count"), N2)) { A.Amount = int32(N2); }
+				if (A.Text.IsEmpty()) { O->TryGetStringField(TEXT("prompt"), A.Text); }
+			}
 			else { Err = FString::Printf(TEXT("unknown action type \"%s\""), *Type); return false; }
 			Out.Add(MoveTemp(A));
 		}
@@ -719,6 +751,9 @@ void UMissionSubsystem::Deinitialize()
 	DespawnMissionNpcs(TEXT("world teardown"));
 	DespawnWaves();
 	Spotters.Reset();
+	Follows.Reset();
+	Countdown.bActive = false;
+	Lesson.bActive = false;
 	if (Hud.IsValid()) { Hud->Hide(); Hud.Reset(); }
 	Super::Deinitialize();
 }
@@ -927,6 +962,9 @@ void UMissionSubsystem::StopMission(const FString& Reason)
 	DespawnMissionNpcs(*Reason);
 	DespawnWaves();
 	Spotters.Reset();
+	Follows.Reset();
+	Countdown.bActive = false;
+	Lesson.bActive = false;
 	Speech.bActive = false;
 	Minigame = FMinigameState();
 	HeatPoints = 0.f;
@@ -1021,6 +1059,7 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	// chapter-1 primitives are stage-scoped: a new stage disarms a leftover minigame/speech beat (its own on_start re-arms)
 	Minigame = FMinigameState();
 	Speech.bActive = false;
+	Lesson.bActive = false;   // the lesson is stage-scoped (a retry re-arms it from on_start)
 	DespawnWaves();   // a wave/spotter belongs to its stage
 	Spotters.Reset();
 	LeashFarSince = -1.0;
@@ -1105,6 +1144,9 @@ void UMissionSubsystem::CompleteMission()
 	if (!bChains) { DespawnMissionNpcs(TEXT("complete")); }
 	DespawnWaves();
 	Spotters.Reset();
+	Follows.Reset();
+	Countdown.bActive = false;
+	Lesson.bActive = false;
 	Speech.bActive = false;
 	Minigame = FMinigameState();
 	HeatPoints = 0.f;
@@ -1384,6 +1426,61 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION spotter %s: range %.0f cone %.0f deg %.1fs -> event %s"), *A.NpcId.ToString(), S.Range, A.Amp, S.Seconds, *S.Event.ToString());
 			}
 			else { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION spotter: unknown npc '%s'"), *A.NpcId.ToString()); }
+			break;
+		case FMissionAction::EType::NpcFollow:
+			if (ABullyScriptedNPC* N = NpcById(A.NpcId))
+			{
+				Follows.RemoveAll([&](const FFollowOrder& E) { return E.Npc.Get() == N; });
+				FFollowOrder F;
+				F.Npc = N;
+				F.Radius = A.Dist > 0.f ? A.Dist : 300.f;
+				F.Gait = A.Gait;
+				Follows.Add(F);
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION npc_follow %s (stop %.0f cm)"), *A.NpcId.ToString(), F.Radius);
+			}
+			else { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION npc_follow: unknown npc '%s'"), *A.NpcId.ToString()); }
+			break;
+		case FMissionAction::EType::CountdownStart:
+		{
+			const FName Ev = !A.Name.IsNone() ? A.Name : FName(TEXT("countdown:out"));
+			// re-arming un-latches a previously fired expiry (a stage retry replays its on_start)
+			StageEvents.Remove(Ev);
+			MissionEvents.Remove(Ev);
+			if (Countdown.bActive && A.bResume)
+			{
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION countdown %s: resumed (%.0f s left)"), *Ev.ToString(), Countdown.EndsAt - GetWorld()->GetTimeSeconds());
+				break;
+			}
+			Countdown.bActive = true;
+			Countdown.Event = Ev;
+			Countdown.bVisible = A.bCountdownVisible;
+			Countdown.EndsAt = GetWorld()->GetTimeSeconds() + FMath::Max(1.f, A.Seconds);
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION countdown %s: %.0f s%s"), *Ev.ToString(), A.Seconds, A.bCountdownVisible ? TEXT(" (visible)") : TEXT(""));
+			break;
+		}
+		case FMissionAction::EType::CountdownCancel:
+			if (Countdown.bActive)
+			{
+				Countdown.bActive = false;
+				if (Hud.IsValid()) { Hud->SetCountdown(-1.f); }
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION countdown cancelled (%s)"), *Countdown.Event.ToString());
+			}
+			break;
+		case FMissionAction::EType::LessonStart:
+			Lesson.bActive = true;
+			Lesson.Id = A.Name;
+			Lesson.Move = FName(*A.Sub);
+			Lesson.Needed = FMath::Max(1, A.Amount);
+			Lesson.Count = 0;
+			Lesson.Window = A.Seconds > 0.f ? A.Seconds : 10.f;
+			Lesson.WindowEndsAt = GetWorld()->GetTimeSeconds() + Lesson.Window;
+			Lesson.Prompt = A.Text;
+			if (Hud.IsValid())
+			{
+				Hud->ShowHint(Lesson.Prompt, 4.f);
+				Hud->SetProgress(0.f, FString::Printf(TEXT("%s  0 / %d"), *Lesson.Prompt, Lesson.Needed));
+			}
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION lesson '%s': perform %s x%d (window %.0f s)"), *Lesson.Id.ToString(), *Lesson.Move.ToString(), Lesson.Needed, Lesson.Window);
 			break;
 		}
 	}
@@ -1821,8 +1918,11 @@ void UMissionSubsystem::Tick(float Dt)
 		TickMinigame(Dt);
 		TickHeat(Dt);
 		TickLeads(Dt);
+		TickFollows(Dt);
 		TickWaves();
 		TickSpotters();
+		TickCountdown();
+		TickLesson();
 		// visible fail timer -> HUD countdown
 		const FMissionStage& St = Mission->Stages[StageIndex];
 		if (Hud.IsValid())
@@ -1834,6 +1934,10 @@ void UMissionSubsystem::Tick(float Dt)
 			else if (St.Fail.Type == FMissionCondition::EType::ZoneTimer && St.Fail.bVisible && ZoneOutSince >= 0.0)
 			{
 				Hud->SetCountdown(St.Fail.Seconds - float(World->GetTimeSeconds() - ZoneOutSince));
+			}
+			else if (Countdown.bActive && Countdown.bVisible)
+			{
+				Hud->SetCountdown(float(Countdown.EndsAt - World->GetTimeSeconds()));   // mission-scoped countdown (e.g. the bladder)
 			}
 			else { Hud->SetCountdown(-1.f); }
 		}
@@ -2148,6 +2252,18 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		}
 		bSmokeDriveMinigame = true;   // the driver's hold-E
 		return;
+	}
+
+	// lesson drive: perform the taught move through the real combat pipeline (StartMove fires player_move:<move>)
+	if (Lesson.bActive)
+	{
+		if (ABullyCharacter* Player = Cast<ABullyCharacter>(GetPlayerPawn()))
+		{
+			Smoke.LastDrive = Smoke.Elapsed;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE performs lesson move %s (%d/%d)"), *Lesson.Move.ToString(), Lesson.Count, Lesson.Needed);
+			Player->GetCombat()->StartMove(Lesson.Move);
+			return;
+		}
 	}
 
 	// wave drive: hit the next living wave member through the real combat pipeline (reactions, KO, wave:<group>
@@ -2585,6 +2701,63 @@ void UMissionSubsystem::DespawnWaves(FName Group)
 			if (M.IsValid()) { M->Destroy(); }
 		}
 		Waves.RemoveAt(i);
+	}
+}
+
+void UMissionSubsystem::TickFollows(float /*Dt*/)
+{
+	if (Follows.Num() == 0) { return; }
+	const APawn* P = GetPlayerPawn();
+	if (!P) { return; }
+	for (int32 i = Follows.Num() - 1; i >= 0; --i)
+	{
+		ABullyScriptedNPC* N = Follows[i].Npc.Get();
+		if (!N) { Follows.RemoveAt(i); continue; }
+		if (FVector::Dist2D(N->GetActorLocation(), P->GetActorLocation()) <= Follows[i].Radius) { continue; }   // close enough
+		if (!N->IsBusy()) { N->GoToPoint(P->GetActorLocation(), GaitFor(Follows[i].Gait, true), 70.f, FString::Printf(TEXT("mission %s follow"), *N->NpcId)); }
+	}
+}
+
+void UMissionSubsystem::TickCountdown()
+{
+	if (!Countdown.bActive) { return; }
+	if (GetWorld()->GetTimeSeconds() >= Countdown.EndsAt)
+	{
+		Countdown.bActive = false;
+		if (Hud.IsValid()) { Hud->SetCountdown(-1.f); }
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION countdown expired -> event %s"), *Countdown.Event.ToString());
+		FireEvent(Countdown.Event);
+	}
+}
+
+void UMissionSubsystem::TickLesson()
+{
+	if (!Lesson.bActive || !GetWorld()) { return; }
+	const double Now = GetWorld()->GetTimeSeconds();
+	// a performed move arrives as a mission event (player_move:<Move>); consume it so each performance counts once
+	const FName MoveEv(*FString::Printf(TEXT("player_move:%s"), *Lesson.Move.ToString()));
+	if (StageEvents.Contains(MoveEv))
+	{
+		StageEvents.Remove(MoveEv);
+		++Lesson.Count;
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION lesson '%s': %s %d/%d"), *Lesson.Id.ToString(), *Lesson.Move.ToString(), Lesson.Count, Lesson.Needed);
+		if (Hud.IsValid()) { Hud->SetProgress(float(Lesson.Count) / Lesson.Needed, FString::Printf(TEXT("%s  %d / %d"), *Lesson.Prompt, Lesson.Count, Lesson.Needed)); }
+		if (Lesson.Count >= Lesson.Needed)
+		{
+			Lesson.bActive = false;
+			if (Hud.IsValid()) { Hud->SetProgress(-1.f); }
+			const FName Done(*FString::Printf(TEXT("lesson:%s_done"), *Lesson.Id.ToString()));
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION lesson '%s' complete -> event %s"), *Lesson.Id.ToString(), *Done.ToString());
+			FireEvent(Done);
+			return;
+		}
+		Lesson.WindowEndsAt = Now + Lesson.Window;   // a success re-opens the attempt window
+	}
+	if (Now >= Lesson.WindowEndsAt)   // window expired with no performance: re-prompt (the original taunts; no fail)
+	{
+		Lesson.WindowEndsAt = Now + Lesson.Window;
+		if (Hud.IsValid()) { Hud->ShowHint(Lesson.Prompt, 3.f); }
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION lesson '%s': re-prompt (%d/%d)"), *Lesson.Id.ToString(), Lesson.Count, Lesson.Needed);
 	}
 }
 

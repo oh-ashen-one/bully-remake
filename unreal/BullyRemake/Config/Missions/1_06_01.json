@@ -1,0 +1,123 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_06_01 'A Little Help' — Gary and Pete lead the player to the hobo behind the school; fetch his transistor radio, hand it over, and learn a fighting move (recon: docs/re-notes/ch1/1_06_01-a-little-help.md). The script is the whole hobo-lesson chain's template; v1 ports mission 1 only. v1 simplifications (see the recon's gap table): the baked 1-06/1-06B cutscenes are title card + speech beats; the radio sits at ground level by the stairs (the ladder climb is a traversal system we don't have); the button-SEQUENCE prompt is the v1 lesson framework — perform the named move N times within re-opening attempt windows (the original's per-button timing widget is a later wave); the trainer is a live sparring pawn (the original's 5000 hp + min-health + disarm are simplified); the player auto-walk outro is dropped. The game clock pauses for the lesson and unpauses on the outro, like the original. Pass grants (transistor collectibles enabled) live in the campaign table's on_pass for 1_06_01. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "1_06_01",
+  "title": "A Little Help",
+  "retry": "stage",
+  "start": { "location_cm": [26927.7, 11387.5, 637.6], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_06.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Gary and Pete know a guy.",
+      "blip": "Beggining",
+      "on_start": [
+        { "type": "banner", "text": "A LITTLE HELP", "sub": "Behind the school, they say, lives a fighting man.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "gary", "point": "Beggining", "mesh": "GN_Boy01", "ped_model_id": 130, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "spawn_npc", "npc": "pete", "point": "Beggining", "mesh": "GN_Boy02", "ped_model_id": 134, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "GARY", "text": "There's a guy behind the school who knows every move in the book.", "seconds": 3.5 },
+          { "speaker": "PETE", "text": "He's a little strange, but he helped us out once.", "seconds": 3 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:gary" },
+        { "type": "event", "name": "npc_ko:pete" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Gary and Pete bailed."
+    },
+    {
+      "id": "follow",
+      "objective": "Follow Gary and Pete behind the school.",
+      "on_start": [
+        { "type": "npc_lead", "npc": "gary", "point": "1_06Begin", "gait": "sprint", "radius_cm": 800 },
+        { "type": "npc_follow", "npc": "pete", "radius_cm": 300, "gait": "run" }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:gary", "latched": true },
+        { "type": "reach_location", "point": "1_06Begin", "radius_cm": 1000 }
+      ] }
+    },
+    {
+      "id": "arrive_beat",
+      "objective": "Meet the hobo.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "arrive", "lines": [
+          { "speaker": "GARY", "text": "Good luck. He's... a character.", "seconds": 3 },
+          { "speaker": "HOBO", "text": "Who's that? Come to mock an old soldier?", "seconds": 3 }
+        ] },
+        { "type": "npc_despawn", "npc": "gary" },
+        { "type": "npc_despawn", "npc": "pete" },
+        { "type": "spawn_npc", "npc": "hobo", "point": "1_06Begin", "mesh": "TO_Construct01", "ped_model_id": 87, "untargetable": true, "face": "player" }
+      ],
+      "complete": { "type": "event", "name": "speech:arrive", "latched": true },
+      "on_complete": [ { "type": "letterbox", "on": false } ]
+    },
+    {
+      "id": "fetch_radio",
+      "objective": "Find the hobo's radio by the stairs.",
+      "blip": "StairCorona",
+      "on_start": [
+        { "type": "say", "speaker": "HOBO", "text": "Fetch me my radio first. Dropped it by the stairs.", "seconds": 3.5 },
+        { "type": "hint", "text": "Look for the transistor radio.", "seconds": 4 }
+      ],
+      "complete": { "type": "reach_location", "point": "StairCorona", "radius_cm": 400 },
+      "on_complete": [
+        { "type": "give_item", "item": "radio", "n": 1 },
+        { "type": "log", "text": "transistor radio collected (item 476; the original's ladder climb is pending a traversal system — ground-level stand-in)" }
+      ]
+    },
+    {
+      "id": "hand_over",
+      "objective": "Bring the radio back to the hobo.",
+      "blip": "1_06Begin",
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "radio" },
+        { "type": "social", "actor_tag": "br_npc_hobo", "radius_cm": 250, "prompt": "Hand over the radio" }
+      ] },
+      "on_complete": [
+        { "type": "take_item", "item": "radio", "n": 1 },
+        { "type": "pair_anim", "npc": "hobo", "seconds": 1.5, "clips": "GIVE,CHEER" },
+        { "type": "say", "speaker": "HOBO", "text": "Ahh, music to my ears. Right — you wanted to learn to fight.", "seconds": 3.5 }
+      ]
+    },
+    {
+      "id": "lesson",
+      "objective": "Learn the move: three good jabs.",
+      "blip": false,
+      "on_start": [
+        { "type": "clock", "pause": true },
+        { "type": "teleport", "point": "AfterCutscene", "yaw": 0 },
+        { "type": "npc_despawn", "npc": "hobo" },
+        { "type": "spawn_wave", "group": "trainer", "points": ["1_06Begin"], "mesh": "TO_Construct01", "hostile": true },
+        { "type": "say", "speaker": "HOBO", "text": "Show me your jab. Three good ones. Go!", "seconds": 3 },
+        { "type": "lesson_start", "id": "jab", "move": "Jab1", "count": 3, "seconds": 10, "text": "Light attack (LMB)" }
+      ],
+      "complete": { "type": "event", "name": "lesson:jab_done", "latched": true }
+    },
+    {
+      "id": "outro",
+      "objective": "The first move of many.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "point": "EndHoboNIS", "look": "player", "fov": 45, "blend": 0.6 },
+        { "type": "banner", "text": "MOVE LEARNED", "sub": "Jab — the first of many.", "seconds": 3 },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "HOBO", "text": "Not bad, kid. Come back when you find another one of those radios.", "seconds": 3.5 }
+        ] },
+        { "type": "clock", "unpause": true }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "camera", "release": true, "blend": 0.6 },
+        { "type": "letterbox", "on": false },
+        { "type": "log", "text": "campaign on_pass for 1_06_01 enables transistor collectibles (SMissPass equivalent; Halloween1 dressing chain not built)" }
+      ]
+    }
+  ]
+}

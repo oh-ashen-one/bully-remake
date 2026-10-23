@@ -1,0 +1,127 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_05 'Save Algie' — escort Algie from the school entrance through the bully packs to a bathroom, then to his locker (recon: docs/re-notes/ch1/1_05-save-algie.md; interior points from 1_05b). v1 simplifications (see the recon's gap table): the baked 1-05 cutscene is a title card + speech beat; Algie is a scripted follower — attackers go for the player, and the defend-NPC KO fail is latent (mission_critical) until combat targeting supports NPC victims; the 180 s bladder countdown is a real mission-scoped countdown (re-arms per stage attempt; the original runs one continuous timer); school door lock/unlock, stall-door props, population/patrol toggles and the unusable-stall gag are simplified or skipped; the privacy beat is a plain 15 s wait (the original resets it on peds within 12 m — our only peds there are the ambush wave); the locker payoff pair-anim is a stub. Pass grants ($5, nerds 60 / bullies 10 respect) live in the campaign table's on_pass for 1_05. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "1_05",
+  "title": "Save Algie",
+  "retry": "stage",
+  "start": { "location_cm": [18707.5, 15090.7, 776.6], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_05b.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Algie needs an escort.",
+      "blip": "algie_spawn",
+      "on_start": [
+        { "type": "banner", "text": "SAVE ALGIE", "sub": "He has to go. Badly.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "algie", "point": "algie_spawn", "mesh": "NDH3_Bucky", "ped_model_id": 4, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "npc_follow", "npc": "algie", "radius_cm": 300, "gait": "run" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "ALGIE", "text": "Please — walk with me? They'll stuff me in a locker again.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "npc_ko:algie" },
+      "fail_text": "Algie got knocked out."
+    },
+    {
+      "id": "courtyard_1",
+      "objective": "Protect Algie from the welcoming committee.",
+      "on_start": [
+        { "type": "say", "speaker": "ALGIE", "text": "Watch out — here they come!", "seconds": 2.5 },
+        { "type": "spawn_wave", "group": "c1", "points": ["pt_c1"], "mesh": "GN_Bully02", "hostile": true }
+      ],
+      "complete": { "type": "event", "name": "wave:c1", "latched": true }
+    },
+    {
+      "id": "courtyard_2",
+      "objective": "More of them. Keep Algie standing.",
+      "on_start": [ { "type": "spawn_wave", "group": "c2", "points": ["pt_c2a", "pt_c2b"], "mesh": "GN_Bully01", "hostile": true } ],
+      "complete": { "type": "event", "name": "wave:c2", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "go_inside",
+      "objective": "Get Algie inside — he's running out of time.",
+      "blip": "1_05B_blipBathroomFirstFloor",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 180, "visible": true, "event": "countdown:bladder_out", "resume": true },
+        { "type": "say", "speaker": "ALGIE", "text": "Hurry! I really, really have to go!", "seconds": 3 }
+      ],
+      "complete": { "type": "reach_location", "point": "1_05B_blipBathroomFirstFloor", "radius_cm": 800 },
+      "fail": { "type": "event", "name": "countdown:bladder_out", "latched": true },
+      "fail_text": "Too late. Algie didn't make it."
+    },
+    {
+      "id": "bathroom_fight",
+      "objective": "Clear the bathroom.",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 180, "visible": true, "event": "countdown:bladder_out", "resume": true },
+        { "type": "spawn_wave", "group": "b1", "points": ["1_05B_spawnJocksBRFirstFloor"], "mesh": "GN_Bully05", "hostile": true }
+      ],
+      "complete": { "type": "event", "name": "wave:b1", "latched": true },
+      "fail": { "type": "event", "name": "countdown:bladder_out", "latched": true },
+      "fail_text": "Too late. Algie didn't make it."
+    },
+    {
+      "id": "upstairs",
+      "objective": "This one's a bust — get him to the upstairs bathroom.",
+      "blip": "1_05B_blipBathroomSecondFloor",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 180, "visible": true, "event": "countdown:bladder_out", "resume": true },
+        { "type": "say", "speaker": "ALGIE", "text": "Not here! Upstairs — hurry!", "seconds": 2.5 }
+      ],
+      "complete": { "type": "reach_location", "point": "1_05B_blipBathroomSecondFloor", "radius_cm": 800 },
+      "fail": { "type": "event", "name": "countdown:bladder_out", "latched": true },
+      "fail_text": "Too late. Algie didn't make it.",
+      "on_complete": [ { "type": "countdown_cancel" } ]
+    },
+    {
+      "id": "ambush",
+      "objective": "Guard the door.",
+      "on_start": [
+        { "type": "say", "speaker": "ALGIE", "text": "Guard the door. Nobody gets in!", "seconds": 3 },
+        { "type": "spawn_wave", "group": "b2", "points": ["1_05B_spawnSecondFloorAmbush", "1_05B_spawnBathroomWierdos"], "mesh": "GN_Bully04", "hostile": true }
+      ],
+      "complete": { "type": "event", "name": "wave:b2", "latched": true }
+    },
+    {
+      "id": "privacy",
+      "objective": "Give him a minute.",
+      "blip": false,
+      "complete": { "type": "timer", "seconds": 15 },
+      "on_start": [ { "type": "say", "speaker": "ALGIE", "text": "Just... one minute. Please.", "seconds": 2.5 } ]
+    },
+    {
+      "id": "locker",
+      "objective": "Walk Algie to his locker.",
+      "blip": "1_05B_blipAlgieLocker",
+      "on_start": [ { "type": "npc_move_to", "npc": "algie", "point": "1_05B_blipAlgieLocker", "gait": "run" } ],
+      "complete": { "type": "reach_location", "point": "1_05B_blipAlgieLocker", "radius_cm": 600 }
+    },
+    {
+      "id": "payoff",
+      "objective": "See him right.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "point": "1_05B_cameraLocker", "look": "player", "fov": 45, "blend": 0.6 },
+        { "type": "pair_anim", "npc": "algie", "seconds": 1.5, "clips": "GIVE,VICTORY01" },
+        { "type": "speech_sequence", "id": "payoff", "lines": [
+          { "speaker": "ALGIE", "text": "My books! You're a lifesaver. Here — for the trouble.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:payoff", "latched": true },
+      "on_complete": [
+        { "type": "camera", "release": true, "blend": 0.6 },
+        { "type": "letterbox", "on": false },
+        { "type": "log", "text": "campaign on_pass for 1_05 pays $5 + nerds/bullies respect (the original's M_PASS 500 + respect sets)" }
+      ]
+    }
+  ],
+  "points": {
+    "algie_spawn": { "location_cm": [18783.3, 15056.5, 773.3] },
+    "pt_c1": { "location_cm": [21174.1, 11290.3, 694.5] },
+    "pt_c2a": { "location_cm": [22519.9, 10864.7, 634.7] },
+    "pt_c2b": { "location_cm": [15834.2, 11091.3, 636.5] }
+  }
+}

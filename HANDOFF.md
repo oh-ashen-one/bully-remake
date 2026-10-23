@@ -49,6 +49,19 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   world props yet), to the field, tree perch, snipe under Burton's spotter + zone_timer, outro). Verified:
   `run_mission_smoke.sh 1_03` **PASS 7/7**, `1_04` **PASS 8/8** (both incl. fail/retry), campaign smoke **PASS 4/4**,
   day_one/side_errand/arrival/1_02B/1_02C all re-PASS.
+- **Wave C (1_05 + 1_06_01 full missions)**: new primitives (MissionSubsystem): `npc_follow` (mission-scoped escort
+  follow), `countdown_start`/`countdown_cancel` (mission-scoped visible countdown firing an event at 0; `resume` keeps
+  remaining time across stage re-arms; re-arming un-latches its expiry event so retries are safe), `lesson_start`
+  (fight-lesson framework v1: perform the named move N times within re-opening attempt windows; player moves report as
+  `player_move:<Move>` mission events from `UBullyCombatComponent::StartMove`; HUD progress; fires `lesson:<id>_done`;
+  window expiry re-prompts — the original's per-button sequence widget is a later wave). Smoke driver performs lesson
+  moves through real `StartMove`.
+- **Missions**: `1_05.json` (10 stages: intro, two courtyard packs, escort inside under the bladder countdown, bathroom
+  fight, upstairs, ambush, privacy wait, locker walk, payoff; $5 + nerds/bullies respect via campaign on_pass; Algie's
+  KO fail is latent until combat targeting supports NPC victims) and `1_06_01.json` (7 stages: intro, follow Gary & Pete,
+  hobo meet, radio fetch (ground-level stand-in — no ladder traversal), hand-over, the jab lesson (clock paused), outro;
+  transistors collectible via on_pass). Verified: `run_mission_smoke.sh 1_05` **PASS 10/10**, `1_06_01` **PASS 7/7**
+  (both incl. fail/retry), campaign **PASS 4/4**, all six prior mission smokes re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

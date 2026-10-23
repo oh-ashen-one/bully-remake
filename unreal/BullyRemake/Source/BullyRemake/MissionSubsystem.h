@@ -116,6 +116,22 @@
 //                 -- zone-exit countdown (the 1_04 tree perch): true after the player has been OUTSIDE the trigger
 //                    for `seconds` continuously; re-entering cancels. Only arms after the player has been inside at
 //                    least once this stage. "visible" shows the countdown on the HUD while out.
+//   conditions: ... plus
+//   chapter-1 wave-C primitives (1_05 escort, 1_06_01 hobo lesson):
+//               { "type": "npc_follow", "npc": "algie", "radius_cm": 300, "gait": "run" }   // escort follow: trails
+//                 the player, stopping within radius; mission-scoped (survives stage changes), cosmetic-safe — never
+//                 gate a stage on a follower's arrival without a player-side alternative.
+//               { "type": "countdown_start", "seconds": 180, "visible": true, "event": "bladder_out",
+//                 "resume": true }   // mission-scoped countdown (Algie's bladder): fires the event at 0; "resume"
+//                                    // keeps the remaining time if one is already running (per-stage re-arms don't
+//                                    // reset it). Re-arming un-latches a previously fired event (retry-safe).
+//               { "type": "countdown_cancel" }                         // stops it (goal reached in time)
+//               { "type": "lesson_start", "id": "jab", "move": "Jab1", "count": 3, "seconds": 10,
+//                 "prompt": "Light attack (LMB)" }   // fight-lesson framework v1: perform the named combat move
+//                 // `count` times; each attempt window (seconds) expiring just re-prompts (the original's taunt loop).
+//                 // Fires "lesson:<id>_done". Player moves report as "player_move:<Move>" mission events.
+//                 // (The original's per-button sequence widget is a later wave; v1 = perform-the-move.)
+//   actions: ...
 //
 // Campaign spine: StartMission consults UBullyCampaignSubsystem::IsAvailable (ids outside the campaign table are
 // always available) unless the start came from -BRMission=, the Mission.Start console exec, or a smoke/shots
@@ -170,7 +186,7 @@ struct FMissionAction
 {
 	enum class EType : uint8 { Hint, Banner, Event, SetFlag, ClearFlag, Teleport, Log, StartMission, SpawnEnemy, Fade, Reward, Letterbox, Say, Camera, Shake, GiveWeapon, GiveAmmo, SetRespect, Clock, ChapterSet, ForceComplete,
 		SpawnNpc, NpcMove, NpcLead, NpcFace, NpcDespawn, PairAnim, SpeechSequence, MinigameLaunch, GiveItem, TakeItem, MoneyEnsure, MoneyTake, HeatSet, Hide,
-		SpawnWave, Spotter };
+		SpawnWave, Spotter, NpcFollow, CountdownStart, CountdownCancel, LessonStart };
 	EType Type = EType::Log;
 	FString Text, Sub;
 	FName Name;
@@ -235,6 +251,11 @@ struct FMissionAction
 	bool bHostile = true;
 	int32 HitsToBeat = 0;
 	int32 AdvanceAt = 0;
+	// npc_follow: NpcId + Dist (stop radius, default 300) + Gait — mission-scoped escort follow. countdown_start:
+	// Seconds + bResume ("resume": keep remaining time if running) + Name (expiry event, default "countdown:out") +
+	// bCountdownVisible (HUD). lesson_start: Name = id (fires "lesson:<id>_done"), Sub = move name, Amount = count,
+	// Seconds = per-attempt window, Text = HUD prompt.
+	bool bResume = false, bCountdownVisible = false;
 };
 
 struct FMissionStage
@@ -450,6 +471,34 @@ private:
 	void TickWaves();
 	void TickSpotters();
 	void DespawnWaves(FName Group = NAME_None);
+
+	// wave-C runtime: escort follows (mission-scoped), the mission countdown, the fight lesson (stage-scoped)
+	struct FFollowOrder
+	{
+		TWeakObjectPtr<ABullyScriptedNPC> Npc;
+		float Radius = 300.f;
+		FString Gait;
+	};
+	TArray<FFollowOrder> Follows;
+	void TickFollows(float Dt);
+	struct FMissionCountdown
+	{
+		bool bActive = false;
+		double EndsAt = 0.0;
+		FName Event;
+		bool bVisible = false;
+	} Countdown;
+	void TickCountdown();
+	struct FLessonState
+	{
+		bool bActive = false;
+		FName Id, Move;
+		int32 Needed = 3, Count = 0;
+		float Window = 10.f;
+		double WindowEndsAt = 0.0;
+		FString Prompt;
+	} Lesson;
+	void TickLesson();
 	bool bPlayerHidden = false;
 
 	// rendered cutscene capture (-BRMissionShots=<id> in a -game -RenderOffScreen run): grab one HighResShot a beat

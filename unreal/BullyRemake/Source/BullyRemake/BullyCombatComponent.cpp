@@ -484,6 +484,7 @@ bool UBullyCombatComponent::StartMove(FName MoveName)
 	const FBullyCombatMove* M = FindMove(MoveName);
 	if (!M) { Note(FString::Printf(TEXT("unknown move %s"), *MoveName.ToString())); return false; }
 	BeginMove(*M);
+	if (IsPlayer()) { FireMission(FName(*FString::Printf(TEXT("player_move:%s"), *MoveName.ToString()))); }   // lessons watch these
 	return true;
 }
 

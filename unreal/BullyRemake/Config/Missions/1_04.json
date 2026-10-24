@@ -32,8 +32,10 @@
         { "type": "give_weapon", "weapon": "slingshot" },
         { "type": "give_ammo", "weapon": "slingshot", "n": 30 },
         { "type": "spawn_npc", "npc": "gary", "point": "1_04_NemesisStart", "mesh": "GN_Boy01", "ped_model_id": 130, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
-        { "type": "speech_sequence", "id": "intro", "lines": [
-          { "speaker": "GARY", "text": "Found this beauty in the shop. Try not to put an eye out.", "seconds": 3 }
+        { "type": "cutscene", "id": "1-04", "event": "speech:intro", "else": [
+          { "type": "speech_sequence", "id": "intro", "lines": [
+            { "speaker": "GARY", "text": "Found this beauty in the shop. Try not to put an eye out.", "seconds": 3 }
+          ] }
         ] }
       ],
       "complete": { "type": "event", "name": "speech:intro", "latched": true },

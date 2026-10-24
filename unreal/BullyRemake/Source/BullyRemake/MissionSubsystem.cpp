@@ -2,6 +2,7 @@
 #include "MissionSubsystem.h"
 
 #include "BullyCampaignSubsystem.h"
+#include "BullyCutscene.h"
 #include "BullyCharacter.h"
 #include "BullyClockSubsystem.h"
 #include "BullyCombatComponent.h"
@@ -583,6 +584,14 @@ namespace
 				if (!O->TryGetStringField(TEXT("time"), S)) { Err = TEXT("clock_fail_at: missing \"time\" (\"h:mm\")"); return false; }
 				A.Text = S;
 			}
+			else if (Type == TEXT("cutscene"))   // sm-cutscenes
+			{
+				A.Type = FMissionAction::EType::Cutscene;
+				if (!O->TryGetStringField(TEXT("id"), S)) { Err = TEXT("cutscene: missing \"id\""); return false; }
+				A.Name = FName(*S);
+				if (!O->TryGetStringField(TEXT("event"), A.Sub)) { A.Sub = FString::Printf(TEXT("cutscene:%s"), *S); }
+				if (!ParseActions(O, TEXT("else"), D, A.Else, Err)) { Err = FString::Printf(TEXT("cutscene %s else: %s"), *S, *Err); return false; }
+			}
 			else { Err = FString::Printf(TEXT("unknown action type \"%s\""), *Type); return false; }
 			Out.Add(MoveTemp(A));
 		}
@@ -964,6 +973,7 @@ bool UMissionSubsystem::LoadMission(const FString& Id, FMissionDef& D, FString& 
 		if (!ParseCondition(*CO, D, St.Complete, Err)) { Err = FString::Printf(TEXT("stage %d complete: %s"), Index, *Err); return false; }
 		if (O->TryGetObjectField(TEXT("fail"), CO) && !ParseCondition(*CO, D, St.Fail, Err)) { Err = FString::Printf(TEXT("stage %d fail: %s"), Index, *Err); return false; }
 		O->TryGetStringField(TEXT("fail_text"), St.FailText);
+		if (O->TryGetObjectField(TEXT("skip_if"), CO) && !ParseCondition(*CO, D, St.SkipIf, Err)) { Err = FString::Printf(TEXT("stage %d skip_if: %s"), Index, *Err); return false; }   // sm-cutscenes
 		if (O->TryGetObjectField(TEXT("checkpoint"), CO))
 		{
 			St.bHasCheckpoint = ReadLocation(**CO, D, St.CheckpointLocation);
@@ -1052,6 +1062,7 @@ void UMissionSubsystem::StopMission(const FString& Reason)
 	const bool bWasDone = State == EState::Complete;
 	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION stop id=%s (%s)"), Mission.IsValid() ? *Mission->Id : TEXT("?"), *Reason);
 	ReleaseCutsceneCamera(0.f);   // never leave gameplay looking through a cutscene camera
+	StopCutscene();               // sm-cutscenes
 	DestroyOwnedTriggers();
 	DespawnMissionNpcs(*Reason);
 	DespawnWaves();
@@ -1109,6 +1120,7 @@ void UMissionSubsystem::RetryNow()
 {
 	if (!Mission.IsValid()) { return; }
 	if (Mission->Retry == FMissionDef::ERetry::None) { StopMission(TEXT("failed, retry disabled")); return; }
+	StopCutscene();   // sm-cutscenes
 	++Attempt;
 	// campaign attempt counting is retry-aware (the original's attempt count gates first-attempt tutorial cards)
 	if (UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(GetWorld())) { Camp->NoteAttempt(Mission->Id); }
@@ -1170,6 +1182,15 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	if (Index >= Mission->Stages.Num()) { CompleteMission(); return; }
 	StageIndex = Index;
 	State = EState::Running;
+	// sm-cutscenes: skip_if -- a stage an original cutscene already covered (e.g. the arrival text beats) is skipped outright
+	if (Mission->Stages[Index].SkipIf.IsValid() && Evaluate(Mission->Stages[Index].SkipIf))
+	{
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION stage %d/%d: %s -> skipped (skip_if: %s)"), Index + 1, Mission->Stages.Num(),
+			*Mission->Stages[Index].Id.ToString(), *CondText(Mission->Stages[Index].SkipIf));
+		if (Smoke.bEnabled) { Smoke.StagesSeen.AddUnique(Index); }
+		BeginStage(Index + 1, false);
+		return;
+	}
 	const FMissionStage& St = Mission->Stages[Index];
 	StageStartTime = GetWorld()->GetTimeSeconds();
 	StageEvents.Reset();
@@ -1708,6 +1729,7 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION clock_fail_at %s armed (now %.2f)"), *A.Text, ClockFail.ArmedHour);
 			break;
 		}
+		case FMissionAction::EType::Cutscene: RunCutsceneAction(A); break;   // sm-cutscenes
 		}
 	}
 }
@@ -2507,6 +2529,17 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		}
 	}
 
+	// sm-cutscenes: an original cutscene is skipped after a beat (exercises the skip path); nothing else drives meanwhile
+	if (UBullyCutsceneSubsystem* CS = UBullyCutsceneSubsystem::Get(GetWorld()); CS && CS->IsPlaying())
+	{
+		if (CS->GetElapsed() > 1.2f && Smoke.Elapsed - Smoke.LastDrive > 1.2)
+		{
+			Smoke.LastDrive = Smoke.Elapsed;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE skipping cutscene %s (stage %d)"), *CS->GetCurrentId(), StageIndex + 1);
+			CS->Skip();
+		}
+		return;
+	}
 	// campaign-spine drives: a speech beat is skipped (exercises the skip path); an armed minigame is walked to and
 	// hold-driven; heat/lead stages are covered by the interact + teleport paths below (':'-events are never fired).
 	if (Speech.bActive && Smoke.Elapsed - Smoke.LastDrive > 1.2)
@@ -3226,4 +3259,59 @@ namespace
 		{
 			for (const FString& Id : UMissionSubsystem::ListMissionIds()) { UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION available: %s"), *Id); }
 		}));
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// sm-cutscenes: original baked cutscenes (cutscene action)
+
+void UMissionSubsystem::RunCutsceneAction(const FMissionAction& A)
+{
+	const FString Id = A.Name.ToString();
+	const FName Ev(*A.Sub);
+	UBullyCutsceneSubsystem* CS = UBullyCutsceneSubsystem::Get(GetWorld());
+	const UBullyCutsceneSubsystem::ETier Tier = CS ? CS->Probe(Id) : UBullyCutsceneSubsystem::ETier::None;
+	if (Tier == UBullyCutsceneSubsystem::ETier::None)
+	{
+		if (A.Else.Num() > 0)
+		{
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION cutscene %s not imported: running the %d fallback beat(s)"), *Id, A.Else.Num());
+			RunActions(A.Else);
+		}
+		else
+		{
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION cutscene %s not imported: passing through -> event %s"), *Id, *Ev.ToString());
+			FireEvent(Ev);
+		}
+		return;
+	}
+	if (Tier == UBullyCutsceneSubsystem::ETier::Audio && A.Else.Num() > 0)
+	{
+		// original audio + subtitles over the fallback's staging: its camera/letterbox/fade/npc beats run, its text does not
+		TArray<FMissionAction> Staging;
+		for (const FMissionAction& E : A.Else)
+		{
+			using T = FMissionAction::EType;
+			if (E.Type != T::Say && E.Type != T::SpeechSequence && E.Type != T::Hint && E.Type != T::Banner) { Staging.Add(E); }
+		}
+		RunActions(Staging);
+	}
+	EnsureHud();
+	SetFlag(FName(*FString::Printf(TEXT("cutscene:%s"), *Id)), true);
+	TWeakObjectPtr<UMissionSubsystem> WeakThis(this);
+	const FString MissionId = Mission.IsValid() ? Mission->Id : FString();
+	const UBullyCutsceneSubsystem::ETier Played = CS->Play(Id, Hud, [WeakThis, Ev, MissionId](bool bSkipped)
+	{
+		UMissionSubsystem* M = WeakThis.Get();
+		if (!M || !M->Mission.IsValid() || M->Mission->Id != MissionId || M->State != EState::Running) { return; }
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION cutscene %s -> event %s"), bSkipped ? TEXT("skipped") : TEXT("finished"), *Ev.ToString());
+		M->FireEvent(Ev);
+	});
+	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION cutscene %s playing (%s tier)"), *Id,
+		Played == UBullyCutsceneSubsystem::ETier::Full ? TEXT("full") : Played == UBullyCutsceneSubsystem::ETier::Audio ? TEXT("audio") : TEXT("none"));
+	if (Played == UBullyCutsceneSubsystem::ETier::None) { FireEvent(Ev); }
+}
+
+void UMissionSubsystem::StopCutscene()
+{
+	if (UBullyCutsceneSubsystem* CS = UBullyCutsceneSubsystem::Get(GetWorld())) { CS->Stop(); }
 }

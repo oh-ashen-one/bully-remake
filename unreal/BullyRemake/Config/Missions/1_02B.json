@@ -204,6 +204,13 @@
       ] }
     },
     {
+      "id": "cafe_cutscene",
+      "objective": "",
+      "blip": false,
+      "on_start": [ { "type": "cutscene", "id": "1-02D" } ],
+      "complete": { "type": "event", "name": "cutscene:1-02D", "latched": true }
+    },
+    {
       "id": "outro",
       "objective": "See where everyone eats.",
       "blip": false,

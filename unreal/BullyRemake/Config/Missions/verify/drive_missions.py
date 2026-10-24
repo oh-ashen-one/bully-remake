@@ -37,6 +37,7 @@ STEPS = {
     "reach_lobby": [(3.0, "Mission.Goto")],
     "go_upstairs": [(1.5, "Mission.Goto")],
     # ---- 1_02 ----
+    "office_cutscene": [(2.0, "Cutscene.Skip")],   # sm-cutscenes: original 1-1-2 (passes straight through when not imported)
     "briefing": [],                                # timer stage
     "leave_office": [(1.5, "Mission.Goto")],
     "exit_building": [(1.5, "Mission.Goto")],
@@ -59,6 +60,8 @@ STEPS = {
     "crowd_leaves": [(2.0, "SNPC.Status")],
     "staff_coming": [],                            # timer stage (day_one mode skips it with Mission.Skip next)
     "to_dorm": [(1.5, "Mission.Goto")],
+    "dorm_arrival_cutscene": [(2.0, "Cutscene.Skip")],   # sm-cutscenes: original 1-02B
+    "dorm_room_cutscene": [(2.0, "Cutscene.Skip")],      # sm-cutscenes: original 1-02E
     "end_card": [],                                # timer stage
 }
 # stage id -> (seconds, command) used once if the stage has not advanced by then (logged as FORCED)

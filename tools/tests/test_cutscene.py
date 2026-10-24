@@ -190,6 +190,25 @@ def test_merge_face_takes_facial_tracks_only():
     assert len(body.tracks[9]) == 2                             # input not modified
 
 
+def test_offset_relative():
+    c = _clip(64, animated=set())
+    c.positions[1] = [(0.0, (10.0, 20.0, 3.0)), (1.0, (11.0, 20.0, 3.0))]
+    r = cs.offset_relative(c, (10.0, 20.0, 3.0))
+    assert r.positions[1] == [(0.0, (0.0, 0.0, 0.0)), (1.0, (1.0, 0.0, 0.0))]
+    assert c.positions[1][0][1] == (10.0, 20.0, 3.0)           # input not modified
+    plain = _clip(64, animated=set())
+    assert cs.offset_relative(plain, (5.0, 5.0, 5.0)) is plain   # no Offset_Node keys: unchanged
+
+
+def test_agr_long_clip_with_known_sizes():
+    """A clip with more keys than the scan heuristic allows still splits when the HXD sizes are given."""
+    from tools.importers import agr
+    import struct as st
+    hdr = st.pack("<IIII", agr.HEADER_MAGIC, next(iter(agr.KEY_SIZE)), 30000, 0) + st.pack("<f", 90.0)
+    assert not agr.is_header(hdr, 0, len(hdr))
+    assert agr.is_header(hdr, 0, len(hdr), max_keys=1 << 20)
+
+
 # ---- opt-in: the real install ---------------------------------------------------------------------------------
 
 INSTALL = os.environ.get("BULLY_INSTALL")

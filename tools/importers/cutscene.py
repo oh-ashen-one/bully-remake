@@ -353,6 +353,46 @@ def merge_face(body, face, tracks=FACE_TRACKS):
     return out
 
 
+def actor_clip_requests(cut_img, cut_ids, actor: str) -> list:
+    """ped ClipRequests for one cutscene actor: per cutscene id, its body clip (labelled CUT_<id>) with the actor's
+    F_ facial clip merged in. The cutscene skeleton (64 bones) is index-aligned with the CS_* NIF skeletons (same order,
+    different bone names), which is how `ped` binds tracks to joints. Cutscenes the actor is not in are skipped."""
+    from .ped import ClipRequest
+    out = []
+    for cid in cut_ids:
+        clips = actor_clips(cut_img, cid)
+        body = next((c for c in clips if c.actor.upper() == actor.upper()), None)
+        if body is None:
+            continue
+        face = next((c for c in clips if c.actor.upper() == "F_" + actor.upper()), None)
+        _h, pairs = load_group_clips(cut_img, body.hxd, body.group)
+        clip = pairs[body.index][1]
+        meta = {"cutscene": cid, "actor": body.actor, "group": body.group, "hxd": body.hxd, "index_in_group": body.index,
+                "offset_game_m": [round(v, 4) for v in body.vector], "face_clip": None}
+        if face is not None:
+            fh = pairs if (face.hxd, face.group) == (body.hxd, body.group) else load_group_clips(cut_img, face.hxd, face.group)[1]
+            clip = merge_face(clip, fh[face.index][1])
+            meta["face_clip"] = face.actor
+        clip = offset_relative(clip, body.vector)
+        out.append(ClipRequest(anim_label(cid), clip, body.duration, meta))
+    return out
+
+
+OFFSET_TRACK = 1   # "Offset_Node": carries the scene yaw (rotation) and, when keyed, the actor's world origin
+
+
+def offset_relative(clip, vector):
+    """The actor origin (HXD vector) is applied by the player at spawn; when the clip ALSO keys Offset_Node positions
+    (they start at that same world origin in every case seen), make them relative so the origin is not applied twice."""
+    import copy
+    if len(clip.positions) <= OFFSET_TRACK or not clip.positions[OFFSET_TRACK]:
+        return clip
+    out = copy.copy(clip)
+    out.positions = list(clip.positions)
+    out.positions[OFFSET_TRACK] = [(t, tuple(p[i] - vector[i] for i in range(3))) for t, p in clip.positions[OFFSET_TRACK]]
+    return out
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # build
 

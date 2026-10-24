@@ -135,7 +135,15 @@ def cmd_ped(a) -> int:
         try:
             reqs = []
             groups = [g for g in a.group.split(",") if g]
-            if names and len(groups) == 1:
+            if a.cutscene:   # sm-cutscenes: the actor's baked cutscene clips (Cuts.img), face merged, raw root motion
+                from .cutscene import actor_clip_requests
+                actor = a.cutscene_actor or (e.stem[:-5] if e.stem.upper().endswith("_BODY") else e.stem)
+                with _archive(install, "Cuts/Cuts.img") as cuts:
+                    reqs = actor_clip_requests(cuts, [c for c in a.cutscene.split(",") if c], actor)
+                if not reqs:
+                    print(f"{a.name}: actor {actor} has no clip in {a.cutscene}", file=sys.stderr)
+                    return 1
+            elif names and len(groups) == 1:
                 reqs = clip_requests(install, img, groups[0], names)
             elif names:
                 # several groups (rides, weapons): "*" takes every clip of every group, otherwise each name
@@ -255,6 +263,8 @@ def cmd_cutscene(a) -> int:
     ids = list(a.ids or [])
     if a.chapter1 or not ids:
         ids = list(cs.CHAPTER1_OPENING) + [i for i in ids if i not in cs.CHAPTER1_OPENING]
+    if a.action == "actors":
+        return _cutscene_actors(a, install, ids)
     rc = 0
     with _archive(install, "Stream/World.img") as world:
         for cid in ids:
@@ -271,6 +281,50 @@ def cmd_cutscene(a) -> int:
                               "camera_frames": m["camera"]["frames"], "camera_cuts": len(m["camera"]["cuts"]),
                               "actors": [x["name"] for x in m["actors"]], "warnings": m["warnings"],
                               "out": os.path.join(a.out, "cutscenes", cid)}))
+    return rc
+
+
+def _cutscene_actors(a, install: str, ids: list) -> int:
+    """Every character actor of the given cutscenes -> <out>/models/<nif>.gltf (ped, raw root motion, one CUT_<id> clip
+    per cutscene it is in, face merged) + <out>/cutscenes/actors.json, the list tools/ue/run_import_cutscene_actors.sh
+    imports (UE name = the HXD actor name, which is what cutscene.json's ue_mesh / ue_anim point at)."""
+    import argparse
+    from . import cutscene as cs
+    actors = {}
+    with _archive(install, "Stream/World.img") as world, _archive(install, "Cuts/Cuts.img") as cuts:
+        for cid in ids:
+            for c in cs.actor_clips(cuts, cid):
+                if c.actor.upper().startswith("F_") or not c.group.upper().endswith("_CHAR"):
+                    continue   # facial clips merge into the body; props are optional and skipped
+                e = actors.setdefault(c.actor, {"name": c.actor, "model": cs.actor_model(world, c.actor), "cutscenes": []})
+                e["cutscenes"].append(cid)
+    rc, done = 0, []
+    for name, e in actors.items():
+        nif, head = e["model"]["nif"], e["model"]["head"]
+        if nif is None:
+            print(f"{name}: no model in World.img", file=sys.stderr)
+            rc = 1
+            continue
+        pa = argparse.Namespace(install=a.install, out=a.out, name=nif, txd=None, no_textures=False, group="C_Player",
+                                anims=None, no_anims=False, root_motion="raw", head=head, head_txd=None,
+                                cutscene=",".join(e["cutscenes"]), cutscene_actor=name, sheet=None,
+                                sheet_views=["side"], sheet_frames=6)
+        import contextlib
+        import io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            r = cmd_ped(pa)
+        if r != 0:
+            rc = 1
+            continue
+        info = json.loads(buf.getvalue())
+        done.append({"name": name, "model": nif, "head": head, "cutscenes": e["cutscenes"], "gltf": info["gltf"],
+                     "clips": [x["name"] for x in info["animations"]], "validation_problems": info["validation_problems"]})
+        print(json.dumps({"actor": name, "gltf": info["gltf"], "joints": info["joints"], "clips": len(info["animations"]),
+                          "missing_textures": info["missing_textures"], "problems": info["validation_problems"]}))
+    os.makedirs(os.path.join(a.out, "cutscenes"), exist_ok=True)
+    with open(os.path.join(a.out, "cutscenes", "actors.json"), "w") as f:
+        json.dump({"cutscenes": ids, "actors": done}, f, indent=1)
     return rc
 
 
@@ -502,6 +556,9 @@ def main(argv=None) -> int:
     p.add_argument("--head", help="clothing head/hair model (e.g. B_Buzz = Jimmy's default hair) that replaces the base head: "
                                   "its shape is skinned onto the ped's skeleton by joint name, the base head triangles are cut out")
     p.add_argument("--head-txd", help="texture dictionary of --head (default: its IDE row)")
+    p.add_argument("--cutscene", help="comma list of cutscene ids (1-1-1,1-03,...): export this actor's baked cutscene clips "
+                                      "(CUT_<id>, facial clip merged) instead of --group/--anims; use with --root-motion raw")
+    p.add_argument("--cutscene-actor", help="actor name in the cutscene HXD (default: the model stem without _BODY)")
     p.add_argument("--txd", help="override the texture dictionary (default: from the IDE)")
     p.add_argument("--no-textures", action="store_true")
     p.add_argument("--sheet", help="also render a CPU contact sheet PNG (bind pose + frames per clip)")
@@ -524,7 +581,8 @@ def main(argv=None) -> int:
     p.set_defaults(fn=cmd_audio)
 
     p = sub.add_parser("cutscene", help="baked cutscenes: list, or build camera/actors/subtitles manifest + audio WAV into <out>/cutscenes/<id>/")
-    p.add_argument("action", choices=["list", "build"])
+    p.add_argument("action", choices=["list", "build", "actors"],
+                   help="list | build (manifest + audio) | actors (every character actor -> <out>/models/*.gltf + cutscenes/actors.json)")
     p.add_argument("ids", nargs="*", help="cutscene ids as Cuts.img names them (1-1-1, 1-02B, 1-03, ...); default: the Chapter 1 opening set")
     p.add_argument("--chapter1", action="store_true", help="also build the Chapter 1 opening set (1-1-1 1-1-2 1-02B 1-02E 1-02D 1-03 1-04)")
     p.add_argument("--language", default="American", help="Config/Text/<language>.img for subtitle text (default American)")

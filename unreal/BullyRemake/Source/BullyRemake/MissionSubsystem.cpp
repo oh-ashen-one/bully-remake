@@ -566,6 +566,17 @@ namespace
 				if (A.Text.IsEmpty()) { O->TryGetStringField(TEXT("label"), A.Text); }
 				O->TryGetStringField(TEXT("half_line"), A.Sub);
 			}
+			else if (Type == TEXT("race_start"))
+			{
+				A.Type = FMissionAction::EType::RaceStart;
+				if (!O->TryGetStringField(TEXT("id"), S)) { Err = TEXT("race_start: missing \"id\""); return false; }
+				A.Name = FName(*S);
+				if (!O->TryGetStringField(TEXT("course"), S)) { Err = TEXT("race_start: missing \"course\""); return false; }
+				A.Sub = S;   // trigger-file path name
+				double N2 = 0.0;
+				if (O->TryGetNumberField(TEXT("laps"), N2)) { A.Amount = FMath::Max(1, int32(N2)); }
+				if (O->TryGetNumberField(TEXT("checkpoint_radius_cm"), N2)) { A.Radius = float(N2); }
+			}
 			else { Err = FString::Printf(TEXT("unknown action type \"%s\""), *Type); return false; }
 			Out.Add(MoveTemp(A));
 		}
@@ -810,6 +821,7 @@ void UMissionSubsystem::Deinitialize()
 	DespawnDefenders();
 	Follows.Reset();
 	Countdown.bActive = false;
+	Race.bActive = false;
 	Lesson.bActive = false;
 	Choice.bActive = false;
 	BossBarState.Boss.Reset();
@@ -1024,6 +1036,7 @@ void UMissionSubsystem::StopMission(const FString& Reason)
 	DespawnDefenders();
 	Follows.Reset();
 	Countdown.bActive = false;
+	Race.bActive = false;
 	Lesson.bActive = false;
 	Choice.bActive = false;
 	BossBarState.Boss.Reset();
@@ -1148,6 +1161,7 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	LeashFarSince = -1.0;
 	ZoneWasInside = false;
 	ZoneOutSince = -1.0;
+	Race.bActive = false;   // a race is stage-scoped (a retry re-arms it from on_start)
 	if (Hud.IsValid()) { Hud->SetProgress(-1.f); Hud->SetCountdown(-1.f); }
 	if (APawn* P = GetPlayerPawn()) { StageStartPawnLoc = P->GetActorLocation(); }
 
@@ -1214,6 +1228,7 @@ void UMissionSubsystem::CompleteMission()
 	DespawnDefenders();
 	Follows.Reset();
 	Countdown.bActive = false;
+	Race.bActive = false;
 	Lesson.bActive = false;
 	Choice.bActive = false;
 	BossBarState.Boss.Reset();
@@ -1631,6 +1646,26 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			BossBarState.bHalfFired = false;
 			if (Hud.IsValid() && BossBarState.Boss.IsValid()) { Hud->SetProgress(1.f, BossBarState.Label); }
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION boss_bar %s (%s, hp %.0f)"), *A.Name.ToString(), *BossBarState.Label, BossBarState.Max);
+			break;
+		}
+		case FMissionAction::EType::RaceStart:
+		{
+			Race = FRaceState();
+			Race.Id = A.Name;
+			Race.Laps = FMath::Max(1, A.Amount);
+			if (A.Radius > 0.f) { Race.Radius = A.Radius; }
+			if (Mission.IsValid())
+			{
+				if (const TArray<FVector>* Path = Mission->Paths.Find(FName(*A.Sub))) { Race.Wps = *Path; }
+			}
+			if (Race.Wps.Num() < 2)
+			{
+				UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION race_start '%s': course '%s' has %d waypoint(s) — race not armed"), *A.Name.ToString(), *A.Sub, Race.Wps.Num());
+				break;
+			}
+			Race.bActive = true;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION race '%s' armed: %d waypoints x %d lap(s) (checkpoint r %.0f) -> event race:%s_win"),
+				*A.Name.ToString(), Race.Wps.Num(), Race.Laps, Race.Radius, *A.Name.ToString());
 			break;
 		}
 		}
@@ -2097,6 +2132,7 @@ void UMissionSubsystem::Tick(float Dt)
 		TickSpotters();
 		TickCountdown();
 		TickLesson();
+		TickRace();
 		TickDefenders(Dt);
 		TickChoice();
 		TickBossBar();
@@ -2362,6 +2398,16 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		Smoke.bFailTested = true;
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE firing smoke_fail on stage %d to exercise fail/retry"), StageIndex + 1);
 		FireEvent(FName("smoke_fail"));
+		return;
+	}
+
+	// race drive: run the course's checkpoints in order, one per tick — races are time-critical, so this sits
+	// above the 1.5 s drive cadence gate (the rival riders are scripted npc_move_to movers on the same course;
+	// checkpoint-hopping always beats them home)
+	if (Race.bActive && Race.Wps.Num() > 0)
+	{
+		Smoke.LastDrive = Smoke.Elapsed;
+		TeleportPlayer(Race.Wps[Race.NextIdx] + FVector(0, 0, 100), 0.f, false);
 		return;
 	}
 
@@ -2941,6 +2987,33 @@ void UMissionSubsystem::TickCountdown()
 		if (Hud.IsValid()) { Hud->SetCountdown(-1.f); }
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION countdown expired -> event %s"), *Countdown.Event.ToString());
 		FireEvent(Countdown.Event);
+	}
+}
+
+void UMissionSubsystem::TickRace()
+{
+	if (!Race.bActive || Race.Wps.Num() == 0) { return; }
+	const APawn* P = GetPlayerPawn();
+	if (!P) { return; }
+	const FVector PP = P->GetActorLocation();
+	const FVector& Wp = Race.Wps[Race.NextIdx];
+	if (FVector::Dist2D(PP, Wp) <= Race.Radius && FMath::Abs(PP.Z - Wp.Z) <= 500.f)
+	{
+		const int32 Done = Race.NextIdx + 1;
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION race '%s': checkpoint %d/%d (lap %d/%d)"), *Race.Id.ToString(), Done, Race.Wps.Num(), Race.Lap, Race.Laps);
+		++Race.NextIdx;
+		if (Race.NextIdx >= Race.Wps.Num())
+		{
+			Race.NextIdx = 0;
+			++Race.Lap;
+			if (Race.Lap > Race.Laps)
+			{
+				Race.bActive = false;
+				const FName WinEv(*FString::Printf(TEXT("race:%s_win"), *Race.Id.ToString()));
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION race '%s': player finished -> event %s"), *Race.Id.ToString(), *WinEv.ToString());
+				FireEvent(WinEv);
+			}
+		}
 	}
 }
 

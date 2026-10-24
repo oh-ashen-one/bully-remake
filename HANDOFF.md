@@ -151,6 +151,22 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   `reach_location` beats because the smoke driver has no trigger_exit drive (2_03 getaway, 2_S02 escape). Verified:
   `2_03` **PASS 6/6**, `2_S02` **PASS 7/7** (both incl. fail/retry), campaign **PASS 4/4**, full regression (all
   23 Ch1 missions + 2_01 + 2_02) re-PASS.
+- **Ch2 Wave C (2_04, 2_06 + 2_06supplemental)**: the first real race, and the social-errand chain. New primitive
+  (the wave's one C++ addition): **`race_start`** (MissionSubsystem) — a minimal data-driven race: the course is
+  any trigger-file path (2_04 uses the real 72-waypoint `2_04_RACE` loop), the player passes its waypoints in
+  order (checkpoint radius) x `laps`, fires `race:<id>_win`; rivals are plain data (spawn_npc + npc_move_to on the
+  same course), first rival home = `npc_arrived:<id>` = the stage's lose condition. Stage-scoped (retry re-arms);
+  built for reuse by the 3_R08 14-race series. Smoke driver: race drive teleports checkpoint-to-checkpoint and sits
+  ABOVE the 1.5 s drive-cadence gate (lesson learned: below it, a 72-checkpoint course needs ~110 s of drives and
+  the 150 s driver budget dies at checkpoint 54). `2_04.json` (5 stages: Petey's intro, ride-to-the-beach on
+  `_2_04_PetePath`, lineup, the race, podium) — `retry:"stage"` lands the original's saved-data race checkpoint
+  for free; bikes/mount gate/rubber-band/barrier dressing are documented compressions. `2_06.json` (Movie Tickets,
+  12 stages: pacifist chain — steal Gord's bike (reach beat), lure him to Lola's scene, the Yum Yum chocolate run
+  (money_ensure 100 floor; the broke watchdog is moot with the floor, so no money_below condition was added),
+  Eunice's escort/kiss, the Petey scare, the Pinky finale). The 2_06supplemental variant-launcher collapses to the
+  single campaign star (g206Subquest handshake OPEN in the recon; `mission_variant_select` recorded as pending).
+  Verified: `2_04` **PASS 5/5** (t=73 s — Petey's ride dominates, the race itself is seconds), `2_06` **PASS
+  12/12** (both incl. fail/retry), campaign **PASS 4/4**, full regression (23 Ch1 + 2_01/2_02/2_03/2_S02) re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

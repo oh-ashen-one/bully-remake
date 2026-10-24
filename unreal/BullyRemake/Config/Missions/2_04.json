@@ -1,0 +1,98 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_04 'Race the Vale' — Petey talks Jimmy into the preps' beach race: ride to the beach together, then one lap of the Vale course against three prep racers for a podium (recon: docs/re-notes/ch2/2_04-race-the-vale.md). FIRST RACE — introduces the framework's minimal data-driven race primitive (race_start; see MissionSubsystem.h): the course is any trigger-file path (here the real 72-waypoint _2_04_RACE loop), the player passes its waypoints in order (checkpoint radius 900), laps x N, fires race:<id>_win. Rival riders are plain data (spawn_npc + npc_move_to on the same course at sprint); the first rival home fires npc_arrived:<id> -> the stage's fail ('you lost'). Built so 3_R08's 14-race series can reuse it (its courses are trigger paths too). v1 simplifications (see the recon's gap table): the baked 2-04 cutscene is a title card + speech beat; the bikes are not spawned and the get-on-the-bike gate is skipped (no vehicle bundle / player_mounted condition — the race runs mounted or on foot); Petey's ride-along is a real npc_move_to along _2_04_PetePath (he's not on a bike); the race-intro camera flyover and the owner's countdown node are a letterbox speech beat + the race itself; the RL_rich1 barrier dressing swap, the crowd cheerers/re-seat and the shortcut sub-paths are skipped (world_state_swap/crowd_ring pending; the shortcuts are just the main course for us); rubber-band AI is skipped (rivals run a flat sprint — the smoke driver always beats them; a human on foot will not, bikes help); race position HUD is skipped. Retry: our retry:\"stage\" restarts at the race — the original's saved-data checkpoint (flag 23) does exactly that too, so this one compression lands free. No SMissPass branch (VERIFIED absence); the campaign on_pass pays $15 (banner value 1500); preppies -10 respect is relative and omitted (set-only table). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_04",
+  "title": "Race the Vale",
+  "retry": "stage",
+  "start": { "location_cm": [27105.0, 12129.2, 788.8], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_04.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Petey has a race for you.",
+      "blip": "2_04_PeteySpawn",
+      "on_start": [
+        { "type": "banner", "text": "RACE THE VALE", "sub": "The preps think they own the beach roads.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "petey", "point": "2_04_PeteySpawn", "mesh": "GN_Boy02", "ped_model_id": 134, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "PETEY", "text": "Jimmy! The preps are running a bike race down at the beach. You have to show them up — for all of us!", "seconds": 4 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:petey" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Petey got knocked out."
+    },
+    {
+      "id": "ride_to_beach",
+      "objective": "Ride with Petey to the beach.",
+      "blip": "2_04_Peter",
+      "on_start": [
+        { "type": "npc_move_to", "npc": "petey", "via": ["2_04_PetePath"], "point": "2_04_Peter", "gait": "sprint" },
+        { "type": "say", "speaker": "PETEY", "text": "Race you there! Kidding. Mostly.", "seconds": 3 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:petey", "latched": true },
+        { "type": "reach_location", "point": "2_04_Peter", "radius_cm": 1000 }
+      ] }
+    },
+    {
+      "id": "race_setup",
+      "objective": "Line up for the race.",
+      "blip": "2_04_PlayerRich",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "owner", "point": "2_04_Owner", "mesh": "TO_RichM1", "ped_model_id": 86, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "racer1", "point": "2_04_Prep1", "mesh": "GN_Boy01", "ped_model_id": 30, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "racer2", "point": "2_04_Prep2", "mesh": "GN_Bully05", "ped_model_id": 32, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "racer3", "point": "2_04_Prep3", "mesh": "GN_Greekboy", "ped_model_id": 31, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "setup", "lines": [
+          { "speaker": "RACE OWNER", "text": "One lap of the Vale. First across the line takes the purse.", "seconds": 3 },
+          { "speaker": "GORD", "text": "Hope you brought a real bike, pauper.", "seconds": 2.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:setup", "latched": true },
+      "fail": { "type": "event", "name": "npc_ko:owner", "latched": true },
+      "fail_text": "The race owner got hurt."
+    },
+    {
+      "id": "race",
+      "objective": "One lap of the Vale. Win it.",
+      "blip": "2_04_FinishLine",
+      "on_start": [
+        { "type": "race_start", "id": "vale", "course": "2_04_RACE", "laps": 1, "checkpoint_radius_cm": 900 },
+        { "type": "npc_move_to", "npc": "racer1", "via": ["2_04_RACE"], "point": "2_04_FinishLine", "gait": "sprint" },
+        { "type": "npc_move_to", "npc": "racer2", "via": ["2_04_RACE"], "point": "2_04_FinishLine", "gait": "sprint" },
+        { "type": "npc_move_to", "npc": "racer3", "via": ["2_04_RACE"], "point": "2_04_FinishLine", "gait": "sprint" },
+        { "type": "hint", "text": "Follow the course — first one back to the line wins.", "seconds": 4 }
+      ],
+      "complete": { "type": "event", "name": "race:vale_win", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_arrived:racer1", "latched": true },
+        { "type": "event", "name": "npc_arrived:racer2", "latched": true },
+        { "type": "event", "name": "npc_arrived:racer3", "latched": true }
+      ] },
+      "fail_text": "You lost the race."
+    },
+    {
+      "id": "podium",
+      "objective": "The winner's circle.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "podium", "lines": [
+          { "speaker": "RACE OWNER", "text": "The Bullworth kid takes it! Here's your purse, son.", "seconds": 3 },
+          { "speaker": "JIMMY", "text": "Tell the Aquaberry boys to practice.", "seconds": 2.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:podium", "latched": true },
+      "on_complete": [
+        { "type": "log", "text": "campaign on_pass for 2_04 pays $15 (banner value 1500); no SMissPass branch (VERIFIED absence); preppies -10 omitted (relative)" }
+      ]
+    }
+  ]
+}

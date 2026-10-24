@@ -211,7 +211,7 @@ struct FMissionAction
 {
 	enum class EType : uint8 { Hint, Banner, Event, SetFlag, ClearFlag, Teleport, Log, StartMission, SpawnEnemy, Fade, Reward, Letterbox, Say, Camera, Shake, GiveWeapon, GiveAmmo, SetRespect, Clock, ChapterSet, ForceComplete,
 		SpawnNpc, NpcMove, NpcLead, NpcFace, NpcDespawn, PairAnim, SpeechSequence, MinigameLaunch, GiveItem, TakeItem, MoneyEnsure, MoneyTake, HeatSet, Hide,
-		SpawnWave, Spotter, NpcFollow, CountdownStart, CountdownCancel, LessonStart, SpawnDefender, NpcDrain, DialogueChoice, BossBar };
+		SpawnWave, Spotter, NpcFollow, CountdownStart, CountdownCancel, LessonStart, SpawnDefender, NpcDrain, DialogueChoice, BossBar, RaceStart };
 	EType Type = EType::Log;
 	FString Text, Sub;
 	FName Name;
@@ -283,7 +283,8 @@ struct FMissionAction
 	bool bResume = false, bCountdownVisible = false;
 	// spawn_defender: NpcId + Location + Mesh + Health (max hp) + Amount (drain_hp) + Seconds (drain_every).
 	// npc_drain: NpcId + bOn. spawn_wave: Sub = target defender id (every other member). dialogue_choice: Name = id,
-	// Text = prompt, Options.
+	// Text = prompt, Options. race_start: Name = id (fires "race:<id>_win"), Sub = course (trigger-file path name),
+	// Amount = laps (default 1), Radius = checkpoint radius (default 900).
 	TArray<FChoiceOption> Options;
 };
 
@@ -531,6 +532,19 @@ private:
 		FString Prompt;
 	} Lesson;
 	void TickLesson();
+	// minimal data-driven race (2_04; the course is any trigger-file path, so the 3_R08 race series can reuse it):
+	// the player passes the course's waypoints in order (checkpoint radius), `laps` times -> "race:<id>_win".
+	// Rivals are plain data (spawn_npc + npc_move_to on the same course); their npc_arrived:<id> events are the
+	// mission's lose condition (first rival home = race lost). No rubber-band/position HUD in v1.
+	struct FRaceState
+	{
+		bool bActive = false;
+		FName Id;
+		TArray<FVector> Wps;
+		int32 Laps = 1, Lap = 1, NextIdx = 0;
+		float Radius = 900.f;
+	} Race;
+	void TickRace();
 
 	// wave-D runtime: mission defenders (combat-pawn escortees on the player's team) and the dialogue choice
 	struct FDefenderState

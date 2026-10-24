@@ -1,0 +1,175 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_06 'Movie Tickets' — Pinky's movie date is blocked by a line of rivals: steal Gord's bike to peel him (and Lola) off, buy Eunice chocolates at the Yum Yum market to clear her out, walk her to the alley, scare off Petey and his buddy, then take Pinky to the pictures (recon: docs/re-notes/ch2/2_06-movie-tickets.md). The 2_06supplemental.lua companion (docs/re-notes/ch2/2_06supplemental-subquest-switch.md) is a launcher-side variant switch (four world markers, a g206Subquest handshake — all consumers OPEN there); our port collapses the four markers to the single campaign star and records the handshake as pending (mission_variant_select, per the recon's framework note — no variant content is known to select). v1 simplifications (see the recon's gap table): the baked 2-06 cutscene is a title card + speech beat; the bike steal is a reach beat (no vehicle bundle — no mount, no blip_on_vehicle, and Gord's guard/reclaim loop is skipped); the aggro on the steal is a chase-lure to the Lola scene (the original's violence fails mean this mission is pacifist — ANY hit on the named cast fails it; ours compresses that to latent npc_ko fails on invulnerable mission-critical NPCs, so the fight simply never starts); the Lola/Gord scene is a letterbox speech beat and the four-ped delete runs on its way out; the five social override trees are our plain socials (the .act trees are undecoded, OPEN); the chocolate store detour is a reach+purchase beat (money floored at 100 by money_ensure at the start — which makes the original's broke-and-chocolateless watchdog moot, so no money_below fail variant was added; revisit if a later mission spends mid-mission); the store blip's inside/outside re-point is skipped (dynamic_blip covers single points); Eunice's escort is the mission npc_follow (the 5 m separation/re-recruit rule is skipped); the kiss is a letterbox + pair_anim beat at the alley point (1_G1 pattern); Pinky's DISGUST witness beat is skipped (npc_witness_event pending); the Petey scare is a proximity reach + two barks + both boys sprint off; the final Pinky scene's three-camera six-line NIS is one speech sequence. No SMissPass branch (VERIFIED absence); the campaign on_pass pays $15 (banner value 1500); preppies -5 is relative and omitted. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_06",
+  "title": "Movie Tickets",
+  "retry": "stage",
+  "start": { "location_cm": [34131.6, -22027.1, 502.1], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_06.json",
+  "fail": { "type": "any", "conditions": [
+    { "type": "event", "name": "npc_ko:pinky", "latched": true },
+    { "type": "event", "name": "npc_ko:eunice", "latched": true }
+  ] },
+  "fail_text": "Someone got hurt. The date is off.",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Pinky is waiting by the theater.",
+      "blip": "2_06_PinkyWaits",
+      "on_start": [
+        { "type": "banner", "text": "MOVIE TICKETS", "sub": "A date with Pinky — if you can clear the line.", "seconds": 3 },
+        { "type": "money_ensure", "money": 100 },
+        { "type": "spawn_npc", "npc": "pinky", "point": "2_06_PinkyWaits", "mesh": "GN_Asiangirl", "ped_model_id": 38, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "spawn_npc", "npc": "gord", "point": "2_06_Waiters", "mesh": "GN_Boy01", "ped_model_id": 30, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "lola", "point": "2_06_Waiters", "mesh": "TO_RichW1", "ped_model_id": 25, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "bryce", "point": "2_06_OtherWaiters", "mesh": "GN_Boy02", "ped_model_id": 35, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "justin", "point": "2_06_OtherWaiters", "mesh": "GN_Greekboy", "ped_model_id": 34, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "PINKY", "text": "Jimmy! The line for tickets is impossible — Gord, Eunice, even little Petey. Get rid of them and the movies are on me. Well. On you.", "seconds": 4.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "steal_bike",
+      "objective": "Steal Gord's bike to peel him off the line.",
+      "blip": "2_06_GordsBike",
+      "on_start": [
+        { "type": "hint", "text": "His bike is parked by the curb. He'll chase it.", "seconds": 4 }
+      ],
+      "complete": { "type": "reach_location", "point": "2_06_GordsBike", "radius_cm": 400 },
+      "on_complete": [
+        { "type": "say", "speaker": "GORD", "text": "My bike! That's MY bike, you thief!", "seconds": 3 },
+        { "type": "npc_move_to", "npc": "gord", "point": "2_06_NISLOLA", "gait": "sprint" }
+      ]
+    },
+    {
+      "id": "lure",
+      "objective": "Lead Gord away from the theater.",
+      "blip": "2_06_NISLOLA",
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:gord", "latched": true },
+        { "type": "reach_location", "point": "2_06_NISLOLA", "radius_cm": 1000 }
+      ] }
+    },
+    {
+      "id": "lola_scene",
+      "objective": "Lola intercepts Gord.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "lola", "lines": [
+          { "speaker": "LOLA", "text": "Gord, baby. Forget the bike — walk me home instead.", "seconds": 3 },
+          { "speaker": "GORD", "text": "But— oh. Well. When you put it like that...", "seconds": 2.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:lola", "latched": true },
+      "on_complete": [
+        { "type": "npc_despawn", "npc": "gord" },
+        { "type": "npc_despawn", "npc": "lola" },
+        { "type": "npc_despawn", "npc": "bryce" },
+        { "type": "npc_despawn", "npc": "justin" }
+      ]
+    },
+    {
+      "id": "back_to_theater",
+      "objective": "Head back toward the theater.",
+      "blip": "2_06_Theater",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "eunice", "point": "2_06_Waiters", "mesh": "TO_BusinessW1", "ped_model_id": 74, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "petey", "point": "2_06_OtherWaiters", "mesh": "GN_Boy02", "ped_model_id": 13, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "const", "point": "2_06_OtherWaiters", "mesh": "GN_Bully02", "ped_model_id": 85, "mission_critical": true, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "reach_location", "point": "2_06_Theater", "radius_cm": 750 }
+    },
+    {
+      "id": "eunice_greet",
+      "objective": "Eunice is still in line. Talk to her.",
+      "blip": "2_06_Waiters",
+      "complete": { "type": "social", "actor_tag": "br_npc_eunice", "radius_cm": 300, "prompt": "Talk to Eunice" },
+      "on_complete": [
+        { "type": "say", "speaker": "EUNICE", "text": "Move? For you? Jimmy Hopkins, I don't move for less than chocolate.", "seconds": 3.5 }
+      ]
+    },
+    {
+      "id": "choco_run",
+      "objective": "Buy chocolates at the Yum Yum market.",
+      "blip": "2_06_YumYum",
+      "complete": { "type": "reach_location", "point": "2_06_YumYum", "radius_cm": 500 },
+      "on_complete": [
+        { "type": "money_take", "money": 100 },
+        { "type": "give_item", "item": "chocolates", "n": 1 },
+        { "type": "say", "speaker": "CLERK", "text": "One box of chocolates. Somebody's sweet on somebody.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "choco_give",
+      "objective": "Give Eunice the chocolates.",
+      "blip": "2_06_Waiters",
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "chocolates" },
+        { "type": "social", "actor_tag": "br_npc_eunice", "radius_cm": 300, "prompt": "Give the chocolates" }
+      ] },
+      "on_complete": [
+        { "type": "take_item", "item": "chocolates", "n": 1 },
+        { "type": "pair_anim", "npc": "eunice", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "say", "speaker": "EUNICE", "text": "For me? Jimmy, you're a doll. Walk with me?", "seconds": 3 },
+        { "type": "npc_follow", "npc": "eunice", "dist": 400 }
+      ]
+    },
+    {
+      "id": "alley",
+      "objective": "Walk Eunice to the alley.",
+      "blip": "2_06_KissKiss",
+      "complete": { "type": "reach_location", "point": "2_06_KissKiss", "radius_cm": 400 },
+      "on_complete": [
+        { "type": "letterbox", "on": true },
+        { "type": "pair_anim", "npc": "eunice", "seconds": 2.5, "clips": "KISS" },
+        { "type": "letterbox", "on": false },
+        { "type": "say", "speaker": "EUNICE", "text": "Mm. Best seat in the house. Scoot along now — I'll keep your secret.", "seconds": 3 },
+        { "type": "npc_despawn", "npc": "eunice" }
+      ]
+    },
+    {
+      "id": "petey_scare",
+      "objective": "One obstacle left: Petey and his buddy.",
+      "blip": "2_06_OtherWaiters",
+      "complete": { "type": "reach_location", "point": "2_06_OtherWaiters", "radius_cm": 800 },
+      "on_complete": [
+        { "type": "say", "speaker": "JIMMY", "text": "Boo.", "seconds": 1.5 },
+        { "type": "say", "speaker": "PETEY", "text": "AAH! It's Hopkins— run!", "seconds": 2.5 },
+        { "type": "npc_move_to", "npc": "petey", "point": "2_06_PeteyRunsOff", "gait": "sprint" },
+        { "type": "npc_move_to", "npc": "const", "point": "2_06_PeteyRunsOff", "gait": "sprint" }
+      ]
+    },
+    {
+      "id": "back_to_pinky",
+      "objective": "The line is clear. Back to Pinky.",
+      "blip": "2_06_PinkyWaits",
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "2_06_NISPINKYEND", "radius_cm": 600 },
+        { "type": "social", "actor_tag": "br_npc_pinky", "radius_cm": 300, "prompt": "Meet Pinky" }
+      ] },
+      "on_complete": [ { "type": "letterbox", "on": true } ]
+    },
+    {
+      "id": "finale",
+      "objective": "Movie time.",
+      "blip": false,
+      "on_start": [
+        { "type": "speech_sequence", "id": "finale", "lines": [
+          { "speaker": "PINKY", "text": "You cleared the whole line? Jimmy, you absolute menace.", "seconds": 3 },
+          { "speaker": "JIMMY", "text": "Two tickets. Whatever's longest.", "seconds": 2.5 },
+          { "speaker": "PINKY", "text": "A boy after my own heart. Come on — previews are starting.", "seconds": 3 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:finale", "latched": true },
+      "on_complete": [
+        { "type": "log", "text": "campaign on_pass for 2_06 pays $15 (banner value 1500); no SMissPass branch (VERIFIED absence); 2_06supplemental variant handshake pending (mission_variant_select)" }
+      ]
+    }
+  ]
+}

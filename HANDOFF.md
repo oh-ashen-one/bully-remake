@@ -183,6 +183,20 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   whole dollars — 2_03's egg money was 150 dollars, now $2 (the original's 150 CENTS); 2_06's floor/take now $1.
   Verified: `2_08` **PASS 11/11**, `2_G2` **PASS 8/8** (both incl. fail/retry), campaign **PASS 4/4**, full
   regression (all 27 prior missions) re-PASS.
+- **Ch2 Wave E (2_05, 2_07)** — the two no-DAT missions, pure data on the existing vocabulary (zero new C++).
+  Neither `2_05_new.DAT` nor `2_07_BEACHA.DAT` was ever extracted, so both missions **borrow a neighbor's trigger
+  file** (documented in each `_note`): 2_05 uses 2_03's (Tad's property is literally shared — same gate props per
+  the recon) and 2_07 uses 2_04's (the beach/race geography; the chase runs RestartPlayer → FinishLine →
+  BeachCheerChange, the low-z sand standing in for the dock). `2_05.json` (6 stages: Russell's egg brief, the
+  on-foot npc_lead to Tad's gate (his bike escort is vehicle-bundle-pending), into the yard, six window stand-in
+  dummies at the 2_03 file's own cover points under a patrol spotter + a real zone_timer stay-in-yard fail, the
+  final three-prep wave, the escape; Tad's shutter work-queue and the egg-economy refills documented as skipped).
+  `2_07.json` (8 stages: Ricky's rally, the Gord chase (npc_move_to + npc_follow), the siege taunt with
+  blocker/cheerer color, three fixed two-prep waves compressing the continuous spawner (barks between waves), the
+  Gord boss fight (hits_to_beat 3 + boss_bar, Parker/Bryce convert as a second wave), trophy hand-off, outro; no
+  npc_ko fails anywhere — matching the original's single out-of-area fail, itself skipped pending trigger
+  geometry). Verified: `2_05` **PASS 6/6**, `2_07` **PASS 8/8** (both incl. fail/retry), campaign **PASS 4/4**,
+  full regression (all 29 prior missions) re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

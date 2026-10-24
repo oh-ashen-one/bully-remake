@@ -1,0 +1,103 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_05 'Tad's House' — Russell and Jimmy egg Tad's place: six shuttered windows while stealth patrols walk the yard, then fight the way back out (recon: docs/re-notes/ch2/2_05-tads-house.md). **No 2_05_new.DAT was ever extracted** — the geography is Tad's property, which is literally shared with 2_03 (same gate props per the recon), so this mission borrows imported/triggers/2_03.json; the few invented points (tads_gate = the 2_03_FrontGateArea volume's center, back_gate_out = the 2_03_Back_Unlock volume's center, and the start at the school front) are marked. v1 simplifications (see the recon's gap table): the baked 2-05 cutscene is a title card + speech beat; Russell's bike ride (PedFleeOnPathOnBike, the 80 m warp-leash, the take-his-bike fail) is an on-foot npc_lead — no vehicle bundle; the six room-eggings are six stationary target dummies at the 2_03 file's own yard/cover points (the shutter props and projectile-impact triggers aren't drivable world props — same posture as 1_04/2_S02); Tad's shutter-close work-queue (npc_task_queue) is a single invulnerable color NPC + one bark; the stealth patrols are one spotter (spotted event is logged; the original's post-bark escalation is engine-side, INFERRED there); the egg economy (24 eggs, 2 stash refills, out-of-eggs fail) is skipped — eggs are a narrative item here (no ammo economy yet); the stay-in-yard watchdog is a real zone_timer on the yard box; the reinforcement patrols and their walk-then-attack entrances compress into the final three-prep wave; the dead-code bike attackers are dead in the original too. Hit-Russell fails are latent npc_ko declarations (he is invulnerable). Pass: $15 + preppies respect set 0 via the campaign on_pass (VERIFIED absolute-0 in the recon). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_05",
+  "title": "Tad's House",
+  "retry": "stage",
+  "start": { "location_cm": [27130.0, 11600.0, 640.0], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_03.json",
+  "points": {
+    "school_front": { "location_cm": [27330.0, 11400.0, 640.0] },
+    "tads_gate": { "location_cm": [44377.0, -50905.3, 2152.3] },
+    "back_gate_out": { "location_cm": [39942.8, -42485.7, 2134.2] }
+  },
+  "triggers": [
+    { "id": "yard", "location_cm": [45024.3, -48382.1, 1831.8], "half_extent_cm": [5000, 3800, 400] }
+  ],
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Russell has eggs and a grudge.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "TAD'S HOUSE", "sub": "Russell's idea of a good afternoon.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "russell", "point": "school_front", "mesh": "GN_Bully01", "ped_model_id": 75, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "give_item", "item": "eggs", "n": 1 },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "RUSSELL", "text": "Jimmy! Russell got eggs. Tad's house got windows. You do the math. Let's GO!", "seconds": 4 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:russell" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Russell got hurt."
+    },
+    {
+      "id": "ride",
+      "objective": "Follow Russell to Tad's house.",
+      "blip": "tads_gate",
+      "on_start": [
+        { "type": "npc_lead", "npc": "russell", "point": "tads_gate", "gait": "sprint", "radius_cm": 600 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:russell", "latched": true },
+        { "type": "reach_location", "point": "tads_gate", "radius_cm": 1000 }
+      ] }
+    },
+    {
+      "id": "enter_yard",
+      "objective": "Get into Tad's yard.",
+      "blip": "2_03_TadStart",
+      "on_start": [
+        { "type": "speech_sequence", "id": "windows", "lines": [
+          { "speaker": "RUSSELL", "text": "Six windows. Egg every one. Tad's home — watch him scurry!", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "speech:windows", "latched": true },
+        { "type": "reach_location", "point": "2_03_TadStart", "radius_cm": 1200 }
+      ] }
+    },
+    {
+      "id": "egg_windows",
+      "objective": "Egg all six windows!",
+      "blip": true,
+      "on_start": [
+        { "type": "spawn_npc", "npc": "tad", "point": "2_03_TadStart", "mesh": "GN_Boy01", "ped_model_id": 31, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "patrol", "point": "2_03_FrontSpawns", "mesh": "GN_Boy02", "ped_model_id": 34, "invulnerable": true, "untargetable": true },
+        { "type": "spotter", "npc": "patrol", "range_cm": 1200, "cone_deg": 60, "seconds": 2 },
+        { "type": "spawn_wave", "group": "windows", "points": ["2_03_CP_06", "2_03_CP_11", "2_03_CP_12", "2_03_CP_16", "2_03_CP_17", "2_03_CP_31"], "mesh": "GN_Bully03", "hostile": false, "advance_at": 6 }
+      ],
+      "complete": { "type": "event", "name": "wave:windows", "latched": true },
+      "fail": { "type": "zone_timer", "trigger": "yard", "seconds": 3, "visible": true },
+      "fail_text": "You bailed on the egging.",
+      "on_complete": [
+        { "type": "say", "speaker": "TAD", "text": "My HOUSE! You philistines! BOYS — GET THEM!", "seconds": 3 },
+        { "type": "take_item", "item": "eggs", "n": 1 }
+      ]
+    },
+    {
+      "id": "fight_out",
+      "objective": "The whole house is awake. Fight out!",
+      "blip": false,
+      "on_start": [
+        { "type": "npc_despawn", "npc": "tad" },
+        { "type": "npc_despawn", "npc": "patrol" },
+        { "type": "spawn_wave", "group": "final", "points": ["2_03_FrontSpawns", "2_03_FrontSpawns2", "2_03_FrontSpawns3"], "mesh": "GN_Greekboy", "hostile": true }
+      ],
+      "complete": { "type": "event", "name": "wave:final", "latched": true }
+    },
+    {
+      "id": "escape",
+      "objective": "Get out of Tad's yard.",
+      "blip": "back_gate_out",
+      "complete": { "type": "reach_location", "point": "back_gate_out", "radius_cm": 800 },
+      "on_complete": [
+        { "type": "say", "speaker": "RUSSELL", "text": "HA! Did you see his face? Russell wins!", "seconds": 3 },
+        { "type": "log", "text": "campaign on_pass for 2_05 pays $15 (banner 1500) + preppies respect set 0 (VERIFIED absolute); egg-economy and patrol work-queue compressions documented in _note" }
+      ]
+    }
+  ]
+}

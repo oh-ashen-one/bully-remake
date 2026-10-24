@@ -1,0 +1,129 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_07 'Beach Rumble' — chase Gord (who has Ricky's... the preps' trophy) down to the beach with the greaser Ricky at your side, break the pier siege's prep waves, beat Gord, take the trophy (recon: docs/re-notes/ch2/2_07-beach-rumble.md). **No 2_07_BEACHA.DAT was ever extracted** — the setting is the rich-area beach/pier, which is 2_04's race geography, so this mission borrows imported/triggers/2_04.json: the chase runs from the beach-house street (2_04_RestartPlayer) down past the finish line to the sand (2_04_BeachCheerChange, the low-z beach point, standing in for the dock), and Gord's spectator spot is 2_04_Peter. The safehouse door (DT_trich_SafePrep) lock is cosmetic for us (documented). v1 simplifications (see the recon's gap table): the baked 2-07 cutscene is a title card + speech beat; Ricky's recruit_ally is our npc_follow (no ally combat AI — note he is expendable in the original too: there is no npc_ko fail anywhere in this mission, matching 2_07's single out-of-area fail, which itself is skipped — its trigger geometry was never extracted and the whole mission plays in one beach neighborhood); Gord's chase staging (invulnerable trophy-shaker with the tree-gated behavior) is a plain scripted runner; the Parker dock-blocker (gravity-off zone guard) and Bryce cheerer are invulnerable color until they convert; the continuous wave engine (2-concurrency respawns, jump-in entrances, per-wave Gord barks, no-repeat model picks) compresses to three fixed two-prep waves with a bark between; the anti-skip guard (reach the dock early → waves cancel) is skipped (our stages are sequential anyway); Gord's boss restore is the wave-4 fight (hits_to_beat 3 + boss_bar — his damage-multiplier staging is boss_profile-pending); the trophy's carried-weapon-destroy-then-pickup-drop is a give_item on his KO (2_S04/2_02 pattern); the mass-flee on pickup is skipped (everyone's already down); the 385 trophy is an item, not an equippable weapon (no weapon models on mission items yet). Pass: preppies respect set 15 via the campaign on_pass (VERIFIED absolute); the banner tag 2_07_UNLOCK (likely the room trophy, OPEN) is logged. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_07",
+  "title": "Beach Rumble",
+  "retry": "stage",
+  "start": { "location_cm": [30776.1, -28966.7, 625.8], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_04.json",
+  "points": {
+    "ricky_start": { "location_cm": [30976.1, -28866.7, 625.8] },
+    "gord_start": { "location_cm": [30776.1, -29166.7, 625.8] }
+  },
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Gord lifted the trophy. Ricky wants it back.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "BEACH RUMBLE", "sub": "The rich kids stole the wrong trophy.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "ricky", "point": "ricky_start", "mesh": "GN_Bully04", "ped_model_id": 28, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "spawn_npc", "npc": "gord", "point": "gord_start", "mesh": "GN_Boy01", "ped_model_id": 30, "invulnerable": true, "untargetable": true },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "RICKY", "text": "That's OUR trophy on Gord's bike, Hopkins. He's beach-bound — you with me?", "seconds": 3.5 },
+          { "speaker": "GORD", "text": "Catch me, paupers!", "seconds": 2 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "chase",
+      "objective": "Chase Gord down to the beach!",
+      "blip": "2_04_BeachCheerChange",
+      "on_start": [
+        { "type": "npc_move_to", "npc": "gord", "via": ["2_04_PlayerNBEnd", "2_04_FinishLine"], "point": "2_04_BeachCheerChange", "gait": "sprint" },
+        { "type": "npc_follow", "npc": "ricky", "dist": 400 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:gord", "latched": true },
+        { "type": "reach_location", "point": "2_04_BeachCheerChange", "radius_cm": 1200 }
+      ] }
+    },
+    {
+      "id": "siege_setup",
+      "objective": "The pier is crawling with preps.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "siege", "lines": [
+          { "speaker": "GORD", "text": "You want the trophy, Hopkins? Come through my entire social circle.", "seconds": 3.5 }
+        ] },
+        { "type": "letterbox", "on": false },
+        { "type": "spawn_npc", "npc": "parker", "point": "2_04_CrowdCheer", "mesh": "GN_Boy02", "ped_model_id": 40, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "bryce", "point": "2_04_FinishLine", "mesh": "GN_Greekboy", "ped_model_id": 35, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "event", "name": "speech:siege", "latched": true }
+    },
+    {
+      "id": "wave1",
+      "objective": "The first wave comes.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "w1", "points": ["2_04_CrowdCheer", "2_04_FinishLine"], "mesh": "GN_Boy01", "hostile": true }
+      ],
+      "complete": { "type": "event", "name": "wave:w1", "latched": true },
+      "on_complete": [
+        { "type": "npc_move_to", "npc": "gord", "point": "2_04_Peter", "gait": "run" },
+        { "type": "say", "speaker": "GORD", "text": "Is that all? My grandmother hits harder.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "wave2",
+      "objective": "Another wave.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "w2", "points": ["2_04_FinishLine", "2_04_CrowdCheer"], "mesh": "GN_Boy02", "hostile": true }
+      ],
+      "complete": { "type": "event", "name": "wave:w2", "latched": true },
+      "on_complete": [ { "type": "say", "speaker": "GORD", "text": "Stop hitting them! They're expensive!", "seconds": 2.5 } ]
+    },
+    {
+      "id": "wave3",
+      "objective": "The last of the reinforcements.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "w3", "points": ["2_04_BeachCheerChange", "2_04_FinishLine"], "mesh": "GN_Greekboy", "hostile": true }
+      ],
+      "complete": { "type": "event", "name": "wave:w3", "latched": true },
+      "on_complete": [ { "type": "say", "speaker": "GORD", "text": "Fine! FINE. I'll do it myself.", "seconds": 2.5 } ]
+    },
+    {
+      "id": "gord_fight",
+      "objective": "Beat Gord. Take the trophy.",
+      "blip": "2_04_Peter",
+      "on_start": [
+        { "type": "npc_despawn", "npc": "gord" },
+        { "type": "npc_despawn", "npc": "parker" },
+        { "type": "npc_despawn", "npc": "bryce" },
+        { "type": "spawn_wave", "group": "gfight", "points": ["2_04_Peter"], "mesh": "GN_Boy01", "hostile": true, "hits_to_beat": 3 },
+        { "type": "boss_bar", "group": "gfight", "label": "GORD", "half_line": "You're ruining my weekend AND my face!" },
+        { "type": "spawn_wave", "group": "w4", "points": ["2_04_CrowdCheer", "2_04_FinishLine"], "mesh": "GN_Boy02", "hostile": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "wave:gfight", "latched": true },
+        { "type": "event", "name": "wave:w4", "latched": true }
+      ] },
+      "on_complete": [
+        { "type": "give_item", "item": "trophy", "n": 1 },
+        { "type": "say", "speaker": "GORD", "text": "My trophy... father will hear about this...", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "outro",
+      "objective": "The beach belongs to the locals.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "RICKY", "text": "HA! That's how the wrong side of the tracks says thank you. Good rumble, Hopkins.", "seconds": 3.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "log", "text": "campaign on_pass for 2_07 sets preppies respect 15 (VERIFIED absolute); banner tag 2_07_UNLOCK (room trophy, OPEN) logged; the trophy pickup/mass-flee beats are documented compressions" }
+      ]
+    }
+  ]
+}

@@ -104,6 +104,7 @@ finish the story; several are required for 100%.
 | 62 | Go See the Principal | chains from #61 |
 | 63 | Busting In, Part I | 8AM–11PM |
 | 64 | Busting In, Part II | chains from #63 |
+| 64a | Mailbox Armageddon (O) | SE-exclusive, script `3_S08` (row added from ch5 recon 2026-10-23) |
 | 65 | Complete Mayhem | 8AM–8PM (final boss: Gary) |
 
 ### Chapter 6 — "Endless Summer"

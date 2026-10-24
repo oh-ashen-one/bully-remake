@@ -1,5 +1,7 @@
 # 2_S02 — Small Offenses (Hattrick's house vandalism): recon notes
 
+> **Correction (2026-10-23, ch5 recon pass):** per the `2_S07` spec (`ch5/2_S07-small-offences.md`), the canonical name "Small Offences" belongs to **2_S07** (the SE-exclusive gnome-hunt unlock at the carnival). This script, 2_S02, is the Hattrick house-vandalism mission — a scrapped-PS2-mission remnant whose name SE appears to have reused. The identification below ("Small Offenses") should be read with that caveat; the mission content description stands.
+
 Status: 2026-10-23, read-only recon. Confidence tags as in `format-survey.md` / `opening-slice-recon.md`: **VERIFIED** (read in the script/data), **INFERRED**, **OPEN**.
 
 Source: decompiled Lua `Bully-SE-scripts/scripts/secnd/2_S02.lua` (1697 lines) + `SMissPass.lua` (no 2_S02 case — **VERIFIED** absence) + `SZone.lua` (weapon ids). Structure described in our own words; no dialogue, cutscene or objective text reproduced. Script/native/string-key names are citations only.

@@ -1,0 +1,357 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "3_06 'The Rumble' \u2014 the pre-boss Chapter 3 mission (NAME CORRECTION from the recon: this script was first filed as 'Bait' \u2014 3_02 is Bait; 3_06 is The Rumble, and the catalog's #43 'Rumble' conflates it with 3_B): greaser/prep street brawls across New Coventry, then Peanut bolts on his bike and draws Jimmy to the alley, then the final fight vs Peanut, Vance and a third greaser (recon: docs/re-notes/ch3/3_06-the-rumble.md; trigger file is 3_06New.json \u2014 the revised DAT, INFERRED there). v1 simplifications (see the recon's gap table): the baked 3-06 intro is a title-card + speech beat; the paired ambient brawls (brawl_pair_spawn pending \u2014 cross-attacking pairs then ambient) compress to invulnerable color pairs + one hostile converter wave per brawl; the faction attitude matrix + the global rumble switch are skipped (faction_attitude_matrix_override / global_rumble_attitude_toggle pending \u2014 the player being brawl-proof until scripted is not modeled); Peanut's bike ride is an on-foot sprint along the real 21-node PeanutPath (his proximity/hit trigger to bolt is the stage boundary; npc_within_radius pending); the 300 s chase budget is a real mission-long countdown (root fail); the 15 s out-of-the-poor-area re-entry countdown is skipped (the chase route leaves that volume by design \u2014 documented); the cop-bust vignette is two invulnerable color cops at the AmbientEvent1 point on the route in (ambient_vignette_zone + the parked sirened car are pending); Vance + the third greaser asleep pre-staging compresses to the fight-stage spawn (npc_asleep_staging pending); the alley NIS is a letterbox speech beat (the bLeftSide dead branch is the original's own \u2014 VERIFIED there); the leave-the-fight two-step is skipped. The pass is BARE like the original (no banner/respect/money \u2014 VERIFIED) \u2014 our final stage is one say + a log; the 3_08_PostDummy force-complete already happens on 3_08's on_pass (wave A) so it's skipped here (the conditional guard is documented); the 'Christmas' entity load on pass is suspicious reuse per the recon (OPEN) \u2014 skipped. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "3_06",
+  "title": "The Rumble",
+  "retry": "stage",
+  "start": {
+    "location_cm": [
+      50574.3,
+      25683.3,
+      233.2
+    ],
+    "yaw": 0
+  },
+  "trigger_file": "imported/triggers/3_06New.json",
+  "fail": {
+    "type": "event",
+    "name": "countdown:rumble_out",
+    "latched": true
+  },
+  "fail_text": "The rumble moved on without you.",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "New Coventry is at war.",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "banner",
+          "text": "THE RUMBLE",
+          "sub": "Greasers and preps are brawling in the streets.",
+          "seconds": 3
+        },
+        {
+          "type": "countdown_start",
+          "seconds": 300,
+          "visible": true,
+          "event": "countdown:rumble_out"
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "cop1",
+          "point": "AmbientEvent1",
+          "mesh": "TO_Cop",
+          "ped_model_id": 97,
+          "invulnerable": true,
+          "untargetable": true
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "cop2",
+          "point": "AmbientEvent1",
+          "mesh": "TO_Cop",
+          "ped_model_id": 83,
+          "invulnerable": true,
+          "untargetable": true
+        },
+        {
+          "type": "speech_sequence",
+          "id": "intro",
+          "lines": [
+            {
+              "speaker": "JIMMY",
+              "text": "The whole neighborhood's gone feral. Peanut's behind this \u2014 I just have to find him in the brawls.",
+              "seconds": 4
+            }
+          ]
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "speech:intro",
+        "latched": true
+      },
+      "fail": {
+        "type": "event",
+        "name": "smoke_fail"
+      }
+    },
+    {
+      "id": "brawl1",
+      "objective": "Wade into the rumble.",
+      "blip": "3_06_Greasers",
+      "on_start": [
+        {
+          "type": "countdown_start",
+          "seconds": 300,
+          "visible": true,
+          "event": "countdown:rumble_out",
+          "resume": true
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "prep1",
+          "point": "3_06_Preps",
+          "mesh": "GN_Boy01",
+          "ped_model_id": 31,
+          "invulnerable": true,
+          "untargetable": true
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "prep2",
+          "point": "3_06_Preps",
+          "mesh": "GN_Boy02",
+          "ped_model_id": 32,
+          "invulnerable": true,
+          "untargetable": true
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "greaser1",
+          "point": "3_06_Greasers",
+          "mesh": "GN_Bully02",
+          "ped_model_id": 26,
+          "invulnerable": true,
+          "untargetable": true
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "greaser2",
+          "point": "3_06_Greasers",
+          "mesh": "GN_Bully03",
+          "ped_model_id": 24,
+          "invulnerable": true,
+          "untargetable": true
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "peanut",
+          "point": "3_06_PeanutPoint",
+          "mesh": "GN_Bully04",
+          "ped_model_id": 21,
+          "invulnerable": true,
+          "untargetable": true
+        },
+        {
+          "type": "spawn_wave",
+          "group": "conv1",
+          "points": [
+            "3_06_Greasers",
+            "InitialPreps"
+          ],
+          "mesh": "GN_Bully01",
+          "hostile": true
+        }
+      ],
+      "complete": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "reach_location",
+            "point": "3_06_Greasers",
+            "radius_cm": 1500
+          },
+          {
+            "type": "event",
+            "name": "wave:conv1",
+            "latched": true
+          }
+        ]
+      },
+      "on_complete": [
+        {
+          "type": "say",
+          "speaker": "JIMMY",
+          "text": "There's Peanut \u2014 on his bike, watching. HEY!",
+          "seconds": 2.5
+        }
+      ]
+    },
+    {
+      "id": "peanut_run",
+      "objective": "Peanut's bolting \u2014 follow him!",
+      "blip": "FinalFight",
+      "on_start": [
+        {
+          "type": "countdown_start",
+          "seconds": 300,
+          "visible": true,
+          "event": "countdown:rumble_out",
+          "resume": true
+        },
+        {
+          "type": "npc_move_to",
+          "npc": "peanut",
+          "via": [
+            "PeanutPath"
+          ],
+          "point": "FinalFight",
+          "gait": "sprint"
+        },
+        {
+          "type": "say",
+          "speaker": "PEANUT",
+          "text": "You want me? Come and get me, Hero.",
+          "seconds": 2.5
+        }
+      ],
+      "complete": {
+        "type": "all",
+        "conditions": [
+          {
+            "type": "event",
+            "name": "npc_arrived:peanut",
+            "latched": true
+          },
+          {
+            "type": "reach_location",
+            "point": "FinalFight",
+            "radius_cm": 1000
+          }
+        ]
+      }
+    },
+    {
+      "id": "alley",
+      "objective": "The alley. It's a setup.",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "countdown_start",
+          "seconds": 300,
+          "visible": true,
+          "event": "countdown:rumble_out",
+          "resume": true
+        },
+        {
+          "type": "letterbox",
+          "on": true
+        },
+        {
+          "type": "speech_sequence",
+          "id": "alley",
+          "lines": [
+            {
+              "speaker": "JIMMY",
+              "text": "Dead end, Peanut. Nowhere to ride.",
+              "seconds": 2.5
+            },
+            {
+              "speaker": "VANCE",
+              "text": "That's the plan, kid. Get him!",
+              "seconds": 2.5
+            }
+          ]
+        },
+        {
+          "type": "letterbox",
+          "on": false
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "speech:alley",
+        "latched": true
+      }
+    },
+    {
+      "id": "final_fight",
+      "objective": "Beat Peanut and his crew.",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "countdown_start",
+          "seconds": 300,
+          "visible": true,
+          "event": "countdown:rumble_out",
+          "resume": true
+        },
+        {
+          "type": "npc_despawn",
+          "npc": "peanut"
+        },
+        {
+          "type": "npc_despawn",
+          "npc": "prep1"
+        },
+        {
+          "type": "npc_despawn",
+          "npc": "prep2"
+        },
+        {
+          "type": "npc_despawn",
+          "npc": "greaser1"
+        },
+        {
+          "type": "npc_despawn",
+          "npc": "greaser2"
+        },
+        {
+          "type": "spawn_wave",
+          "group": "final",
+          "points": [
+            "FinalFight",
+            "FinalFightNIS",
+            "3_06_RightSide"
+          ],
+          "mesh": "GN_Bully04",
+          "hostile": true,
+          "hits_to_beat": 3,
+          "advance_at": 3
+        },
+        {
+          "type": "boss_bar",
+          "group": "final",
+          "label": "PEANUT & CO.",
+          "half_line": "Peanut's running out of friends!"
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "wave:final",
+        "latched": true
+      }
+    },
+    {
+      "id": "outro",
+      "objective": "The rumble is over.",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "countdown_start",
+          "seconds": 300,
+          "visible": true,
+          "event": "countdown:rumble_out",
+          "resume": true
+        },
+        {
+          "type": "speech_sequence",
+          "id": "outro",
+          "lines": [
+            {
+              "speaker": "JIMMY",
+              "text": "Tell Johnny the neighborhood's done playing. (...Where IS Johnny?)",
+              "seconds": 3.5
+            }
+          ]
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "speech:outro",
+        "latched": true
+      },
+      "on_complete": [
+        {
+          "type": "countdown_cancel"
+        },
+        {
+          "type": "log",
+          "text": "bare pass like the original (no banner/respect/money \u2014 VERIFIED); the 3_08_PostDummy marker was already force-completed by 3_08's on_pass; the Christmas entity load on pass is the recon's suspicious-reuse OPEN \u2014 skipped"
+        }
+      ]
+    }
+  ]
+}

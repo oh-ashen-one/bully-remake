@@ -1,0 +1,106 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "3_01 'Jealous Johnny' — Johnny Vincent hires Jimmy to tail Gord and Lola's date and photograph three poses: hand-holding, the flower gift, the kiss (recon: docs/re-notes/ch3/3_01-jealous-johnny.md). PHOTO PRIMITIVES — the pragmatic v1 call: 'taking the photo' is our timed hold-interact (minigame_launch with camera framing text at the alley edge), NOT a real photo mode — photo_mode (aim mode + reticle + shutter) and photo_capture_condition (target-in-frame AND pose-predicate latch) are recorded as pending (they want the camera HUD work; the camera itself is 1_S01's grant). The couple's date loop (npc_pair_date_loop — five random non-repeating alley spots, 7 kiss cycles) compresses to three FIXED spots in sequence (every run offers all three shots, so the finite-opportunity soft-lock fail 3_01_ONOPIC can't happen — documented); the spook distance band meter and the spotted break-and-jeer loop are skipped (the meter's consumer is engine-side INFERRED; the break is non-hostile — spotted_pause_resume pending; note the walkthrough's 'spotted fails' claim is WRONG per the script, VERIFIED there); the containment watchdog (leave the area -> fail) is skipped (its triggers are area-0 volumes; the mission plays in one neighborhood); the hand-off's approach-to-0.8m + GivePhotos anim + gift callback 32 is our social + pair_anim. Item 526 photos are granted per shot and taken back at the hand-off. Pass pays $20 via the campaign on_pass (M_PASS 2000); greasers +5 is relative (omitted). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "3_01",
+  "title": "Jealous Johnny",
+  "retry": "stage",
+  "start": { "location_cm": [50401.5, 20576.5, 196.5], "yaw": 0 },
+  "trigger_file": "imported/triggers/3_01.json",
+  "fail": { "type": "any", "conditions": [
+    { "type": "event", "name": "npc_ko:johnny", "latched": true },
+    { "type": "event", "name": "npc_ko:gord", "latched": true },
+    { "type": "event", "name": "npc_ko:lola", "latched": true }
+  ] },
+  "fail_text": "You blew Johnny's tail job.",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Johnny Vincent has a job for you.",
+      "blip": "3_01_JohnnySpawn",
+      "on_start": [
+        { "type": "banner", "text": "JEALOUS JOHNNY", "sub": "New Coventry. Johnny looks like hell.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "johnny", "point": "3_01_JohnnySpawn", "mesh": "GN_Bully04", "ped_model_id": 23, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "JOHNNY", "text": "Hopkins. My Lola's been seen with that Aquaberry rat Gord. Follow them. Get me PHOTOGRAPHS — holding hands, gifts, the works. Then we talk.", "seconds": 5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "teaser",
+      "objective": "Find the couple.",
+      "blip": "3_01_KissBikeAlley",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "gord", "point": "3_01_KissBikeAlley", "mesh": "GN_Boy01", "ped_model_id": 30, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "lola", "point": "3_01_KissBikeAlley", "mesh": "GN_Asiangirl", "ped_model_id": 25, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "letterbox", "on": true },
+        { "type": "say", "speaker": "JIMMY", "text": "There they are. Johnny wasn't kidding.", "seconds": 2.5 },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "reach_location", "point": "3_01_GotoBlip", "radius_cm": 800 }
+    },
+    {
+      "id": "photo_hands",
+      "objective": "Photo one: hand-holding.",
+      "blip": "3_01_KissComicAlley",
+      "on_start": [
+        { "type": "npc_move_to", "npc": "gord", "point": "3_01_KissComicAlley", "gait": "walk" },
+        { "type": "npc_move_to", "npc": "lola", "point": "3_01_KissComicAlley", "gait": "walk" },
+        { "type": "minigame_launch", "id": "photo1", "point": "3_01_KissComicAlley", "radius_cm": 600, "seconds": 2.5, "text": "Photograph the hand-holding..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:photo1_ok", "latched": true },
+      "on_complete": [
+        { "type": "give_item", "item": "photo", "n": 1 },
+        { "type": "say", "speaker": "JIMMY", "text": "One.", "seconds": 1.5 }
+      ]
+    },
+    {
+      "id": "photo_gift",
+      "objective": "Photo two: the flower gift.",
+      "blip": "3_01_KissYumAlley",
+      "on_start": [
+        { "type": "npc_move_to", "npc": "gord", "point": "3_01_KissYumAlley", "gait": "walk" },
+        { "type": "npc_move_to", "npc": "lola", "point": "3_01_KissYumAlley", "gait": "walk" },
+        { "type": "pair_anim", "npc": "gord", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "minigame_launch", "id": "photo2", "point": "3_01_KissYumAlley", "radius_cm": 600, "seconds": 2.5, "text": "Photograph the gift..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:photo2_ok", "latched": true },
+      "on_complete": [
+        { "type": "give_item", "item": "photo", "n": 1 },
+        { "type": "say", "speaker": "JIMMY", "text": "Two.", "seconds": 1.5 }
+      ]
+    },
+    {
+      "id": "photo_kiss",
+      "objective": "Photo three: the kiss.",
+      "blip": "3_01_KissFinal",
+      "on_start": [
+        { "type": "npc_move_to", "npc": "gord", "point": "3_01_KissFinal", "gait": "walk" },
+        { "type": "npc_move_to", "npc": "lola", "point": "3_01_KissFinal", "gait": "walk" },
+        { "type": "pair_anim", "npc": "gord", "seconds": 2.5, "clips": "KISS" },
+        { "type": "minigame_launch", "id": "photo3", "point": "3_01_KissFinal", "radius_cm": 600, "seconds": 2.5, "text": "Photograph the kiss..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:photo3_ok", "latched": true },
+      "on_complete": [
+        { "type": "give_item", "item": "photo", "n": 1 },
+        { "type": "say", "speaker": "JIMMY", "text": "And three. Johnny's not going to like this.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "return",
+      "objective": "Bring the photos to Johnny.",
+      "blip": "3_01_JohnnySpawn",
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "photo" },
+        { "type": "social", "actor_tag": "br_npc_johnny", "radius_cm": 300, "prompt": "Hand over the photos" }
+      ] },
+      "on_complete": [
+        { "type": "take_item", "item": "photo", "n": 3 },
+        { "type": "pair_anim", "npc": "johnny", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "say", "speaker": "JOHNNY", "text": "...She's kissing him. You did good, Hopkins. The greasers owe you.", "seconds": 3.5 },
+        { "type": "log", "text": "campaign on_pass for 3_01 pays $20 (M_PASS 2000); greasers +5 relative omitted; bulletin-board wiring (BB_18) noted" }
+      ]
+    }
+  ]
+}

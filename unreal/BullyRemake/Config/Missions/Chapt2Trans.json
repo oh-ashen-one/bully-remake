@@ -1,6 +1,6 @@
 {
   "_format": "bully-remake.mission/1",
-  "_note": "Chapt2Trans — the chapter 2 -> 3 interstitial (recon: docs/re-notes/ch2/chapt2trans-chapter-transition.md): the town flyover tours the newly unlocked poor side, the chapter card holds, four narration lines run, and the player lands in the boys' dorm with Pete wandering by. Chained from 2_B's pass (start_mission); never world-started (the campaign row has no star). v1 simplifications (see the recon's gap table): the camera-rail flyover (PATH._C3T_TOWN / _C3T_LOOKAT) is one fixed aerial shot of the construction vignette (camera path playback is a named gap from ch1); the roadworks vignette (walking peds + the tractor cruise) is cut (the paths are in the extract; scripted vehicles are not); the Christmas/snow special entities and the weather release are skipped (no weather system — the snow note is logged); the baked 3-0 chapter-3 intro cutscene is out of scope; the front-end disable, saved-data zeroing and speech flush are engine bookkeeping we don't carry. The clock forced to 08:30 is real. The chapter-3 faction table is seeded by this mission's campaign on_pass (the original runs it in MissionCleanup — same net effect, and the same shape as 1_B/Chapt1Trans). The dorm hand-off point is our pick (the boys'-dorm spot from 1_E01 — the real _CHAPT2TRANS pointlist wasn't in the extract); Pete's dorm wander is a one-leg walk. Wording is original.",
+  "_note": "Chapt2Trans — the chapter 2 -> 3 interstitial (recon: docs/re-notes/ch2/chapt2trans-chapter-transition.md): the town flyover tours the newly unlocked poor side, the chapter card holds, four narration lines run, and the player lands in the boys' dorm with Pete wandering by — then chains into 3_07 (the Christmas wake-up; the original's id wiring is OPEN in the 3_07 doc — best hypothesis: 3_07.lua backs the engine-side '3_08_Launch' id; ours is explicit start_mission). Chained from 2_B's pass; never world-started (the campaign row has no star). v1 simplifications (see the recon's gap table): the camera-rail flyover (PATH._C3T_TOWN / _C3T_LOOKAT) is one fixed aerial shot of the construction vignette (camera path playback is a named gap from ch1); the roadworks vignette (walking peds + the tractor cruise) is cut (the paths are in the extract; scripted vehicles are not); the Christmas/snow special entities and the weather release are skipped (no weather system — the snow note is logged); the baked 3-0 chapter-3 intro cutscene is out of scope; the front-end disable, saved-data zeroing and speech flush are engine bookkeeping we don't carry. The clock forced to 08:30 is real. The chapter-3 faction table is seeded by this mission's campaign on_pass (the original runs it in MissionCleanup — same net effect, and the same shape as 1_B/Chapt1Trans). The dorm hand-off point is the real _CHAPT2TRANS point (found in 3_07.json's extract, area 14); Pete's dorm wander is a one-leg walk. Wording is original.",
   "id": "Chapt2Trans",
   "title": "Chapter 3 Begins",
   "retry": "stage",
@@ -26,11 +26,12 @@
       "on_complete": [
         { "type": "camera", "release": true, "blend": 0.6 },
         { "type": "letterbox", "on": false },
-        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "location_cm": [-51429.0, -31855.0, 3147.0] },
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "location_cm": [-50273.7, -32555.2, 3143.1] },
         { "type": "spawn_npc", "npc": "pete", "location_cm": [-51429.0, -31655.0, 3147.0], "mesh": "GN_Boy02", "ped_model_id": 134, "invulnerable": true, "untargetable": true },
         { "type": "npc_move_to", "npc": "pete", "location_cm": [-49980.0, -31830.0, 3140.0], "gait": "walk" },
-        { "type": "log", "text": "chapter 3 begins: clock 08:30, faction table via campaign on_pass; Christmas entities/snow skipped (no weather system); the baked 3-0 intro is out of scope" }
+        { "type": "log", "text": "chapter 3 begins: clock 08:30, faction table via campaign on_pass; Christmas entities/snow skipped (no weather system); the baked 3-0 intro is out of scope; the dorm point is the real _CHAPT2TRANS (found in 3_07.json's extract)" }
       ]
     }
-  ]
+  ],
+  "on_complete": [ { "type": "start_mission", "mission": "3_07", "seconds": 1.5 } ]
 }

@@ -1,0 +1,47 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "3_07 'Christmas Is Here (wake-up)' — the chapter-3 opener beat: Jimmy wakes in the boys' dorm (area 14) and overhears three younger students chatting about the holidays (recon: docs/re-notes/ch3/3_07-christmas-is-here-intro.md). Chained from Chapt2Trans's handoff (the original's id wiring is OPEN there — best hypothesis: 3_07.lua backs the engine-side '3_08_Launch' id; ours is Chapt2Trans -> 3_07 -> 3_08 via start_mission). Fail-free like the original (VERIFIED no MissionFail in the file) — so no smoke_fail stage and attempts stay 1. v1 simplifications (see the recon's gap table): the splash card is our banner (chapter_title_card family); the walk-up gate is a real trigger (box over the 3_07_StartConv volume's center); the six timed chat lines are one speech_sequence (the talk/listen anim nodes are pair-anim dressing, skipped); the hit/walk-out early-outs STILL PASS in the original — our boys are untargetable so the scene always plays out (documented); the peds persisting as ambient students is skipped (mission npcs despawn); save slot 17 is engine bookkeeping (OPEN there). No rewards. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "3_07",
+  "title": "Christmas Is Here: Wake-Up",
+  "retry": "stage",
+  "start": { "location_cm": [-48225.3, -31178.3, 3692.1], "yaw": 0 },
+  "trigger_file": "imported/triggers/3_07.json",
+  "triggers": [
+    { "id": "conv_trig", "location_cm": [-52344.1, -31788.2, 3141.5], "half_extent_cm": [400, 400, 300] }
+  ],
+  "stages": [
+    {
+      "id": "wake",
+      "objective": "A winter morning in the dorm.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "CHRISTMAS IS HERE", "sub": "The boys' dorm, the first morning of break.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "justin", "point": "3_07_justin", "mesh": "GN_Boy01", "ped_model_id": 34, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "pedro", "point": "3_07_pedro", "mesh": "GN_Greekboy", "ped_model_id": 69, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "trevor", "point": "3_07_trevor", "mesh": "GN_Boy02", "ped_model_id": 73, "invulnerable": true, "untargetable": true },
+        { "type": "say", "speaker": "JIMMY", "text": "Snow. Great. What's the racket down the hall?", "seconds": 3 }
+      ],
+      "complete": { "type": "trigger_enter", "trigger": "conv_trig" }
+    },
+    {
+      "id": "chat",
+      "objective": "The kids are buzzing about something.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "chat", "lines": [
+          { "speaker": "JUSTIN", "text": "Christmas break! Presents, snow, no classes—", "seconds": 3 },
+          { "speaker": "PEDRO", "text": "My mom sent me a sweater. It's got a REINDEER on it.", "seconds": 3 },
+          { "speaker": "TREVOR", "text": "At least your mom remembered you, Pedro.", "seconds": 3 },
+          { "speaker": "JUSTIN", "text": "Boys. It's Christmas. Anything can happen.", "seconds": 3 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:chat", "latched": true },
+      "on_complete": [
+        { "type": "log", "text": "chapter-3 opener done; the PA summons (SGlFunc T_ChristmasdLogic) is world-system work; chains to 3_08" }
+      ]
+    }
+  ],
+  "on_complete": [ { "type": "start_mission", "mission": "3_08", "seconds": 1.5 } ]
+}

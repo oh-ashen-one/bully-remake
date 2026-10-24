@@ -1,0 +1,43 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "3_08 'Christmas Is Here' — the principal's-office scene: Miss Danvers hands Jimmy a Christmas present from his mother, the reindeer sweater, force-equipped on the spot (recon: docs/re-notes/ch3/3_08-christmas-is-here.md). Chained from 3_07's pass (the original's star/PA wiring is OPEN there; ours is the opener chain). Fail-free like the original (VERIFIED no MissionFail path) — no smoke_fail stage, attempts stay 1. v1 simplifications (see the recon's gap table): the wake-up/PA-summons beats live in SGlFunc in the original (world-system work — skipped); the presentation flags (no auto fade-in, no name banner) are just how ours starts; the player_safe_mode composite (control lock + weapon strip + punishment off + ambient hush) is skipped — our scenes are already quiet; the six-step skippable gift NIS (walk-in path, six fixed cameras, per-step speech) compresses to a letterbox + speech_sequence + the give pair_anim (skippable_scene_chain pending — speech_sequence already skips per-line); the gift-box pickup (436) and its cleanup are folded into the pair_anim; the sweater reaction anim is one say beat; Danvers's persist-as-ambient (shared.gSecretaryID) and gPrincipalCheck are world-system work (skipped). The sweater grant is the campaign on_pass's outfit_xms_sweater collectible flag (the original force-equips — no clothing system, noted); the 3_08_PostDummy marker is force-completed there too (Christmas dressing ends — the unload is world-state work). The clock set to 8:30 is real. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "3_08",
+  "title": "Christmas Is Here",
+  "retry": "stage",
+  "start": { "location_cm": [-62848.2, 32295.0, 0.0], "yaw": 0 },
+  "trigger_file": "imported/triggers/3_08.json",
+  "stages": [
+    {
+      "id": "office",
+      "objective": "Report to the principal's office.",
+      "blip": "3_08_PrincipalOffice",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "danvers", "point": "3_08_DNISPos", "mesh": "TO_BusinessW1", "ped_model_id": 59, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "say", "speaker": "PA", "text": "Jimmy Hopkins, report to the principal's office. Immediately. ...Please?", "seconds": 3.5 }
+      ],
+      "complete": { "type": "reach_location", "point": "3_08_PrincipalOffice", "radius_cm": 500 }
+    },
+    {
+      "id": "gift",
+      "objective": "A present? For Jimmy?",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "gift", "lines": [
+          { "speaker": "MISS DANVERS", "text": "Jimmy, dear — your mother sent a Christmas present. She wanted you to have it today.", "seconds": 3.5 },
+          { "speaker": "JIMMY", "text": "Mom remembered? Huh. Thanks, Miss Danvers.", "seconds": 3 },
+          { "speaker": "MISS DANVERS", "text": "Go on, open it. ...Oh my. It's certainly... festive.", "seconds": 3.5 }
+        ] },
+        { "type": "pair_anim", "npc": "danvers", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:gift", "latched": true },
+      "on_complete": [
+        { "type": "clock", "set": "8:30" },
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "3_08_AfterPres" },
+        { "type": "say", "speaker": "JIMMY", "text": "A reindeer sweater. I'm never taking this off. Never. ...Ugh.", "seconds": 3 },
+        { "type": "log", "text": "campaign on_pass for 3_08: outfit_xms_sweater + force-complete 3_08_PostDummy (Christmas dressing ends — world-state work)" }
+      ]
+    }
+  ]
+}

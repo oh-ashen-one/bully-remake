@@ -236,6 +236,27 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   (fail/retry where present), campaign **PASS 5/5**, full regression (all 34 prior missions) re-PASS.
   **Chapter 2 is DONE** — every catalog Ch2 mission + the jobs have real, headless-verified mission files, and the
   campaign arc demonstrably reaches chapter 3.
+- **Ch3 Wave A (the Ch3 table + the opener chain + 3_01)**: Campaign.json grew the full Chapter 3 table (21 rows,
+  59 total; the table _note now says story-mode Ch1-3 and documents the two deliberate gaps — 3_03 is CUT content
+  (no row, see its recon doc) and Glass House (catalog §3 row 37) has no recon'd script id yet). Rows per the recon
+  docs + catalog: the SE Christmas arc (3_07 wake-up + 3_08 sweater scene + the 3_08_PostDummy marker, auto-chained
+  at chapter start; 3_01A/3_XM/3_01C/3_01D as the four holiday side missions with their outfit grants), the main
+  spine (3_01 Jealous Johnny -> 3_02 Bait -> 3_04 Wrong Part of Town -> 3_G3 Lola's Race -> 3_05 Tenements -> 3_06
+  The Rumble -> 3_B boss), 3_S10 Tagging off 3_02, 3_R05B Discreet Deliveries with the VERIFIED prereq-3_01
+  job-board wiring (the MainMap id confusion is flagged), 3_R08/3_R09 starless notes for later waves, and
+  3_S03/3_S11 placed at their CATALOG chapters (5 and 4, per the wave instructions — prereq Chapt4Trans/Chapt3Trans
+  so they're correctly unavailable early). 3_B's on_pass carries chapter_set 4 + level-3 force-completes + greasers
+  100 + yearbook_johnny; Chapt3Trans's carries the ch4 faction table. Missions: `3_07.json` (2 stages, fail-free
+  like the original — no smoke_fail), `3_08.json` (2 stages, fail-free; the sweater grant + PostDummy marker ride
+  the campaign on_pass), `3_01.json` (6 stages: Johnny's brief, find the couple, three photo beats at three fixed
+  alley spots, the hand-off). Chapt2Trans now chains into 3_07 (its dorm point is the real _CHAPT2TRANS, found in
+  3_07.json's extract). PHOTO PRIMITIVES call (documented in 3_01's _note): the photo capture is our timed
+  hold-interact with camera framing text — photo_mode/photo_capture_condition (aim mode + reticle + pose-predicate
+  latch) are pending real camera work; the date loop compresses to three fixed spots (killing the original's
+  finite-opportunity soft-lock); the spook meter + non-hostile spotted break are skipped (spotted_pause_resume
+  pending — and the walkthrough's 'spotted fails' claim is VERIFIED wrong per the script). Zero new C++ this wave.
+  Verified: 3_07 **PASS 2/2**, 3_08 **PASS 2/2** (attempts 1 — both fail-free by design), 3_01 **PASS 6/6**,
+  campaign **PASS 5/5**, full regression (all 40 prior missions incl. waves G+H) re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

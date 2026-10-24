@@ -648,6 +648,29 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 					UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human pre-start: '%s' has no start block and no star; the player begins at %s"), *D.Id, *At.ToCompactString());
 				}
 			}
+			// the go-kart race tracks (scenes iMGRaceA/B/C) are imported at their scene-local coordinates, stacked over
+			// the campus, and their collision blocks the school grounds. sm-visual's UBullySceneFixups hides them in game
+			// (no render / no collision); until that lands on this branch, do the same here so the human run walks the
+			// real campus. Idempotent: a no-op once the fix-up has already switched their collision off.
+			{
+				int32 NCull = 0;
+				for (TActorIterator<AActor> It(World); It; ++It)
+				{
+					AActor* A = *It;
+					if (!A->GetActorEnableCollision()) { continue; }
+					for (const FName& T : A->Tags)
+					{
+						if (T.ToString().StartsWith(TEXT("br_scene:iMGRace"), ESearchCase::IgnoreCase))
+						{
+							A->SetActorHiddenInGame(true);
+							A->SetActorEnableCollision(false);
+							++NCull;
+							break;
+						}
+					}
+				}
+				if (NCull > 0) { UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human pre-start: %d race-track actor(s) (br_scene:iMGRace*) still collided over the campus -- hidden + collision off for this run (sm-visual BullySceneFixups stand-in)"), NCull); }
+			}
 			HumanPrepareNav(D, At);
 			return;
 		}
@@ -663,6 +686,16 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 		return;
 	}
 	if (Smoke.Elapsed - Human.NavWaitTotal > Human.Limit) { Quit(false, FString::Printf(TEXT("time limit %.0f s"), Human.Limit)); return; }
+
+	// breadcrumbs: where every mission npc has been (followed in a chase when the navmesh has no way down)
+	for (const auto& Pair : Npcs)
+	{
+		if (!Pair.Value.IsValid()) { continue; }
+		TArray<FVector>& Tr = Human.Trails.FindOrAdd(Pair.Key);
+		const FVector L = Pair.Value->GetActorLocation();
+		if (Tr.Num() == 0 || FVector::Dist(Tr.Last(), L) > 150.f) { Tr.Add(L); }
+		if (Tr.Num() > 600) { Tr.RemoveAt(0, Tr.Num() - 600); }
+	}
 
 	// mission bookkeeping (a chain swaps missions under us)
 	if (Mission.IsValid() && Mission->Id != Human.LastMissionId && (State == EState::Running))
@@ -835,7 +868,30 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 			{
 				bActed = true; Why = TEXT("chase");
 				Human.GoalWhy = FString::Printf(TEXT("chasing %s"), *L->Name.ToString());
-				HumanSteer(N->GetActorLocation(), 250.f, true, true);
+				// close and reachable: run straight at him. Otherwise run his trail (where the player saw him go),
+				// dropping the breadcrumbs up to the one nearest us on our level.
+				TArray<FVector>* Tr = Human.Trails.Find(L->Name);
+				const FVector NL = N->GetActorLocation();
+				bool bDirect = !Tr || Tr->Num() == 0 || (FVector::Dist2D(Me, NL) < 1000.f && FMath::Abs(Me.Z - NL.Z) < 200.f);
+				if (!bDirect)
+				{
+					int32 Best = INDEX_NONE;
+					float BestD = 250.f;
+					for (int32 i = 0; i < Tr->Num(); ++i)
+					{
+						const FVector& T = (*Tr)[i];
+						const float D2 = FVector::Dist2D(Me, T);
+						if (D2 < BestD && FMath::Abs(Me.Z - T.Z) < 250.f) { BestD = D2; Best = i; }
+					}
+					if (Best != INDEX_NONE) { Tr->RemoveAt(0, Best + 1); }
+					bDirect = Tr->Num() == 0;
+				}
+				if (bDirect) { HumanSteer(NL, 250.f, true, true); }
+				else
+				{
+					Human.GoalWhy = FString::Printf(TEXT("chasing %s (his trail, %d crumbs)"), *L->Name.ToString(), Tr->Num());
+					HumanSteer((*Tr)[0], 1.f, true, false);   // never 'arrive' on a crumb (it is popped once we stand on its level)
+				}
 			}
 		}
 	}

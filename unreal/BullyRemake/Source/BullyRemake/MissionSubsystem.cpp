@@ -1144,6 +1144,21 @@ void UMissionSubsystem::RetryNow()
 		const FVector At = St.bHasCheckpoint ? St.CheckpointLocation : StageStartPawnLoc;
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION retry attempt %d: reload stage %d (%s) at %s"), Attempt, StageIndex + 1, St.bHasCheckpoint ? TEXT("checkpoint") : TEXT("stage-start pos"), *At.ToCompactString());
 		TeleportPlayer(At, St.CheckpointYaw, St.bHasCheckpoint);
+		// mission npcs go back to where they stood when the stage began (cancel their moves/leads without firing arrivals)
+		for (const auto& Pair : StageStartNpcXf)
+		{
+			const TWeakObjectPtr<ABullyScriptedNPC>* W = Npcs.Find(Pair.Key);
+			ABullyScriptedNPC* N = W ? W->Get() : nullptr;
+			if (!N) { continue; }
+			PendingArrive.Remove(N);
+			Leads.RemoveAll([&](const FLeadOrder& E) { return E.Npc.Get() == N; });
+			N->ClearCommands(true);
+			if (FVector::Dist(N->GetActorLocation(), Pair.Value.GetLocation()) > 50.f)
+			{
+				N->SetActorLocationAndRotation(Pair.Value.GetLocation(), Pair.Value.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION retry: npc %s back to its stage-start spot %s"), *Pair.Key.ToString(), *Pair.Value.GetLocation().ToCompactString());
+			}
+		}
 		State = EState::Running;
 		BeginStage(StageIndex, true);
 	}
@@ -1200,6 +1215,11 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	Race.bActive = false;   // a race is stage-scoped (a retry re-arms it from on_start)
 	if (Hud.IsValid()) { Hud->SetProgress(-1.f); Hud->SetCountdown(-1.f); }
 	if (APawn* P = GetPlayerPawn()) { StageStartPawnLoc = P->GetActorLocation(); }
+	if (!bRetry)
+	{
+		StageStartNpcXf.Reset();
+		for (const auto& Pair : Npcs) { if (Pair.Value.IsValid()) { StageStartNpcXf.Add(Pair.Key, Pair.Value->GetActorTransform()); } }
+	}
 
 	// actors for actor_tag interact conditions
 	RefreshStageActors();
@@ -1407,6 +1427,10 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			ABullyScriptedNPC* N = NpcById(A.NpcId);
 			if (!N) { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION %s: unknown npc '%s'"), A.Type == FMissionAction::EType::NpcLead ? TEXT("npc_lead") : TEXT("npc_move_to"), *A.NpcId.ToString()); break; }
 			const FName Ev = !A.Sub.IsEmpty() ? FName(*A.Sub) : FName(*FString::Printf(TEXT("npc_arrived:%s"), *A.NpcId.ToString()));
+			// sm-humandrive: a new move starts a new journey -- forget the previous move's (latched) arrival so a later
+			// stage waiting on this event really waits for this move
+			StageEvents.Remove(Ev);
+			MissionEvents.Remove(Ev);
 			// route: "via" names (points OR trigger-file paths) + a "path" between the npc and the goal
 			TArray<FVector> Route;
 			for (const FString& V : A.Via)

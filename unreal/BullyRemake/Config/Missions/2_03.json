@@ -1,0 +1,102 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_03 'The Eggs' — dress up preppy, buy eggs, deliver them to Tad's house; the handoff is an ambush: egg-chucking preps in the yard, then beat the gate key out of the keymaster and get out (recon: docs/re-notes/ch2/2_03-the-eggs.md). v1 simplifications (see the recon's gap table): the dress-code gate (player_wearing R_Sweater1/5, refuses to start) is skipped — there is no clothing system yet (the sweater grant itself is a collectible flag in the campaign on_pass, same posture as the ch1 outfits); the egg-money floor is real (money_ensure 150 at the start, the original's top-up) but the broke-and-eggless fail watchdog is moot once the floor exists, so it is skipped; the two baked cutscenes (2-03, 2-03b) are title-card + speech beats; the repeatable no-eggs rebuff scene is skipped (the delivery is a social gated on having the eggs); the six window eggers are stationary target dummies (no ranged egg-tree AI, no restock thread, no cover registration) and are color, not required kills; the pick-a-keymaster choice (front vs back, the other vanishes) is compressed to the front-gate keymaster; the gate props' lock/open choreography is dialogue color (the yard is open geometry for us); the getaway 'leave TadHouse trigger' pass is a reach beat outside the back gate (trigger_exit exists but the smoke driver has no exit-drive yet — leave-zone passes stay reach beats until it does); item 362 KO drops skipped (OPEN in the recon); g2_03/gHasTadKey world flags skipped (consumers outside the file). Tad's death fail at the delivery is declared but latent (the trio is invulnerable until the ambush, matching the original's min-health floor). The MINI_Lock group is anim dressing in the original (VERIFIED no minigame call) — no lockpick beat here. Pass grants the Aquaberry sweater via the campaign on_pass (SMissPass R_Sweater1, VERIFIED); the preppies -10 respect is relative and omitted (table is set-only). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_03",
+  "title": "The Eggs",
+  "retry": "stage",
+  "start": { "location_cm": [39653.8, -14458.6, 527.0], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_03.json",
+  "points": {
+    "back_gate_out": { "location_cm": [39942.8, -42485.7, 2134.2] }
+  },
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Tad has a little job for you.",
+      "blip": "2_03_TadStart",
+      "on_start": [
+        { "type": "banner", "text": "THE EGGS", "sub": "An invitation from the Aquaberry set.", "seconds": 3 },
+        { "type": "money_ensure", "money": 150 },
+        { "type": "spawn_npc", "npc": "tad", "point": "2_03_TadStart", "mesh": "GN_Boy01", "ped_model_id": 31, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "spawn_npc", "npc": "gord", "point": "2_03_GordStart", "mesh": "GN_Boy02", "ped_model_id": 30, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "chad", "point": "2_03_ChadStart", "mesh": "GN_Greekboy", "ped_model_id": 32, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "TAD", "text": "You're the new boy. Fetch us some eggs from the store and bring them here — there's a good errand runner.", "seconds": 4 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "buy_eggs",
+      "objective": "Buy eggs at the store.",
+      "blip": "2_03_EggStoreBlip",
+      "on_start": [
+        { "type": "hint", "text": "The store is back toward town. Watch your wallet.", "seconds": 4 }
+      ],
+      "complete": { "type": "reach_location", "point": "2_03_EggStoreBlip", "radius_cm": 500 },
+      "on_complete": [
+        { "type": "money_take", "money": 150 },
+        { "type": "give_item", "item": "eggs", "n": 1 },
+        { "type": "say", "speaker": "CLERK", "text": "One carton of eggs. Tell the Aquaberry boys their account is getting thick.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "deliver",
+      "objective": "Deliver the eggs to Tad's house.",
+      "blip": "2_03_TadStart",
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "eggs" },
+        { "type": "social", "actor_tag": "br_npc_tad", "radius_cm": 300, "prompt": "Hand over the eggs" }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:tad", "latched": true },
+      "fail_text": "Tad got hurt.",
+      "on_complete": [
+        { "type": "take_item", "item": "eggs", "n": 1 },
+        { "type": "pair_anim", "npc": "tad", "seconds": 1.5, "clips": "GIVE" }
+      ]
+    },
+    {
+      "id": "ambush",
+      "objective": "It's a trap! Fight off the preps.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "ambush", "lines": [
+          { "speaker": "TAD", "text": "Did you really think we'd let the help walk in here? Get him, boys — and eggs away!", "seconds": 3.5 }
+        ] },
+        { "type": "letterbox", "on": false },
+        { "type": "npc_despawn", "npc": "tad" },
+        { "type": "npc_despawn", "npc": "gord" },
+        { "type": "npc_despawn", "npc": "chad" },
+        { "type": "spawn_wave", "group": "preps", "points": ["2_03_Tad_After_Eggs", "2_03_Gord_After_Eggs", "2_03_Chad_After_Eggs"], "mesh": "GN_Boy01", "hostile": true },
+        { "type": "spawn_wave", "group": "eggers", "points": ["2_03_WindowEgger1", "2_03_WindowEgger2", "2_03_WindowEgger3", "2_03_WindowEgger4", "2_03_WindowEgger5", "2_03_WindowEgger6"], "mesh": "GN_Bully02", "hostile": false }
+      ],
+      "complete": { "type": "event", "name": "wave:preps", "latched": true }
+    },
+    {
+      "id": "keymaster",
+      "objective": "One of them has the gate key. Take it.",
+      "blip": "2_03_Front_Gate_Locker",
+      "on_start": [
+        { "type": "spawn_wave", "group": "keymaster", "points": ["2_03_Front_Gate_Locker"], "mesh": "GN_Bully04", "hostile": true, "hits_to_beat": 2 },
+        { "type": "say", "speaker": "KEYMASTER", "text": "You'll leave when we say you leave, pauper!", "seconds": 3 }
+      ],
+      "complete": { "type": "event", "name": "wave:keymaster", "latched": true },
+      "on_complete": [
+        { "type": "give_item", "item": "gate_key", "n": 1 },
+        { "type": "say", "speaker": "JIMMY", "text": "Got the key. Time to go.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "getaway",
+      "objective": "Get out of Tad's yard.",
+      "blip": "back_gate_out",
+      "complete": { "type": "reach_location", "point": "back_gate_out", "radius_cm": 800 },
+      "on_complete": [
+        { "type": "take_item", "item": "gate_key", "n": 1 },
+        { "type": "log", "text": "campaign on_pass for 2_03 grants the Aquaberry sweater (R_Sweater1 collectible flag); preppies -10 respect omitted (relative vs set-only table); gHasTadKey world flag skipped" }
+      ]
+    }
+  ]
+}

@@ -280,9 +280,9 @@
       "window": [8, 23],
       "_window_src": "story-mode-catalog.md §2 row 18 (8AM-11PM, INFERRED)",
       "prereq": ["2_S02"],
-      "_prereq_src": "canonical chapter order (catalog §2); the in-script dress-code gate (R_Sweater) is a mission-side check, not a table prereq (2_03 doc)",
-      "on_pass": {},
-      "_on_pass_src": "2_03 doc E9: pass banner tag 2_03_UNLOCK + preppies respect -10 (RELATIVE — our table is set-only, omitted); no SMissPass branch (VERIFIED absence)"
+      "_prereq_src": "canonical chapter order (catalog §2); the in-script dress-code gate (R_Sweater) is a mission-side check, not a table prereq (2_03 doc) — skipped in v1 (no clothing system; see the mission's _note)",
+      "on_pass": { "unlock_collectible": "outfit_sweater_r1" },
+      "_on_pass_src": "SMissPass 2_03 (VERIFIED): ClothingGivePlayer(R_Sweater1) if not owned — the dress-code sweater; recorded as a collectible flag until the clothing system exists. Pass banner tag 2_03_UNLOCK + preppies -10 (RELATIVE — our table is set-only, omitted)"
     },
     "2_06": {
       "title": "Movie Tickets",

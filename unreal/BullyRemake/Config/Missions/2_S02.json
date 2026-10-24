@@ -1,0 +1,111 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_S02 'Small Offenses' — the Hattrick house-vandalism mission (per the correction at the top of docs/re-notes/ch2/2_S02-small-offenses.md: the canonical name 'Small Offences' belongs to 2_S07; this script is the scrapped-PS2-remnant Hattrick mission whose name SE reused — script id stays 2_S02). Galloway's revenge errand: tail Mr. Hattrick home, slip into his yard before the gate locks, smash his property while the cops pile up outside, then slip back out (recon: docs/re-notes/ch2/2_S02-small-offenses.md). v1 simplifications (see the recon's gap table): the baked 2-S02 cutscene is a title card + Galloway speech beat (no Galloway spawn — no DAT point for him); the clock is forced to 18:30 like the original's meeting; **the car tail is a foot tail** — no NPC-driven vehicles yet (vehicle_tail/scripted_vehicle_arrival from the gap table are pending), so Hattrick runs the _2_S02_FROMSCHOOL route (gait sprint — the original's governor tops out at 12 m/s, so a sprint is the honest stand-in) and the 70 m fall-behind fail is our leash (70 m held 5 s; the original is an instantaneous 3D check); the car-damage and stand-on-car fails go away with the car; the arrival NIS (driveway pull-in, door sounds) is a speech beat; the indoor/outdoor Hattrick swap is a despawn; the destruction meter is EIGHT stand-in target dummies at the trigger file's own yard-area points (the ~140 trich_* breakables are name-hash world props we cannot drive — same posture as 1_04's window targets; the weighted 2/3-point costs, the 0/80 meter and its bark/music escalation ladder collapse into one wave counter); the two sirened cop-car arrivals compress to two stationary cop NPCs as dressing (busts were never this mission's Lua concern — punishment owns them, OPEN in the recon); the yard is a box approximation of the yard polygon for the leave-early fail (a 3 s exit countdown that cancels on re-entry, vs the original's instant trigger-exit fail); the escape pass is a reach beat on the street (trigger_exit exists but the smoke driver has no exit-drive yet — leave-zone passes stay reach beats until it does); Hattrick's storm-out chaser conversion IS real (a hostile one-member wave hunting the player during the escape). No SMissPass case and no in-script reward (VERIFIED absence) — a pure story beat. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_S02",
+  "title": "Small Offenses",
+  "retry": "stage",
+  "start": { "location_cm": [19113.3, 985.4, 572.8], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_S02.json",
+  "points": {
+    "hattrick_home": { "location_cm": [40373.0, -51375.0, 2171.0] },
+    "street_escape": { "location_cm": [43600.0, -52521.9, 2300.0] }
+  },
+  "triggers": [
+    { "id": "yard", "location_cm": [38606.3, -54442.3, 2172.7], "half_extent_cm": [4550, 4617, 500] }
+  ],
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Galloway wants payback on Hattrick.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "SMALL OFFENSES", "sub": "A teacher's quarrel, settled with property damage.", "seconds": 3 },
+        { "type": "clock", "set": "18:30" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "GALLOWAY", "text": "Hattrick had me suspended, the pompous old goat. Follow him home, slip into his yard, and break everything he owns. I'll make it worth your while.", "seconds": 4.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "find_car",
+      "objective": "Find Hattrick at the school parking lot.",
+      "blip": "2_S02_Hattrick_Car",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "hattrick", "point": "2_S02_Hattrick_Driver", "mesh": "TO_Business1", "ped_model_id": 61, "mission_critical": true, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "reach_location", "point": "2_S02_Hattrick_Car", "radius_cm": 600 },
+      "fail": { "type": "event", "name": "npc_ko:hattrick", "latched": true },
+      "fail_text": "Hattrick got hurt."
+    },
+    {
+      "id": "tail",
+      "objective": "Tail Hattrick home. Don't lose him.",
+      "blip": "hattrick_home",
+      "on_start": [
+        { "type": "npc_move_to", "npc": "hattrick", "via": ["2_S02_FromSchool"], "point": "hattrick_home", "gait": "sprint" },
+        { "type": "hint", "text": "Keep him in sight.", "seconds": 3 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:hattrick", "latched": true },
+        { "type": "reach_location", "point": "hattrick_home", "radius_cm": 1500 }
+      ] },
+      "fail": { "type": "leash", "npc": "hattrick", "radius_cm": 7000, "seconds": 5 },
+      "fail_text": "You lost Hattrick."
+    },
+    {
+      "id": "arrival",
+      "objective": "He's home. Wait for him to go inside.",
+      "blip": "2_S02_HattrickYardBlip",
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "arrival", "lines": [
+          { "speaker": "JIMMY", "text": "Home sweet home. He's heading in... and there goes the gate.", "seconds": 3.5 }
+        ] },
+        { "type": "letterbox", "on": false },
+        { "type": "npc_despawn", "npc": "hattrick" }
+      ],
+      "complete": { "type": "event", "name": "speech:arrival", "latched": true }
+    },
+    {
+      "id": "yard_dash",
+      "objective": "Slip into the yard before the gate locks!",
+      "blip": "yard",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 10, "visible": true, "event": "countdown:yard_out" }
+      ],
+      "complete": { "type": "trigger_enter", "trigger": "yard" },
+      "fail": { "type": "event", "name": "countdown:yard_out", "latched": true },
+      "fail_text": "The gate locked you out.",
+      "on_complete": [ { "type": "countdown_cancel" } ]
+    },
+    {
+      "id": "smash",
+      "objective": "Smash everything in the yard!",
+      "blip": true,
+      "on_start": [
+        { "type": "spawn_wave", "group": "smash", "points": ["2_S02_Mr_Hattrick", "2_S02_HattrickYardBlip", "2_S02_emergencyPoint", "2_S02_Cop3", "2_S02_Cop6", "2_S02_Cop4", "2_S02_Cop5", "2_S02_Cop_Bike1"], "mesh": "GN_Bully03", "hostile": false, "advance_at": 8 },
+        { "type": "spawn_npc", "npc": "cop_a", "point": "2_S02_Cop1", "mesh": "TO_Cop", "ped_model_id": 97, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "cop_b", "point": "2_S02_Cop2", "mesh": "TO_Cop", "ped_model_id": 83, "invulnerable": true, "untargetable": true },
+        { "type": "say", "speaker": "HATTRICK", "text": "What— hey! HEY! That's my china! I'm calling the police!", "seconds": 3.5 }
+      ],
+      "complete": { "type": "event", "name": "wave:smash", "latched": true },
+      "fail": { "type": "zone_timer", "trigger": "yard", "seconds": 3, "visible": true },
+      "fail_text": "You left the yard before the job was done."
+    },
+    {
+      "id": "escape",
+      "objective": "Hattrick's storming out — get off his property!",
+      "blip": "street_escape",
+      "on_start": [
+        { "type": "spawn_wave", "group": "hattrick_chase", "points": ["2_S02_HattrickInHouse"], "mesh": "TO_Business1", "hostile": true },
+        { "type": "say", "speaker": "HATTRICK", "text": "VANDAL! I'll have you expelled for this!", "seconds": 3 }
+      ],
+      "complete": { "type": "reach_location", "point": "street_escape", "radius_cm": 800 },
+      "on_complete": [
+        { "type": "log", "text": "no SMissPass case and no in-script reward for 2_S02 (VERIFIED absence) — pure story beat; the meter/cop-ladder and car-tail beats are documented compressions" }
+      ]
+    }
+  ]
+}

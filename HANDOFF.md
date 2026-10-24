@@ -134,6 +134,23 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   1_S01/2_S04, the 2_R03/2_R04 town jobs and no-DAT 2_05/2_07 without stars until points are extractable). Verified:
   `run_mission_smoke.sh 2_01` **PASS 6/6**, `2_02` **PASS 4/4** (both incl. fail/retry), campaign **PASS 4/4**, full
   regression (all 23 Ch1 missions + side missions) re-PASS.
+- **Ch2 Wave B (2_03, 2_S02)**: `2_03.json` (The Eggs, 6 stages: Tad's errand with the money_ensure 150 floor,
+  buy eggs, social delivery, the ambush (trio despawned → hostile wave + six stationary window-egger dummies),
+  the front-gate keymaster fight → gate key, getaway reach outside the back gate) and `2_S02.json` (the Hattrick
+  house-vandalism mission — the name-correction at the top of its recon doc applies: 'Small Offences' canonically
+  belongs to 2_S07; script id stays 2_S02; 7 stages: Galloway's brief at a forced 18:30 clock, find Hattrick, the
+  tail home, arrival beat, the 10 s yard dash, the smash, the escape). Zero new C++ again — the user's two flagged
+  candidates deduped to data: the 2_03 dress-code gate is skipped (no clothing system exists for `player_wearing`
+  to read; the sweater grant is the campaign row's `outfit_sweater_r1` collectible flag, SMissPass VERIFIED) and
+  the 2_S02 weighted destruction meter + vehicle tail became eight stand-in target dummies at the trigger file's
+  own yard-area points (the ~140 trich_* breakables aren't drivable world props, same posture as 1_04) + a sprint
+  foot-tail on the real `_2_S02_FromSchool` route with a 70 m leash (the car's governor tops out at 12 m/s, so a
+  sprint is the honest stand-in). Both `_note`s carry the full compression lists. Lessons: trigger-file
+  trigger-volumes are NOT named points (a `blip`/`reach` on one fails mission load — give it an inline point);
+  `CondText` prints `fail: none` for leash/zone_timer (cosmetic, they work); leave-zone passes stay
+  `reach_location` beats because the smoke driver has no trigger_exit drive (2_03 getaway, 2_S02 escape). Verified:
+  `2_03` **PASS 6/6**, `2_S02` **PASS 7/7** (both incl. fail/retry), campaign **PASS 4/4**, full regression (all
+  23 Ch1 missions + 2_01 + 2_02) re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

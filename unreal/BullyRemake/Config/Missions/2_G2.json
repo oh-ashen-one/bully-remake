@@ -1,0 +1,136 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_G2 'Carnival Date' — Pinky at the carnival: meet her with flowers, win 10 tickets at the booths, buy the teddy bear, and give it to her (recon: docs/re-notes/ch2/2_G2-carnival-date.md). NEW FRAMEWORK WIRING this wave: the mission_start_item_gate is real — root 'requires_item': 'flowers' + 'requires_consume' (StartMission soft-refuses with a hint when the player carries none, no fail/retry, matching the original's 2_G2_NOFLOWER posture; harnesses/dev bypass with the same bDevOverride as the availability gate — stores don't exist yet, so flowers enter inventory only via mission/console grants for now), and 'clock_fail_at' (mission-long edge: the date fails when the world clock reaches 01:10 — fires the 'clock:fail' event the root fail listens for; circular hours, fires at most once). v1 simplifications (see the recon's gap table): the baked 2-G2 cutscene is a title card + speech beat; the arrival NIS is a letterbox speech beat (the jocks' walk-off gag is skipped); the four booths run in a fixed order as our timed-hold minigames (the real carnival minigame scripts don't exist yet, so the minigame_event_bridge — shared.minigameRunning/MGaction barks and per-booth Pinky repositioning — is stubbed by Pinky's npc_follow + a bark per booth; documented); the ticket HUD counter is the stage count (collect_counter pending); tickets are an item (3+3+2+2 = 10 across the booths); the bear purchase is a reach beat at the tent (the tent-interior store mechanics are OPEN in the recon); the rides' hide-Pinky/return-at-exit teleports are skipped (no rides); the abandonment warn-then-fail trigger pair is skipped; the money<$1 fail is moot under the $10 start floor (money_ensure 10 — the original tops up 1000 CENTS; our wallet counts whole dollars); the gift/kiss is the pair_anim pair (stubs). Pass: the girlfriend_pinky collectible flag via the campaign on_pass (banner tag 2_G2_PINKYUNLCK). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_G2",
+  "title": "Carnival Date",
+  "retry": "stage",
+  "start": { "location_cm": [34649.9, -21403.9, 506.2], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_G2.json",
+  "points": {
+    "booth_dunk": { "location_cm": [14976.4, -43490.0, 567.7] },
+    "booth_toss": { "location_cm": [18035.9, -44624.5, 548.9] },
+    "booth_striker": { "location_cm": [16146.3, -44565.2, 562.3] },
+    "booth_gallery": { "location_cm": [13646.1, -42770.7, 566.4] }
+  },
+  "requires_item": "flowers",
+  "requires_consume": true,
+  "fail": { "type": "any", "conditions": [
+    { "type": "event", "name": "npc_ko:pinky", "latched": true },
+    { "type": "event", "name": "clock:fail", "latched": true }
+  ] },
+  "fail_text": "The date is over.",
+  "stages": [
+    {
+      "id": "meet",
+      "objective": "Meet Pinky at the carnival gate.",
+      "blip": "2_G2_pinkyArrived",
+      "on_start": [
+        { "type": "banner", "text": "CARNIVAL DATE", "sub": "Flowers in hand, nerves of steel.", "seconds": 3 },
+        { "type": "money_ensure", "money": 10 },
+        { "type": "clock_fail_at", "time": "1:10" },
+        { "type": "countdown_start", "seconds": 240, "visible": true, "event": "countdown:meet_out" },
+        { "type": "spawn_npc", "npc": "pinky", "point": "2_G2_pinkyArrived", "mesh": "GN_Asiangirl", "ped_model_id": 38, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" }
+      ],
+      "complete": { "type": "reach_location", "point": "2_G2_pinkyArrived", "radius_cm": 800 },
+      "fail": { "type": "event", "name": "countdown:meet_out", "latched": true },
+      "fail_text": "You stood her up.",
+      "on_complete": [ { "type": "countdown_cancel" } ]
+    },
+    {
+      "id": "arrival",
+      "objective": "Pinky arrives.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "arrival", "lines": [
+          { "speaker": "PINKY", "text": "Jimmy! You brought flowers — how gallant. The carnival, then. Impress me.", "seconds": 4 }
+        ] },
+        { "type": "letterbox", "on": false },
+        { "type": "npc_follow", "npc": "pinky", "dist": 400 }
+      ],
+      "complete": { "type": "event", "name": "speech:arrival", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "booth_dunk",
+      "objective": "Win tickets: the dunk tank.",
+      "blip": "booth_dunk",
+      "on_start": [
+        { "type": "minigame_launch", "id": "dunk", "point": "booth_dunk", "radius_cm": 300, "seconds": 2.5, "text": "Dunk Tank..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:dunk_ok", "latched": true },
+      "on_complete": [
+        { "type": "give_item", "item": "tickets", "n": 3 },
+        { "type": "say", "speaker": "PINKY", "text": "Three tickets! Not bad, Hopkins.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "booth_toss",
+      "objective": "Win tickets: the baseball toss.",
+      "blip": "booth_toss",
+      "on_start": [
+        { "type": "minigame_launch", "id": "toss", "point": "booth_toss", "radius_cm": 300, "seconds": 2.5, "text": "Baseball Toss..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:toss_ok", "latched": true },
+      "on_complete": [
+        { "type": "give_item", "item": "tickets", "n": 3 },
+        { "type": "say", "speaker": "PINKY", "text": "Ooh, an arm on you too.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "booth_striker",
+      "objective": "Win tickets: the high striker.",
+      "blip": "booth_striker",
+      "on_start": [
+        { "type": "minigame_launch", "id": "strike", "point": "booth_striker", "radius_cm": 300, "seconds": 2.5, "text": "High Striker..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:strike_ok", "latched": true },
+      "on_complete": [
+        { "type": "give_item", "item": "tickets", "n": 2 },
+        { "type": "say", "speaker": "PINKY", "text": "Strong AND punctual.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "booth_gallery",
+      "objective": "Win tickets: the shooting gallery.",
+      "blip": "booth_gallery",
+      "on_start": [
+        { "type": "minigame_launch", "id": "shoot", "point": "booth_gallery", "radius_cm": 300, "seconds": 2.5, "text": "Shooting Gallery..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:shoot_ok", "latched": true },
+      "on_complete": [
+        { "type": "give_item", "item": "tickets", "n": 2 },
+        { "type": "say", "speaker": "PINKY", "text": "Ten tickets! Now the bear. The BIG one.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "bear",
+      "objective": "Buy the teddy bear at the prize tent.",
+      "blip": "2_G2_blipTentEnter",
+      "complete": { "type": "reach_location", "point": "2_G2_blipTentEnter", "radius_cm": 600 },
+      "on_complete": [
+        { "type": "take_item", "item": "tickets", "n": 10 },
+        { "type": "give_item", "item": "teddy_bear", "n": 1 },
+        { "type": "say", "speaker": "VENDOR", "text": "Ten tickets. One giant bear. She's a keeper, kid.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "gift",
+      "objective": "Give Pinky the bear.",
+      "blip": "2_G2_OutsideVendor",
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "teddy_bear" },
+        { "type": "social", "actor_tag": "br_npc_pinky", "radius_cm": 300, "prompt": "Give Pinky the bear" }
+      ] },
+      "on_complete": [
+        { "type": "take_item", "item": "teddy_bear", "n": 1 },
+        { "type": "letterbox", "on": true },
+        { "type": "pair_anim", "npc": "pinky", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "say", "speaker": "PINKY", "text": "For me? Oh Jimmy... best date ever.", "seconds": 3 },
+        { "type": "pair_anim", "npc": "pinky", "seconds": 2.5, "clips": "KISS" },
+        { "type": "letterbox", "on": false },
+        { "type": "log", "text": "campaign on_pass for 2_G2 sets girlfriend_pinky (banner tag 2_G2_PINKYUNLCK); ride-exit teleports + minigame_event_bridge documented as pending" }
+      ]
+    }
+  ]
+}

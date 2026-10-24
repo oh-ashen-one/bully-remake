@@ -577,6 +577,12 @@ namespace
 				if (O->TryGetNumberField(TEXT("laps"), N2)) { A.Amount = FMath::Max(1, int32(N2)); }
 				if (O->TryGetNumberField(TEXT("checkpoint_radius_cm"), N2)) { A.Radius = float(N2); }
 			}
+			else if (Type == TEXT("clock_fail_at"))
+			{
+				A.Type = FMissionAction::EType::ClockFailAt;
+				if (!O->TryGetStringField(TEXT("time"), S)) { Err = TEXT("clock_fail_at: missing \"time\" (\"h:mm\")"); return false; }
+				A.Text = S;
+			}
 			else { Err = FString::Printf(TEXT("unknown action type \"%s\""), *Type); return false; }
 			Out.Add(MoveTemp(A));
 		}
@@ -822,6 +828,7 @@ void UMissionSubsystem::Deinitialize()
 	Follows.Reset();
 	Countdown.bActive = false;
 	Race.bActive = false;
+	ClockFail.bActive = false;
 	Lesson.bActive = false;
 	Choice.bActive = false;
 	BossBarState.Boss.Reset();
@@ -876,6 +883,8 @@ bool UMissionSubsystem::LoadMission(const FString& Id, FMissionDef& D, FString& 
 	if (Root->TryGetStringField(TEXT("retry"), S)) { D.Retry = S == TEXT("mission") ? FMissionDef::ERetry::Mission : S == TEXT("none") ? FMissionDef::ERetry::None : FMissionDef::ERetry::Stage; }
 	double N;
 	if (Root->TryGetNumberField(TEXT("fail_delay"), N)) { D.FailDelay = float(N); }
+	if (Root->TryGetStringField(TEXT("requires_item"), S)) { D.RequiresItem = FName(*S); }
+	Root->TryGetBoolField(TEXT("requires_consume"), D.bRequiresConsume);
 
 	if (const FObj* Start = nullptr; Root->TryGetObjectField(TEXT("start"), Start))
 	{
@@ -993,13 +1002,27 @@ bool UMissionSubsystem::StartMission(const FString& Id, int32 StartStage, bool b
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION start '%s' refused: not available in the campaign (use Mission.Start / -BRMission= to override)"), *Id);
 		return false;
 	}
-
 	TSharedPtr<FMissionDef> D = MakeShared<FMissionDef>();
 	FString Err;
 	if (!LoadMission(Id, *D, Err))
 	{
 		UE_LOG(LogBullyMission, Error, TEXT("BR_MISSION start '%s' FAILED to load: %s"), *Id, *Err);
 		return false;
+	}
+	// mission_start_item_gate: the player must carry the required item to start (2_G2's flowers). A refused start
+	// is soft — a hint and no fail (the original ends with MissionFail(false,false), not retryable). Harnesses/dev
+	// bypass with the same bDevOverride as the availability gate above.
+	if (!bDevOverride && !D->RequiresItem.IsNone())
+	{
+		UBullyProgressSubsystem* Prog = UBullyProgressSubsystem::Get(World);
+		if (Prog && Prog->GetItemCount(D->RequiresItem) <= 0)
+		{
+			EnsureHud();
+			if (Hud.IsValid()) { Hud->ShowHint(FString::Printf(TEXT("You need %s for this."), *D->RequiresItem.ToString()), 4.f); }
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION start '%s' refused: requires item '%s'"), *Id, *D->RequiresItem.ToString());
+			return false;
+		}
+		if (Prog && D->bRequiresConsume) { Prog->TakeItem(D->RequiresItem, 1); }
 	}
 	if (Camp) { Camp->NoteAttempt(Id); }
 	Mission = D;
@@ -1037,6 +1060,7 @@ void UMissionSubsystem::StopMission(const FString& Reason)
 	Follows.Reset();
 	Countdown.bActive = false;
 	Race.bActive = false;
+	ClockFail.bActive = false;
 	Lesson.bActive = false;
 	Choice.bActive = false;
 	BossBarState.Boss.Reset();
@@ -1229,6 +1253,7 @@ void UMissionSubsystem::CompleteMission()
 	Follows.Reset();
 	Countdown.bActive = false;
 	Race.bActive = false;
+	ClockFail.bActive = false;
 	Lesson.bActive = false;
 	Choice.bActive = false;
 	BossBarState.Boss.Reset();
@@ -1666,6 +1691,21 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			Race.bActive = true;
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION race '%s' armed: %d waypoints x %d lap(s) (checkpoint r %.0f) -> event race:%s_win"),
 				*A.Name.ToString(), Race.Wps.Num(), Race.Laps, Race.Radius, *A.Name.ToString());
+			break;
+		}
+		case FMissionAction::EType::ClockFailAt:
+		{
+			FString Hs, Ms;
+			if (!A.Text.Split(TEXT(":"), &Hs, &Ms))
+			{
+				UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION clock_fail_at: bad time '%s' (want h:mm)"), *A.Text);
+				break;
+			}
+			ClockFail.bActive = true;
+			ClockFail.TargetHour = FCString::Atoi(*Hs) + FCString::Atoi(*Ms) / 60.f;
+			UBullyClockSubsystem* Clk = UBullyClockSubsystem::Get(GetWorld());
+			ClockFail.ArmedHour = Clk ? Clk->GetHourFloat() : 0.f;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION clock_fail_at %s armed (now %.2f)"), *A.Text, ClockFail.ArmedHour);
 			break;
 		}
 		}
@@ -2133,6 +2173,7 @@ void UMissionSubsystem::Tick(float Dt)
 		TickCountdown();
 		TickLesson();
 		TickRace();
+		TickClockFail();
 		TickDefenders(Dt);
 		TickChoice();
 		TickBossBar();
@@ -2992,8 +3033,7 @@ void UMissionSubsystem::TickCountdown()
 
 void UMissionSubsystem::TickRace()
 {
-	if (!Race.bActive || Race.Wps.Num() == 0) { return; }
-	const APawn* P = GetPlayerPawn();
+	if (!Race.bActive || Race.Wps.Num() == 0) { return; }	const APawn* P = GetPlayerPawn();
 	if (!P) { return; }
 	const FVector PP = P->GetActorLocation();
 	const FVector& Wp = Race.Wps[Race.NextIdx];
@@ -3014,6 +3054,21 @@ void UMissionSubsystem::TickRace()
 				FireEvent(WinEv);
 			}
 		}
+	}
+}
+
+void UMissionSubsystem::TickClockFail()
+{
+	if (!ClockFail.bActive) { return; }
+	const UBullyClockSubsystem* Clk = UBullyClockSubsystem::Get(GetWorld());
+	if (!Clk) { return; }
+	// circular hours: fire once the clock has run from the arming time up to the target (wraps midnight)
+	auto CircDist = [](float From, float To) { float D = To - From; return D < 0.f ? D + 24.f : D; };
+	if (CircDist(ClockFail.ArmedHour, Clk->GetHourFloat()) >= CircDist(ClockFail.ArmedHour, ClockFail.TargetHour))
+	{
+		ClockFail.bActive = false;
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION clock reached %.2f (fail edge) -> event clock:fail"), ClockFail.TargetHour);
+		FireEvent(FName("clock:fail"));
 	}
 }
 

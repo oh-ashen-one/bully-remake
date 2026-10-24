@@ -211,7 +211,7 @@ struct FMissionAction
 {
 	enum class EType : uint8 { Hint, Banner, Event, SetFlag, ClearFlag, Teleport, Log, StartMission, SpawnEnemy, Fade, Reward, Letterbox, Say, Camera, Shake, GiveWeapon, GiveAmmo, SetRespect, Clock, ChapterSet, ForceComplete,
 		SpawnNpc, NpcMove, NpcLead, NpcFace, NpcDespawn, PairAnim, SpeechSequence, MinigameLaunch, GiveItem, TakeItem, MoneyEnsure, MoneyTake, HeatSet, Hide,
-		SpawnWave, Spotter, NpcFollow, CountdownStart, CountdownCancel, LessonStart, SpawnDefender, NpcDrain, DialogueChoice, BossBar, RaceStart };
+		SpawnWave, Spotter, NpcFollow, CountdownStart, CountdownCancel, LessonStart, SpawnDefender, NpcDrain, DialogueChoice, BossBar, RaceStart, ClockFailAt };
 	EType Type = EType::Log;
 	FString Text, Sub;
 	FName Name;
@@ -284,7 +284,8 @@ struct FMissionAction
 	// spawn_defender: NpcId + Location + Mesh + Health (max hp) + Amount (drain_hp) + Seconds (drain_every).
 	// npc_drain: NpcId + bOn. spawn_wave: Sub = target defender id (every other member). dialogue_choice: Name = id,
 	// Text = prompt, Options. race_start: Name = id (fires "race:<id>_win"), Sub = course (trigger-file path name),
-	// Amount = laps (default 1), Radius = checkpoint radius (default 900).
+	// Amount = laps (default 1), Radius = checkpoint radius (default 900). clock_fail_at: Text = "h:mm" (world-clock
+	// fail edge, fires "clock:fail" once; mission-long, not stage-scoped).
 	TArray<FChoiceOption> Options;
 };
 
@@ -328,6 +329,10 @@ struct FMissionDef
 	// root-level fail: evaluated every tick of every stage (e.g. leaving the school mid-mission)
 	FMissionCondition RootFail;
 	FString RootFailText;
+	// mission_start_item_gate (2_G2): the player must carry this item to start (soft refuse: hint + no fail);
+	// harnesses/dev bypass with the same bDevOverride as the availability gate. bRequiresConsume: take 1 on start.
+	FName RequiresItem;
+	bool bRequiresConsume = false;
 	// trigger-file area bounds (area code -> bbox of that area's entities + margin), for leave_area conditions
 	TMap<int32, FBox> AreaBoxes;
 	// trigger-file paths (name -> waypoints), for npc_move_to/npc_lead "path"/"via" routes
@@ -545,6 +550,14 @@ private:
 		float Radius = 900.f;
 	} Race;
 	void TickRace();
+	// clock_fail_at (2_G2): mission-long edge — fires "clock:fail" when the world clock reaches the target time
+	// (circular minutes-of-day; a retry past the target re-arms into the far future, so it fires at most once).
+	struct FClockFailState
+	{
+		bool bActive = false;
+		float TargetHour = 0.f, ArmedHour = 0.f;
+	} ClockFail;
+	void TickClockFail();
 
 	// wave-D runtime: mission defenders (combat-pawn escortees on the player's team) and the dialogue choice
 	struct FDefenderState

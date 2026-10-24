@@ -1,0 +1,150 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_08 'Weed Killer' — disguised as a preppy, Jimmy talks his way past Bif into Harrington House, steals the pesticide sprayer on the third floor, kills the giant weed plant in the solarium, and fights back out (recon: docs/re-notes/ch2/2_08-weed-killer.md). The recon's structural surprise — the mission is split between 2_08.lua and the always-on area script PrepHouse.lua talking through shared.* globals — is compressed away: our missions are self-contained (area_script_shared_state recorded as pending). v1 simplifications (see the recon's gap table): the disguise checklist (24 hair-model families + Aquaberry torso + no-hat outfit predicates) collapses to two purchase beats (salon + dorm clothing manager — the money_ensure $12 floor from the original's setup makes the broke fail moot); the disguise has no mechanical effect (no conditional_faction_attitude — the preps-like-you thread is skipped); the Bif gate takes the friendly path only (a greet social; the beat-Bif path, the 40%-health scripting and the door choreography are compressed — the foyer is open geometry for us); each floor's two-ped conversation-then-provoked guard pair is a hostile-on-sight wave (the breakable-noise alerts need the ~30-prop registry — pending); the pesticide pickup is a reach+item beat (weapon 395 INFERRED there); the flytrap is a stationary boss_bar target dummy (prop_health_bar/prop_destroy_threshold_event pending — no drivable destructible props, same posture as 2_S02); the solarium ambush micro-scene, the stairs-door choreography and the 'one more guy' door gag compress to one exit wave (second-floor ambusher + Bif rematch); the door-action exit-to-win is a reach beat outside. Wording is original; ped_model_id records the original model ids next to the stand-in meshes. Pass pays $30 via the campaign on_pass (banner param 3000, INFERRED cents).",
+  "id": "2_08",
+  "title": "Weed Killer",
+  "retry": "stage",
+  "start": { "location_cm": [-65019.1, 29419.9, 557.0], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_08.json",
+  "points": {
+    "f1b": { "location_cm": [-53253.9, -13350.9, 4622.6] },
+    "f2b": { "location_cm": [-52381.0, -13594.6, 5076.9] },
+    "f3b": { "location_cm": [-51159.0, -13594.5, 5570.3] }
+  },
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "A job inside Harrington House.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "WEED KILLER", "sub": "The biology room, after hours.", "seconds": 3 },
+        { "type": "money_ensure", "money": 12 },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "JIMMY", "text": "A giant weed in the preps' greenhouse, and I'm the exterminator. First rule of pest control: look like the client. Time for a haircut.", "seconds": 4.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "disguise_hair",
+      "objective": "Get a fancy haircut at the salon.",
+      "blip": "2_08_SalonCorona",
+      "complete": { "type": "reach_location", "point": "2_08_SalonCorona", "radius_cm": 500 },
+      "on_complete": [
+        { "type": "money_take", "money": 8 },
+        { "type": "give_item", "item": "disguise_hair", "n": 1 },
+        { "type": "say", "speaker": "BARBER", "text": "The Ivy League special. Very... Old Money.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "disguise_sweater",
+      "objective": "Get the Aquaberry sweater from the dorm wardrobe.",
+      "blip": "2_08_ClothingManager",
+      "complete": { "type": "reach_location", "point": "2_08_ClothingManager", "radius_cm": 500 },
+      "on_complete": [
+        { "type": "money_take", "money": 4 },
+        { "type": "give_item", "item": "disguise_sweater", "n": 1 },
+        { "type": "say", "speaker": "JIMMY", "text": "Sweater, hair, no hat. Practically a Harrington already.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "bif_gate",
+      "objective": "Talk your way into Harrington House.",
+      "blip": "2_08_BifLoc",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "bif", "point": "2_08_BifLoc", "mesh": "TO_RichM1", "ped_model_id": 33, "mission_critical": true, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "disguise_hair" },
+        { "type": "has_item", "name": "disguise_sweater" },
+        { "type": "social", "actor_tag": "br_npc_bif", "radius_cm": 300, "prompt": "Greet Bif" }
+      ] },
+      "on_complete": [
+        { "type": "say", "speaker": "BIF", "text": "Evening, old chap. Mind the floors.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "floor1",
+      "objective": "The first floor is guarded.",
+      "blip": "2_08_FirstFloorSpawn",
+      "on_start": [
+        { "type": "spawn_wave", "group": "f1", "points": ["2_08_FirstFloorSpawn", "f1b"], "mesh": "GN_Boy01", "hostile": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "2_08_FirstFloorSpawn", "radius_cm": 800 },
+        { "type": "event", "name": "wave:f1", "latched": true }
+      ] }
+    },
+    {
+      "id": "floor2",
+      "objective": "Up the stairs — second floor.",
+      "blip": "2_08_SecondFloorSpawn",
+      "on_start": [
+        { "type": "spawn_wave", "group": "f2", "points": ["2_08_SecondFloorSpawn", "f2b"], "mesh": "GN_Boy02", "hostile": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "2_08_SecondFloorSpawn", "radius_cm": 800 },
+        { "type": "event", "name": "wave:f2", "latched": true }
+      ] }
+    },
+    {
+      "id": "floor3",
+      "objective": "Third floor — the sprayer is close.",
+      "blip": "2_08_ThirdFloorSpawn",
+      "on_start": [
+        { "type": "spawn_wave", "group": "f3", "points": ["2_08_ThirdFloorSpawn", "f3b"], "mesh": "GN_Greekboy", "hostile": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "2_08_ThirdFloorSpawn", "radius_cm": 800 },
+        { "type": "event", "name": "wave:f3", "latched": true }
+      ] }
+    },
+    {
+      "id": "poison",
+      "objective": "Grab the pesticide sprayer.",
+      "blip": "2_08_Poison",
+      "complete": { "type": "reach_location", "point": "2_08_Poison", "radius_cm": 400 },
+      "on_complete": [
+        { "type": "give_item", "item": "pesticide", "n": 1 },
+        { "type": "say", "speaker": "JIMMY", "text": "Industrial pesticide. That plant is going down.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "plant",
+      "objective": "Destroy the giant weed!",
+      "blip": "2_08_Plant",
+      "on_start": [
+        { "type": "spawn_wave", "group": "plant", "points": ["2_08_Plant"], "mesh": "GN_Bully05", "hostile": false, "hits_to_beat": 4 },
+        { "type": "boss_bar", "group": "plant", "label": "THE WEED", "half_line": "It's wilting!" }
+      ],
+      "complete": { "type": "event", "name": "wave:plant", "latched": true },
+      "on_complete": [
+        { "type": "letterbox", "on": true },
+        { "type": "say", "speaker": "JIMMY", "text": "Timber. Oops — I mean, weed's dead.", "seconds": 2.5 },
+        { "type": "letterbox", "on": false }
+      ]
+    },
+    {
+      "id": "exit_fight",
+      "objective": "The whole house knows. Fight your way down.",
+      "blip": "2_08_MiddleFloorExit",
+      "on_start": [
+        { "type": "npc_despawn", "npc": "bif" },
+        { "type": "spawn_wave", "group": "exit", "points": ["2_08_SecondFloorPed", "2_08_BifLoc"], "mesh": "GN_Boy01", "hostile": true },
+        { "type": "say", "speaker": "BIF", "text": "You! You were never one of us — get him!", "seconds": 3 }
+      ],
+      "complete": { "type": "event", "name": "wave:exit", "latched": true }
+    },
+    {
+      "id": "escape",
+      "objective": "Get out of Harrington House.",
+      "blip": "2_08_OutHar",
+      "complete": { "type": "reach_location", "point": "2_08_OutHar", "radius_cm": 800 },
+      "on_complete": [
+        { "type": "teleport", "point": "2_08_FinalPos" },
+        { "type": "log", "text": "campaign on_pass for 2_08 pays $30 (banner param 3000); the Harrington key (493) keep-on-pass/confiscate-on-fail rule is skipped (DAT-side pickup, OPEN in the recon)" }
+      ]
+    }
+  ]
+}

@@ -167,6 +167,22 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   single campaign star (g206Subquest handshake OPEN in the recon; `mission_variant_select` recorded as pending).
   Verified: `2_04` **PASS 5/5** (t=73 s — Petey's ride dominates, the race itself is seconds), `2_06` **PASS
   12/12** (both incl. fail/retry), campaign **PASS 4/4**, full regression (23 Ch1 + 2_01/2_02/2_03/2_S02) re-PASS.
+- **Ch2 Wave D (2_08, 2_G2)**: two framework additions (small, in MissionSubsystem): **mission_start_item_gate**
+  (root `requires_item` + `requires_consume` — StartMission soft-refuses with a HUD hint when the player lacks the
+  item, matching the original's no-retry posture; harnesses/dev bypass via the same bDevOverride as the
+  availability gate; flowers have no store source yet, noted) and **clock_fail_at** (`"time": "h:mm"` — a
+  mission-long edge on the world clock, circular hours, fires `clock:fail` once; the root fail listens). `2_08.json`
+  (Weed Killer, 11 stages: biology-room brief with the $12 money_ensure floor, two disguise purchases (the
+  outfit-predicate checklist is clothing-system-pending), greet-Bif social gate (friendly path only), three floor
+  fights, the pesticide grab, the flytrap as a boss_bar target dummy, the exit wave (ambusher + Bif rematch), the
+  escape; the 2_08↔PrepHouse.lua shared-state split is documented as compressed away — our missions are
+  self-contained). `2_G2.json` (Carnival Date, 8 stages: meet Pinky under the 240 s meet-timer + the 01:10
+  clock_fail_at, arrival beat, the four booths as fixed-order timed-hold minigames paying 3/3/2/2 tickets (the real
+  carnival scripts don't exist — the minigame_event_bridge is stubbed by npc_follow + per-booth barks, documented),
+  the bear purchase, the give/kiss pair_anim pair). Also fixed a wave B/C units bug: mission money_* actions are
+  whole dollars — 2_03's egg money was 150 dollars, now $2 (the original's 150 CENTS); 2_06's floor/take now $1.
+  Verified: `2_08` **PASS 11/11**, `2_G2` **PASS 8/8** (both incl. fail/retry), campaign **PASS 4/4**, full
+  regression (all 27 prior missions) re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

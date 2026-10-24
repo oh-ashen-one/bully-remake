@@ -6,9 +6,10 @@ Status: **built + headless-verified + rendered stills reviewed; owner feel-playt
 
 ---
 
-## kimi-backend (2026-10-22/23, branch `kimi-backend`): campaign spine + full 1_02B/1_02C
+## kimi-backend (2026-10-22–24, branch `kimi-backend`): campaign spine → Chapters 1–2 DONE, Chapter 3 through wave E
 
-Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless-verified on the Studio.
+The full story-mode campaign (design: `docs/campaign-spine.md`; goal: all six chapters per
+`docs/story-mode-catalog.md`). All headless-verified on the Studio.
 
 - **Wave 1 (spine)**: `UClockSubsystem` (game clock, pause/unpause/set, midnight-wrapping windows, hour delegate),
   `UBullyCampaignSubsystem` (Config/Campaign.json: 19-row Chapter 1 table from the recon docs — prereq chains, windows,
@@ -308,6 +309,39 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   bundle swap, the Lola gift/kiss return). Verified: 3_04 **PASS 9/9** (t=131 s — the chase is long but fits the
   budget), 3_05 **PASS 13/13** (both incl. fail/retry), campaign **PASS 5/5**, full regression (all 46 prior
   missions) re-PASS.
+- **Ch3 Wave E (3_06, 3_G3)** — zero new C++ (`race_start` from Ch2 wave C carries the race). `3_06.json` (The
+  Rumble, 6 stages — the recon's name correction applies: this script was first filed as 'Bait'; 3_02 is Bait):
+  title-card + speech intro; the paired ambient brawls compress to invulnerable color pairs + one hostile
+  converter wave per brawl (brawl_pair_spawn pending); Peanut's bike bolt is an on-foot sprint along the real
+  21-node PeanutPath (npc_within_radius pending; the 300 s chase budget is a real mission-long root countdown);
+  the 15 s out-of-the-poor-area re-entry countdown skipped (the chase route leaves that volume by design); the
+  cop-bust vignette is two invulnerable color cops at the AmbientEvent1 point (ambient_vignette_zone + parked
+  siren car pending); Vance + the third greaser asleep pre-staging compresses to the fight-stage spawn
+  (npc_asleep_staging pending); the alley NIS is a letterbox speech beat (the bLeftSide dead branch is the
+  original's own — VERIFIED); the leave-the-fight two-step skipped; the pass is BARE like the original (no
+  banner/respect/money — VERIFIED); the 3_08_PostDummy force-complete already rides 3_08's on_pass; the
+  'Christmas' entity load on pass is the recon's suspicious-reuse OPEN — skipped. `3_G3.json` (Lola's Race, 3
+  stages): the one-lap race on the REAL 88-node `_3_G3_RACE` path (2576 m) through New Coventry's poor district
+  + rail yards vs Johnny/Lucky/Ricky (scripted npc_move_to riders; first rival home = `npc_arrived` stage
+  fail), Lola running the countdown, the winner's-kiss pair_anim. Compressions: everyone on foot (bikes
+  pending — the race runs mounted or not); the intro camera flyover + per-racer trash talk is a letterbox
+  speech beat (camera_rail_pair/racer_trash_talk pending); flat sprint, no rubber-banding; the booby-trapped
+  trees + proximity train cars SKIPPED per the wave instructions (boobytrap_prop_pair/proximity_prop_mover
+  pending); the water watchdog/stay-on-bike/too-far rules are bike-system rules — n/a on foot, documented;
+  Lola's teleport-to-the-finish + the four cheerers compress to the win-scene cast (race_rail_persona
+  pending); greaser respect −20 omitted (respect_delta pending); `3_G3_UNLOCK` data-side (OPEN); no SMissPass
+  case (VERIFIED absence). Verified: `3_06` **PASS 6/6**, `3_G3` **PASS 3/3** (both incl. fail/retry — attempts
+  2 each), campaign **PASS 5/5**, full regression (all 59 mission smokes) re-PASS.
+- **Ch3 remaining**: the finale wave — `3_B` (Fighting Johnny Vincent boss; its campaign on_pass already
+  carries chapter_set 4 + level-3 force-completes + greasers 100 + yearbook_johnny) → `Chapt3Trans` (the
+  chapter-4 handoff + the ch4 faction table) — then the side rows `3_R05B` (Discreet Deliveries, prereq 3_01),
+  `3_R08` (bike race series), `3_R09` (clique challenges). `3_S03`/`3_S11` sit at their CATALOG chapters (5 and
+  4) by design; `3_03` is CUT content (no row) and Glass House (catalog §3 row 37) has no recon'd script id;
+  `3_08_PostDummy` needs no file — 3_08's on_pass force-completes it.
+- **Session note (2026-10-24)**: the wave-E mission JSONs were left untracked when the authoring session
+  stalled mid-wave; committed as `f6d5c8d` after confirming both smokes + the post-wave regression in
+  `~/bully-remake-evidence/missions/` (59/59 PASS). The `ai-npc` worktree (`~/bully-remake-wt/ai-npc`) is 4
+  behind `origin/ai-npc` — pull before resuming NPCChat work there.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.
@@ -430,7 +464,7 @@ tools/ue/run_place_doors.sh --generated
 ## Resume command
 
 ```
-work out of ~/bully-remake on branch phase2, read HANDOFF.md, owner playtest feedback first, then "Not done / open"
+work out of ~/bully-remake on branch kimi-backend, read HANDOFF.md (kimi-backend section), pick up at "Ch3 remaining": the 3_B boss finale wave, then 3_R05B/3_R08/3_R09
 ```
 
 ---

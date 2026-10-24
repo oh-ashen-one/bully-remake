@@ -119,6 +119,21 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   expose: interior beats (e.g. the 1_03 garage) render near-black — the imported map has no interior lighting;
   exterior framings are golden-hour clean. **Chapter 1 is DONE** — story spine, side missions, campaign table,
   headless smokes and rendered stills all green.
+- **Ch2 Wave A (2_01, 2_02 + 2_02_Conv; owner lifted the Ch1-only scope — goal is now the full story mode, chapters
+  1-6 per docs/story-mode-catalog.md)**: `2_01.json` (Last Minute Shopping, 6 stages: Edna's cafeteria brief, fetch
+  the bike, three Vale store stops, deliver under a 325 s visible mission countdown — the root `fail` now carries a
+  composite any-of: Edna KO or timer expiry), `2_02.json` (Comic Klepto, 4 stages: shop-front alarm, sprint chase
+  along a compressed 2_02_NEWESCAPE (first half of the 123-node loop, cornered at waypoint 54), corner fight with a
+  boss_bar + hits_to_beat 3, return the comic). The 2_02_Conv.lua glue is ported as two mission-blackboard flags per
+  the recon's framework note (set_flag `2_02_got_comic` / `2_02_returned_comic`; the .act conv-tree consumer is out
+  of scope). Zero new C++ — both missions are pure data on the waves A-G primitives (compressions documented in each
+  `_note`: no vehicle bundle, so Edna's bike and the klepto's mounted flee are reach/foot-chase beats; no bus or
+  interactive-music systems). `Config/Campaign.json` grew the full Chapter 2 table (16 rows: the 12 catalog
+  missions incl. 2_B's chapter_set 3 + level-2 class force-completes + yearbook_darby, Chapt2Trans with the scripted
+  ch3 faction table on its on_pass, the 2_02/2_S05 engine-vs-catalog placement contradictions flagged like
+  1_S01/2_S04, the 2_R03/2_R04 town jobs and no-DAT 2_05/2_07 without stars until points are extractable). Verified:
+  `run_mission_smoke.sh 2_01` **PASS 6/6**, `2_02` **PASS 4/4** (both incl. fail/retry), campaign **PASS 4/4**, full
+  regression (all 23 Ch1 missions + side missions) re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

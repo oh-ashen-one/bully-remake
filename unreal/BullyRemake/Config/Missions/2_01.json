@@ -1,0 +1,100 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_01 'Last Minute Shopping' — Edna's errand: fetch her bike and collect three shopping items (grocery / barber / clothing) from the Vale business district, then get back to her in the cafeteria before dinner prep dies of old age (recon: docs/re-notes/ch2/2_01-last-minute-shopping.md). v1 simplifications (see the recon's gap table): the baked 2-01 cutscene is a title card + speech beat; the bike is a reach beat, not a spawned vehicle (no vehicle bundle yet — the original also completes the beat on simply reaching the business district); the three stores collect in a fixed order (the original is free-order with a 0/3 HUD counter — collect_counter pending, the objective line carries it); the store pickups are reach+give_item beats (the originals spawn lazily per interior entry; the four in-engine store cutscenes are dead code in the original — never wired); the bus ride back is compressed to walking (no bus/gBusTransition system); the grocery clerk bark is a plain text beat (the clerk belongs to the ambient store system, not the mission); the 325 s fail timer is our visible mission countdown (re-armed per stage with resume; full reset on retry); the hit-Edna fail is compressed to a KO; the janitor/attic door unlocks, gEdnaOverride/unique-model suppression and the interactive music tiers are skipped (no ambient Edna / music-tier systems); Edna's persist-into-ambient handoff is skipped (she despawns on pass like every mission npc). Pass grants 5 egg ammo (312) via the campaign on_pass (the original tops up only if the player holds zero; ours tops up to 5). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_01",
+  "title": "Last Minute Shopping",
+  "retry": "stage",
+  "start": { "location_cm": [-63775.9, 27445.2, -168.0], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_01.json",
+  "fail": { "type": "any", "conditions": [
+    { "type": "event", "name": "npc_ko:edna", "latched": true },
+    { "type": "event", "name": "countdown:shop_out", "latched": true }
+  ] },
+  "fail_text": "You let Edna down.",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Edna needs a favor, fast.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "LAST MINUTE SHOPPING", "sub": "The cafeteria, lunchtime rush.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "edna", "point": "2_01_Edna", "mesh": "TO_Poorwoman", "ped_model_id": 58, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "EDNA", "text": "Jimmy! Dinner's doomed unless someone fetches my bike and does my shopping. Three stops, downtown. And be quick about it!", "seconds": 4 }
+        ] },
+        { "type": "countdown_start", "seconds": 325, "visible": true, "event": "countdown:shop_out", "resume": true }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "get_bike",
+      "objective": "Fetch Edna's bike.",
+      "blip": "2_01_BikeSpawn",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 325, "visible": true, "event": "countdown:shop_out", "resume": true },
+        { "type": "hint", "text": "Her bike is parked by the school gates.", "seconds": 4 }
+      ],
+      "complete": { "type": "reach_location", "point": "2_01_BikeSpawn", "radius_cm": 800 }
+    },
+    {
+      "id": "shop_grocery",
+      "objective": "Stop one of three: the grocery store.",
+      "blip": "2_01_PlayerStore",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 325, "visible": true, "event": "countdown:shop_out", "resume": true }
+      ],
+      "complete": { "type": "reach_location", "point": "2_01_PlayerStore", "radius_cm": 400 },
+      "on_complete": [
+        { "type": "give_item", "item": "meat", "n": 1 },
+        { "type": "say", "speaker": "CLERK", "text": "Edna's order, all wrapped. Tell her the roast better not burn this time.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "shop_barber",
+      "objective": "Stop two of three: the barber shop.",
+      "blip": "2_01_RazorSpawn",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 325, "visible": true, "event": "countdown:shop_out", "resume": true }
+      ],
+      "complete": { "type": "reach_location", "point": "2_01_RazorSpawn", "radius_cm": 400 },
+      "on_complete": [ { "type": "give_item", "item": "razor", "n": 1 } ]
+    },
+    {
+      "id": "shop_clothing",
+      "objective": "Stop three of three: the clothing store.",
+      "blip": "2_01_PantySpawn",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 325, "visible": true, "event": "countdown:shop_out", "resume": true }
+      ],
+      "complete": { "type": "reach_location", "point": "2_01_PantySpawn", "radius_cm": 400 },
+      "on_complete": [ { "type": "give_item", "item": "lingerie", "n": 1 } ]
+    },
+    {
+      "id": "return",
+      "objective": "Get the shopping back to Edna in the cafeteria.",
+      "blip": "2_01_EdnaFin",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 325, "visible": true, "event": "countdown:shop_out", "resume": true },
+        { "type": "npc_despawn", "npc": "edna" },
+        { "type": "spawn_npc", "npc": "edna", "point": "2_01_EdnaFin", "mesh": "TO_Poorwoman", "ped_model_id": 58, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "meat" },
+        { "type": "has_item", "name": "razor" },
+        { "type": "has_item", "name": "lingerie" },
+        { "type": "social", "actor_tag": "br_npc_edna", "radius_cm": 300, "prompt": "Hand over the shopping" }
+      ] },
+      "on_complete": [
+        { "type": "take_item", "item": "meat", "n": 1 },
+        { "type": "take_item", "item": "razor", "n": 1 },
+        { "type": "take_item", "item": "lingerie", "n": 1 },
+        { "type": "pair_anim", "npc": "edna", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "say", "speaker": "EDNA", "text": "Dinner is saved! You're a good boy, Jimmy. Here — for your trouble.", "seconds": 3.5 },
+        { "type": "countdown_cancel" },
+        { "type": "teleport", "point": "2_01_CafEndPos" },
+        { "type": "log", "text": "campaign on_pass for 2_01 tops up egg ammo (312) to 5; bus-return and bike-mount beats compressed (no transit/vehicle systems yet)" }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,82 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_02 'Comic Klepto' — a thief grabs the comic-shop owner's rarest comic and flees across the Vale; chase him down, beat the comic loose, and bring it back (recon: docs/re-notes/ch2/2_02-comic-klepto.md; identification INFERRED-strong there — 2_02 embeds no title string, but pedKlepto/item 504/the comic-shop clerk 84 nail it). Chapter placement: our catalog lists Comic Klepto in chapter 3, but the script lives in chap2/ — the engine mapping is authoritative here (same contradiction pattern as 1_S01/2_S04, flagged in the campaign row). The 2_02_Conv.lua companion (docs/re-notes/ch2/2_02_conv-comic-flags.md) is ported as two mission-blackboard flags per the recon's framework note: set_flag 2_02_got_comic when the comic is recovered (the F_PlayerGotComicCond read side) and set_flag 2_02_returned_comic at the hand-off (the F_PlayerSetReturnedComic write side); the .act conversation tree that consumed them is out of scope. v1 simplifications (see the recon's gap table): the mounted bike chase is a foot chase (no vehicle bundle: no spawn_vehicle/mount/dismount — the klepto sprints the escape route and the player runs); the two-tier distance leash (50 m one-shot warning, 75 m instant fail) is our single leash (75 m held 5 s); the school-parking scripted escape folds into that leash fail; the full 123-node NEWESCAPE loop is compressed to its first half with a fixed corner point (the original is KO-anywhere along the route; the corner is waypoint 54 where the route bends back from New Coventry); the dismount->on-foot behavior swap is the corner fight (he turns and fights, hits_to_beat 3 for the original's x1.5 locked health + stat overrides); his named health bar is the boss_bar; weapon 301 is skipped (the original clears it on dismount anyway); the owner's delete+respawn at the stage change is skipped (he just waits); ambient-vehicle clearing and the distance-driven music-tier switching are skipped (no interactive music system); item 362's mystery escape drop is skipped (OPEN in the recon). No SMissPass branch exists for 2_02 (VERIFIED absence) — the dorm-decoration reward is OPEN there. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_02",
+  "title": "Comic Klepto",
+  "retry": "stage",
+  "start": { "location_cm": [51793.3, 5930.1, 563.2], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_02.json",
+  "points": {
+    "2_02_Flee1": { "location_cm": [57679.0, 5098.0, 620.0] },
+    "2_02_Flee2": { "location_cm": [64743.0, -11491.0, 896.0] },
+    "2_02_Flee3": { "location_cm": [59738.0, -27993.0, 1552.0] },
+    "2_02_Flee4": { "location_cm": [53610.0, -53354.0, 2419.0] },
+    "2_02_corner": { "location_cm": [30628.0, -42836.0, 2202.0] }
+  },
+  "fail": { "type": "event", "name": "npc_ko:owner", "latched": true },
+  "fail_text": "The shop owner got hurt.",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Someone just robbed the comic shop.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "COMIC KLEPTO", "sub": "The comic shop, downtown.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "owner", "point": "2_02_Owner", "mesh": "TO_Business1", "ped_model_id": 84, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "SHOP OWNER", "text": "That little creep just walked out with my rarest issue! Get it back and there's a reward in it for you!", "seconds": 4 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "chase",
+      "objective": "Chase down the klepto!",
+      "blip": "2_02_Klepto",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "klepto", "point": "2_02_Klepto", "mesh": "GN_Greekboy", "ped_model_id": 70 },
+        { "type": "npc_move_to", "npc": "klepto", "via": ["2_02_Flee1", "2_02_Flee2", "2_02_Flee3", "2_02_Flee4"], "point": "2_02_corner", "gait": "sprint" },
+        { "type": "hint", "text": "Don't let him get too far ahead!", "seconds": 4 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:klepto", "latched": true },
+        { "type": "reach_location", "point": "2_02_corner", "radius_cm": 1500 }
+      ] },
+      "fail": { "type": "leash", "npc": "klepto", "radius_cm": 7500, "seconds": 5 },
+      "fail_text": "The klepto got away with the comic."
+    },
+    {
+      "id": "fight",
+      "objective": "He's cornered. Take the comic back.",
+      "blip": "2_02_corner",
+      "on_start": [
+        { "type": "npc_despawn", "npc": "klepto" },
+        { "type": "spawn_wave", "group": "klepto_fight", "points": ["2_02_corner"], "mesh": "GN_Greekboy", "hostile": true, "hits_to_beat": 3 },
+        { "type": "boss_bar", "group": "klepto_fight", "label": "THE KLEPTO", "half_line": "You'll never take me alive!" }
+      ],
+      "complete": { "type": "event", "name": "wave:klepto_fight", "latched": true },
+      "on_complete": [
+        { "type": "give_item", "item": "comic", "n": 1 },
+        { "type": "set_flag", "name": "2_02_got_comic" },
+        { "type": "say", "speaker": "KLEPTO", "text": "Okay, okay! Take the stupid comic!", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "return",
+      "objective": "Return the comic to the shop owner.",
+      "blip": "2_02_Owner",
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "comic" },
+        { "type": "social", "actor_tag": "br_npc_owner", "radius_cm": 300, "prompt": "Return the comic" }
+      ] },
+      "on_complete": [
+        { "type": "take_item", "item": "comic", "n": 1 },
+        { "type": "pair_anim", "npc": "owner", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "set_flag", "name": "2_02_returned_comic" },
+        { "type": "say", "speaker": "SHOP OWNER", "text": "My precious! You have a talent for retail recovery, kid.", "seconds": 3.5 },
+        { "type": "log", "text": "2_02_Conv flags set (2_02_got_comic/2_02_returned_comic mission blackboard); no SMissPass branch (VERIFIED absence); the dorm-decoration reward is OPEN in the recon" }
+      ]
+    }
+  ]
+}

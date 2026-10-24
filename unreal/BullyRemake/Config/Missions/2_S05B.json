@@ -1,0 +1,122 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_S05B 'Cook's Date' — stage 2 of the two-half Edna script (recon: docs/re-notes/ch2/2_S05-cooks-crush-cooks-date.md): from the tree vantage, guard Edna's dinner with Dr. Watts against four waves of gawkers until the date plays out. STAGE-VARIANT DECISION (see 2_S05.json's _note): two mission JSONs sharing imported/triggers/2_S05.json + two campaign rows (2_S05/2_S05B); the original's external F_SetStage(2) is our second file. v1 simplifications (see the recon's gap table): stage 2 has no intro cutscene in the original either (2-S05C is the baked outro — ours is a speech beat); the tree vantage is a reach beat on the climb point under the 30 s timer (PlayerIsInStealthProp is engine-side, OPEN there) and the 30 s leave-the-tree fail is skipped (our defense is on the ground, not from the tree — no vantage-only attacks); the dinner NIS is a letterbox speech beat (the camera path pair and seat-prop flags are pending); **the annoyance meter (Edna's health bar as patience, per-disturber fill rates + decay) compresses away** — the gawkers are driven off by force in our version (annoyance_meter pending); each wave is two stationary gawkers the player smacks (hit-to-flee threshold behavior compresses to one-hit dummies; the stinkbomb special-case and the jeer line table are cut to one bark per wave); the reinforcement caps and the model/line table are the four fixed two-member waves; the Edna/Watts ~29-line dinner opera is three two-hander exchanges between waves; the mascot gag is dead code in the original too; the 462 cash-tip pickup is noted (amount unknown — pickup model id only; campaign on_pass stays empty). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_S05B",
+  "title": "Cook's Date",
+  "retry": "stage",
+  "start": { "location_cm": [44193.4, -19490.7, 839.3], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_S05.json",
+  "points": {
+    "gawk1": { "location_cm": [44768.7, -19707.6, 838.3] },
+    "gawk2": { "location_cm": [44968.7, -19707.6, 838.3] }
+  },
+  "fail": { "type": "any", "conditions": [
+    { "type": "event", "name": "npc_ko:edna", "latched": true },
+    { "type": "event", "name": "npc_ko:watts", "latched": true }
+  ] },
+  "fail_text": "Someone hit the happy couple.",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Edna's big night needs a bodyguard.",
+      "blip": "2_S05_DinClimbpoint",
+      "on_start": [
+        { "type": "banner", "text": "COOK'S DATE", "sub": "Dinner al fresco, Bullworth style.", "seconds": 3 },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "EDNA", "text": "Tonight's the night, Jimmy. Some kids will try to ruin it. Get to the tree and keep them off us.", "seconds": 4 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "vantage",
+      "objective": "Take the vantage point — 30 seconds!",
+      "blip": "2_S05_DinClimbpoint",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 30, "visible": true, "event": "countdown:tree_out" }
+      ],
+      "complete": { "type": "reach_location", "point": "2_S05_DinClimbpoint", "radius_cm": 600 },
+      "fail": { "type": "event", "name": "countdown:tree_out", "latched": true },
+      "fail_text": "You missed the date.",
+      "on_complete": [ { "type": "countdown_cancel" } ]
+    },
+    {
+      "id": "dinner",
+      "objective": "The dinner begins.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "spawn_npc", "npc": "edna", "point": "2_S05_DinnerEdna", "mesh": "TO_Poorwoman", "ped_model_id": 221, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "watts", "point": "2_S05_DinnerEdna", "mesh": "TO_Business1", "ped_model_id": 106, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "speech_sequence", "id": "dinner", "lines": [
+          { "speaker": "EDNA", "text": "Doctor Watts. I've prepared something special.", "seconds": 3 },
+          { "speaker": "DR. WATTS", "text": "Ah. Chemistry AND cuisine. Splendid.", "seconds": 2.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:dinner", "latched": true }
+    },
+    {
+      "id": "wave_girls",
+      "objective": "Drive off the gawkers!",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "girls", "points": ["gawk1", "gawk2"], "mesh": "GN_Asiangirl", "hostile": false },
+        { "type": "say", "speaker": "HECKLER", "text": "Eww, they're actually eating it!", "seconds": 2.5 }
+      ],
+      "complete": { "type": "event", "name": "wave:girls", "latched": true },
+      "on_complete": [
+        { "type": "say", "speaker": "DR. WATTS", "text": "You were saying about the sauce?", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "wave_nerds",
+      "objective": "Nerds with cameras. Shoo.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "nerds", "points": ["gawk1", "gawk2"], "mesh": "NDH3_Bucky", "hostile": false },
+        { "type": "say", "speaker": "HECKLER", "text": "This is going in the yearbook!", "seconds": 2.5 }
+      ],
+      "complete": { "type": "event", "name": "wave:nerds", "latched": true },
+      "on_complete": [ { "type": "say", "speaker": "EDNA", "text": "Ignore them, darling. More gravy?", "seconds": 2.5 } ]
+    },
+    {
+      "id": "wave_preps",
+      "objective": "Preps. Of course.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "preps", "points": ["gawk1", "gawk2"], "mesh": "GN_Boy01", "hostile": false },
+        { "type": "say", "speaker": "HECKLER", "text": "How perfectly ghastly!", "seconds": 2.5 }
+      ],
+      "complete": { "type": "event", "name": "wave:preps", "latched": true },
+      "on_complete": [ { "type": "say", "speaker": "DR. WATTS", "text": "Edna, this is the finest evening I've had in years.", "seconds": 2.5 } ]
+    },
+    {
+      "id": "wave_jocks",
+      "objective": "The jocks are the last straw. Literally.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "jocks", "points": ["gawk1", "gawk2"], "mesh": "GN_Bully04", "hostile": false },
+        { "type": "say", "speaker": "HECKLER", "text": "HAHA! Check out the lovebirds!", "seconds": 2.5 }
+      ],
+      "complete": { "type": "event", "name": "wave:jocks", "latched": true }
+    },
+    {
+      "id": "outro",
+      "objective": "The date survives.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "EDNA", "text": "They've gone. Jimmy, you beautiful delinquent — dessert's on me. Forever.", "seconds": 3.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "log", "text": "the 462 cash-tip pickup is noted (amount unknown — pickup model id only); campaign on_pass stays empty (VERIFIED absence in SMissPass)" }
+      ]
+    }
+  ]
+}

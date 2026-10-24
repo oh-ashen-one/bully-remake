@@ -1,0 +1,157 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_S06 'Panty Raid' — Burton's errand: climb the girls'-dorm lattice after dark, collect five, ah, unmentionables under the librarian's nose, and deliver the bundle back to him (recon: docs/re-notes/ch2/2_S06-panty-raid.md). **2_S06b.DAT (the dorm interior, area 35) was never extracted** — the stealth-collect plays in the area-23 interior pocket already used by 1_G1/2_S05, and the five panty points + the librarian's post are invented inside it (marked; z from 1_G1_Diary). The signature **soft-fail eject loop** (spotted -> marched out -> the stage rebuilds, never a mission fail) is our spotter + stage-scoped retry: the librarian's spotted_by fail carries the fail_text as the bust read and retry:\"stage\" rebuilds the collect stage with already-collected items kept (the original keeps them too); the marched-out walk, the re-climb reset and the ambient-headmistress hookup (shared_ambient_npc_hook — she is owned by an area script, OPEN there) are documented compressions. v1 further simplifications (see the recon's gap table): the baked 2-S06 cutscene is a title card + speech beat; the lattice climb is a reach beat + fade hop (traversal pending, 1_G1 pattern); the prefect/jock gag, the shower/social-girl conversation beats and the steam effects are cut to two color NPCs (effect_spawn_at_points and conversation_beat_machine pending); the storage-door lock-behind is skipped (door_prop_control pending); the Beatrice freakout + fire-alarm panic cut (with 13 sprinkler effects) is one speech beat; the Eunice front-door ambush IS real (a one-member wave); the stage-3 headmistress spawn/catch (+200 punishment, not a mission fail) is skipped (punishment system owns busts, OPEN); hitting girls (+5 punishment + flee) is skipped. SMissPass 2_S06 is a debug helper only (VERIFIED) — no reward. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_S06",
+  "title": "Panty Raid",
+  "retry": "stage",
+  "start": { "location_cm": [52941.4, 13028.6, 591.7], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_S06.json",
+  "points": {
+    "dorm_in": { "location_cm": [-64581.0, -22231.9, -37.4] },
+    "librarian_post": { "location_cm": [-64181.0, -22431.9, -37.4] },
+    "girl_color1": { "location_cm": [-65181.0, -22431.9, -37.4] },
+    "girl_color2": { "location_cm": [-63981.0, -22031.9, -37.4] },
+    "panty1": { "location_cm": [-65181.0, -22231.9, -37.4] },
+    "panty2": { "location_cm": [-63981.0, -22231.9, -37.4] },
+    "panty3": { "location_cm": [-64581.0, -22831.9, -37.4] },
+    "panty4": { "location_cm": [-64581.0, -21631.9, -37.4] },
+    "panty5": { "location_cm": [-65281.0, -22631.9, -37.4] }
+  },
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Mr. Burton has a very strange errand.",
+      "blip": "2_S06_spawnBurton",
+      "on_start": [
+        { "type": "banner", "text": "PANTY RAID", "sub": "After dark, outside the gym.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "burton", "point": "2_S06_spawnBurton", "mesh": "TO_Construct01", "ped_model_id": 229, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "MR. BURTON", "text": "Hopkins. I need five... items... from the girls' dorm. For laundry inventory. Don't get caught — and don't ask questions.", "seconds": 4.5 }
+        ] },
+        { "type": "npc_move_to", "npc": "burton", "point": "2_S06_burtonLeave", "gait": "run" }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:burton" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Burton got hurt."
+    },
+    {
+      "id": "lattice",
+      "objective": "Climb the lattice to the girls' dorm.",
+      "blip": "2_S06_blipLattice",
+      "on_start": [
+        { "type": "hint", "text": "The trellis is your way in.", "seconds": 4 }
+      ],
+      "complete": { "type": "reach_location", "point": "2_S06_blipLattice", "radius_cm": 500 },
+      "on_complete": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "dorm_in" },
+        { "type": "log", "text": "up the lattice (climb is traversal work; the attic entry is the area-23 pocket — 2_S06b.DAT never extracted)" }
+      ]
+    },
+    {
+      "id": "collect1",
+      "objective": "Five items. First one's close.",
+      "blip": "panty1",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "librarian", "point": "librarian_post", "mesh": "TO_RichW1", "ped_model_id": 62, "invulnerable": true, "untargetable": true, "yaw": 180 },
+        { "type": "spawn_npc", "npc": "girl1", "point": "girl_color1", "mesh": "GN_Asiangirl", "ped_model_id": 39, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "girl2", "point": "girl_color2", "mesh": "TO_BusinessW1", "ped_model_id": 67, "invulnerable": true, "untargetable": true },
+        { "type": "spotter", "npc": "librarian", "range_cm": 1200, "cone_deg": 60, "seconds": 2 }
+      ],
+      "complete": { "type": "reach_location", "point": "panty1", "radius_cm": 300 },
+      "fail": { "type": "event", "name": "spotted_by:librarian", "latched": true },
+      "fail_text": "Marched out by the librarian! (the dorm resets — Burton never learns)",
+      "on_complete": [ { "type": "give_item", "item": "undie", "n": 1 } ]
+    },
+    {
+      "id": "collect2",
+      "objective": "Item two of five.",
+      "blip": "panty2",
+      "on_start": [ { "type": "spotter", "npc": "librarian", "range_cm": 1200, "cone_deg": 60, "seconds": 2 } ],
+      "complete": { "type": "reach_location", "point": "panty2", "radius_cm": 300 },
+      "fail": { "type": "event", "name": "spotted_by:librarian", "latched": true },
+      "fail_text": "Marched out by the librarian! (the dorm resets — Burton never learns)",
+      "on_complete": [ { "type": "give_item", "item": "undie", "n": 1 } ]
+    },
+    {
+      "id": "collect3",
+      "objective": "Item three of five.",
+      "blip": "panty3",
+      "on_start": [ { "type": "spotter", "npc": "librarian", "range_cm": 1200, "cone_deg": 60, "seconds": 2 } ],
+      "complete": { "type": "reach_location", "point": "panty3", "radius_cm": 300 },
+      "fail": { "type": "event", "name": "spotted_by:librarian", "latched": true },
+      "fail_text": "Marched out by the librarian! (the dorm resets — Burton never learns)",
+      "on_complete": [ { "type": "give_item", "item": "undie", "n": 1 } ]
+    },
+    {
+      "id": "collect4",
+      "objective": "Item four of five.",
+      "blip": "panty4",
+      "on_start": [ { "type": "spotter", "npc": "librarian", "range_cm": 1200, "cone_deg": 60, "seconds": 2 } ],
+      "complete": { "type": "reach_location", "point": "panty4", "radius_cm": 300 },
+      "fail": { "type": "event", "name": "spotted_by:librarian", "latched": true },
+      "fail_text": "Marched out by the librarian! (the dorm resets — Burton never learns)",
+      "on_complete": [ { "type": "give_item", "item": "undie", "n": 1 } ]
+    },
+    {
+      "id": "collect5",
+      "objective": "The last one. Careful.",
+      "blip": "panty5",
+      "on_start": [ { "type": "spotter", "npc": "librarian", "range_cm": 1200, "cone_deg": 60, "seconds": 2 } ],
+      "complete": { "type": "reach_location", "point": "panty5", "radius_cm": 300 },
+      "fail": { "type": "event", "name": "spotted_by:librarian", "latched": true },
+      "fail_text": "Marched out by the librarian! (the dorm resets — Burton never learns)",
+      "on_complete": [
+        { "type": "give_item", "item": "bunch_of_panties", "n": 1 },
+        { "type": "say", "speaker": "JIMMY", "text": "Five. That's the lot — time to vanish.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "alarm",
+      "objective": "The dorm is waking up.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "alarm", "lines": [
+          { "speaker": "BEATRICE", "text": "My room! My— PANTIES?! WHO— SOUND THE ALARM!", "seconds": 3.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:alarm", "latched": true }
+    },
+    {
+      "id": "escape",
+      "objective": "Get out — and watch the door.",
+      "blip": "2_S06_ejectPlayer",
+      "on_start": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "2_S06_ejectPlayer" },
+        { "type": "spawn_wave", "group": "eunice", "points": ["2_S06_stg3_girl01"], "mesh": "GN_Asiangirl", "hostile": true },
+        { "type": "say", "speaker": "EUNICE", "text": "PERVERT! GET HIM, GIRLS!", "seconds": 3 }
+      ],
+      "complete": { "type": "event", "name": "wave:eunice", "latched": true }
+    },
+    {
+      "id": "deliver",
+      "objective": "Deliver the bundle to Burton.",
+      "blip": "2_S06_stage3_spawnBurton",
+      "on_start": [
+        { "type": "npc_despawn", "npc": "burton" },
+        { "type": "spawn_npc", "npc": "burton2", "point": "2_S06_stage3_spawnBurton", "mesh": "TO_Construct01", "ped_model_id": 229, "mission_critical": true, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "bunch_of_panties" },
+        { "type": "social", "actor_tag": "br_npc_burton2", "radius_cm": 300, "prompt": "Hand over the bundle" }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:burton2", "latched": true },
+      "fail_text": "Burton got hurt.",
+      "on_complete": [
+        { "type": "take_item", "item": "bunch_of_panties", "n": 1 },
+        { "type": "pair_anim", "npc": "burton2", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "say", "speaker": "MR. BURTON", "text": "Excellent work, Hopkins. Very... discreet. This never happened.", "seconds": 3.5 },
+        { "type": "log", "text": "SMissPass 2_S06 is a debug helper only (VERIFIED absence of rewards); the bust/eject loop is spotter+stage-retry (see _note)" }
+      ]
+    }
+  ]
+}

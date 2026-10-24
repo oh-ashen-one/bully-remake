@@ -197,6 +197,23 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   npc_ko fails anywhere — matching the original's single out-of-area fail, itself skipped pending trigger
   geometry). Verified: `2_05` **PASS 6/6**, `2_07` **PASS 8/8** (both incl. fail/retry), campaign **PASS 4/4**,
   full regression (all 29 prior missions) re-PASS.
+- **Ch2 Wave F (2_S06, 2_S05 + 2_S05B)**: `2_S06.json` (Panty Raid, 10 stages: Burton's brief, the lattice
+  reach + fade hop, five collect stages, the alarm beat, the Eunice front-door wave, the delivery). The girls'-dorm
+  interior (area 35, `2_S06b.DAT`) was never extracted — the collect plays in the area-23 pocket already used by
+  1_G1/2_S05 with five invented panty points (marked). The signature **soft-fail eject loop** is spotter +
+  stage-scoped retry: `spotted_by:librarian` fails the collect stage (fail_text is the bust read), `retry:"stage"`
+  rebuilds it with collected items kept — never a mission fail, matching the original's posture (the marched-out
+  walk / re-climb reset / ambient-headmistress shared hook are documented compressions). `2_S05` is the two-half
+  script — **stage-variant decision: two mission JSONs sharing the trigger file + two campaign rows** (2_S05 =
+  Cook's Crush, 2_S05B = Cook's Date; our mission ids are file stems and the catalog lists the halves separately;
+  the original's external F_SetStage is OPEN in the recon). `2_S05.json` (6 stages: Edna's fetch brief, the staff
+  -room perfume (fire-alarm evacuation skipped), Fatty's candy (bribe branch only), the three trash cans as target
+  dummies with a FIXED can 2 holding the bottle (randomized_loot_prop pending), the hobo wave, the return) and
+  `2_S05B.json` (8 stages: the 30 s vantage dash, the dinner beat, four two-member gawker waves compressing the
+  annoyance-meter defense (annoyance_meter pending), the outro). Campaign.json split the old combined 2_S05 row.
+  Verified: `2_S06` **PASS 10/10**, `2_S05` **PASS 6/6**, `2_S05B` **PASS 8/8** (all incl. fail/retry), campaign
+  **PASS 4/4**, full regression (all 31 prior missions) re-PASS. **Chapter 2's scripted missions are done except
+  2_09/2_B/Chapt2Trans** (boxing gateway + Darby boss + the transition) and the 2_R03/2_R04 town jobs.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

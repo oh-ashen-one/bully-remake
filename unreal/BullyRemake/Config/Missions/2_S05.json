@@ -1,0 +1,101 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_S05 'Cook's Crush' — stage 1 of the two-half Edna script (recon: docs/re-notes/ch2/2_S05-cooks-crush-cooks-date.md): fetch perfume from the staff room, a candy box from Fatty downtown, and a sedative bottle from the trash cans, then hand it all to Edna. STAGE-VARIANT DECISION: the original is one script whose launcher calls F_SetStage(1|2) before main() (multi_stage_mission_param, launcher-owned, OPEN there); our port is **two mission JSONs sharing the trigger file** — 2_S05.json (Cook's Crush) and 2_S05B.json (Cook's Date) — with two campaign rows (2_S05 / 2_S05B), because our mission ids are file stems and the catalog lists the halves separately. v1 simplifications (see the recon's gap table): the baked 2-S05/2-S05B cutscenes are title-card + speech beats; the staff-room teachers' fire-alarm evacuation (global_fire_alarm_hook) is skipped — the lounge is empty and the door is open; the 30 s linger-punishment and bump-punishment beats are skipped (punishment points pending); the bribe-or-beat Fatty branch takes the bribe (a social purchase — the mug/violence branch is documented); the trash cans are three stationary target dummies at the real can positions and the bottle is in a FIXED can (can 2 — the randomized_loot_prop one-of-N pick is pending, so no dice here); the hobo wakes after the cans are smashed (the original wakes him on the first wrong can); his bottle-break/puke gags are skipped; Edna's chapter-2 dressed variant (model 221) is noted but both our instances use the usual stand-in; the ambient Edna swap (shared.gEdnaID) is skipped. No SMissPass case (VERIFIED absence); no persistent reward in-script either. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_S05",
+  "title": "Cook's Crush",
+  "retry": "stage",
+  "start": { "location_cm": [-63842.7, 27503.1, -168.0], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_S05.json",
+  "points": {
+    "can1": { "location_cm": [50682.9, 11064.3, 514.3] },
+    "can2": { "location_cm": [50975.3, 11544.1, 531.2] },
+    "can3": { "location_cm": [50483.3, 11515.6, 526.3] }
+  },
+  "fail": { "type": "event", "name": "npc_ko:edna", "latched": true },
+  "fail_text": "Edna got hurt.",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Edna's cooking up something personal.",
+      "blip": "2_S05_OutsideCafe",
+      "on_start": [
+        { "type": "banner", "text": "COOK'S CRUSH", "sub": "The cafeteria kitchen, between rushes.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "edna", "point": "2_S05_OutsideCafe", "mesh": "TO_Poorwoman", "ped_model_id": 58, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "EDNA", "text": "Jimmy! There's a certain chemistry teacher... I need perfume, candy, and a little something to calm my nerves. Fetch them and I'll make it worth your while.", "seconds": 4.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "perfume",
+      "objective": "Lift the perfume from the staff room.",
+      "blip": "2_S05_Perfume",
+      "on_start": [
+        { "type": "say", "speaker": "JIMMY", "text": "Staff room's clear. In and out.", "seconds": 2.5 }
+      ],
+      "complete": { "type": "reach_location", "point": "2_S05_Perfume", "radius_cm": 400 },
+      "on_complete": [ { "type": "give_item", "item": "perfume", "n": 1 } ]
+    },
+    {
+      "id": "candy",
+      "objective": "Get the candy box from Fatty, downtown.",
+      "blip": "2_S05_FATTY",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "fatty", "point": "2_S05_FATTY", "mesh": "GN_Boy02", "ped_model_id": 155, "mission_critical": true, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "social", "actor_tag": "br_npc_fatty", "radius_cm": 300, "prompt": "Buy the candy box" },
+      "on_complete": [
+        { "type": "give_item", "item": "candy", "n": 1 },
+        { "type": "say", "speaker": "FATTY", "text": "My LAST box. You're lucky I'm between cravings.", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "cans",
+      "objective": "Smash the trash cans for the sedative bottle.",
+      "blip": "2_S05_DrugCans",
+      "on_start": [
+        { "type": "spawn_wave", "group": "cans", "points": ["can1", "can2", "can3"], "mesh": "GN_Bully03", "hostile": false, "advance_at": 3 }
+      ],
+      "complete": { "type": "event", "name": "wave:cans", "latched": true },
+      "on_complete": [
+        { "type": "give_item", "item": "sedative", "n": 1 },
+        { "type": "say", "speaker": "JIMMY", "text": "One little bottle. Edna had better appreciate this.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "hobo",
+      "objective": "The hobo guarding the cans is NOT happy.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "hobo", "points": ["2_S05_Bum"], "mesh": "TO_Poorwoman", "hostile": true },
+        { "type": "say", "speaker": "HOBO", "text": "MY CANS! My beautiful cans!", "seconds": 3 }
+      ],
+      "complete": { "type": "event", "name": "wave:hobo", "latched": true }
+    },
+    {
+      "id": "return",
+      "objective": "Bring the ingredients back to Edna.",
+      "blip": "2_S05_EDNA",
+      "on_start": [
+        { "type": "npc_despawn", "npc": "edna" },
+        { "type": "spawn_npc", "npc": "edna", "point": "2_S05_EDNA", "mesh": "TO_Poorwoman", "ped_model_id": 58, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "perfume" },
+        { "type": "has_item", "name": "candy" },
+        { "type": "has_item", "name": "sedative" },
+        { "type": "social", "actor_tag": "br_npc_edna", "radius_cm": 300, "prompt": "Hand over the ingredients" }
+      ] },
+      "on_complete": [
+        { "type": "take_item", "item": "perfume", "n": 1 },
+        { "type": "take_item", "item": "candy", "n": 1 },
+        { "type": "take_item", "item": "sedative", "n": 1 },
+        { "type": "pair_anim", "npc": "edna", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "say", "speaker": "EDNA", "text": "Perfect! Tonight, Jimmy Hopkins, Edna cooks for Dr. Watts. Come watch the magic — Cook's Date is the campaign's 2_S05B row.", "seconds": 4 },
+        { "type": "log", "text": "no SMissPass case (VERIFIED absence); the two-half script is split into 2_S05/2_S05B mission files (see _note for the stage-variant decision)" }
+      ]
+    }
+  ]
+}

@@ -14,7 +14,7 @@ none is committed. Everything derived from the install goes to `imported/` (git-
 | Per-cutscene file set in `Cuts.img` | `<id>.dat` camera track, `<id>.inf` actor list, `<id>_CS*.HXD` clip index, `<group>.agr` clips, `<id>.SUB` subtitle timing; ids are the ones mission scripts pass to `PlayCutsceneWithLoad` (`1-1-1`, `1-02B`, `1-03`, ...) | VERIFIED |
 | Camera track (`.dat`) | text, four keyed channels (FOV, roll, position, look-at target) with per-key in/out tangents, Hermite segments, game metres | VERIFIED (parse of every Chapter 1 opening file; sampled paths are smooth, cuts are one-frame jumps) |
 | Actors and clips | `.HXD` (same container as `Anim/*.HXD`) + `.agr` (same clip codec as pedestrian animation); one body clip and one facial clip (`F_` prefix) per speaking character | VERIFIED |
-| Actor world placement | per-clip `vector` field of the HXD record = the actor's world origin in game metres; the scene's yaw is in the clip's `Offset_Node` rotation | INFERRED (consistent across all 7 opening cutscenes; the rendered check is the arbiter) |
+| Actor world placement | per-clip `vector` field of the HXD record = the actor's world origin in game metres; the scene's yaw is in the clip's `Offset_Node` rotation | VERIFIED by offscreen renders of all 7 (characters stand on the imported floors, sit on the imported dorm couch in 1-04, face each other at the gate in 1-1-1); the logged Root-bone world positions equal origin + Offset_Node rotation applied to the Root track to 1 cm |
 | Subtitle timing (`.SUB`) | MicroDVD-style `{start}{end}key` lines, frame numbers at the rate given in the first line (30) | VERIFIED |
 | Subtitle text | `Config/Text/<Language>.img`, one string table per cutscene (`<id>_SUB.bin`), keys hashed | VERIFIED (hash), see 4 |
 | Cutscene audio | `audio/PLAYLIST/Cuts.bin` entry *i* = line *i* of `Cuts.lst` (`<id>.rsm`); stereo MS-ADPCM, decoded with the existing `audio.py` | VERIFIED (decoded lengths agree with the clip/camera lengths within 0.4 s on all 7 opening cutscenes) |
@@ -71,7 +71,7 @@ a cut when the position jumps more than 0.75 m between frames (`camera.cuts`); t
   23 facial bones at tracks 9..31, arms with fingers, legs). It is index-aligned with the joint order of every `CS_*`
   NIF in `World.img` (bone names differ, order and parenting match). **VERIFIED** (name-by-name comparison).
 - `Offset_Node` carries a constant rotation = the scene's yaw, so the player spawns actors at their origin with zero
-  yaw. **INFERRED**.
+  yaw. **VERIFIED** (renders, see section 0).
 - Body and facial clips animate disjoint bone sets (the body clip holds constant keys on the facial bones); the
   importer copies the facial bones' tracks from the `F_` clip into the body clip. **VERIFIED** (key counts).
 - Models: `<ACTOR>.nif` in `World.img`; the player character is a body + head pair (`CS_PLAY_BODY` + `CS_PLAY`),

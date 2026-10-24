@@ -394,6 +394,11 @@ bool UMissionSubsystem::HumanFight(const FMissionStage& St)
 	}
 	AActor* TA = Best->GetOwner();
 	Human.FightInfo = FString::Printf(TEXT("%s vs %s"), *PC->Describe(), *Best->Describe());
+	{
+		const double Sig = double(Best->Health) * 1000.0 + double(PC->Health) + double(uint8(Best->GetState())) * 0.01 + double(reinterpret_cast<UPTRINT>(Best) % 997) * 1e7;
+		if (Sig != Human.FightSig || Smoke.Elapsed - Human.LastFightAt > 2.0) { Human.FightSig = Sig; Human.FightSigAt = Smoke.Elapsed; }
+		Human.LastFightAt = Smoke.Elapsed;
+	}
 	const FVector TL = TA->GetActorLocation();
 	const float D2 = FVector::Dist2D(TL, Me);
 	const float Dz = TL.Z - Me.Z;
@@ -671,6 +676,55 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 					}
 				}
 				if (NCull > 0) { UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human pre-start: %d race-track actor(s) (br_scene:iMGRace*) still collided over the campus -- hidden + collision off for this run (sm-visual BullySceneFixups stand-in)"), NCull); }
+			}
+			// the arsenal a player would own here: fists, plus the weapon/ammo grants of every mission before this one in the
+			// campaign (prereq closure of Config/Campaign.json on_pass); the mission's own give_* actions run as usual.
+			// -BRMissionSmokeHumanFullArsenal keeps the harness's full arsenal.
+			if (!FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeHumanFullArsenal")))
+			{
+				ABullyCharacter* PCh = Cast<ABullyCharacter>(Pawn);
+				UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(World);
+				if (PCh && PCh->GetWeapons() && Camp)
+				{
+					PCh->GetWeapons()->EmptyAll();
+					TSet<FString> Before;
+					TArray<FString> Todo;
+					if (const FCampaignMission* Row = Camp->FindMission(D.Id)) { Todo = Row->Prereq; }
+					while (Todo.Num() > 0)
+					{
+						const FString Id = Todo.Pop();
+						if (Before.Contains(Id)) { continue; }
+						Before.Add(Id);
+						if (const FCampaignMission* R = Camp->FindMission(Id)) { Todo.Append(R->Prereq); }
+					}
+					FString Granted;
+					for (const FString& Id : Before)
+					{
+						const FCampaignMission* R = Camp->FindMission(Id);
+						if (!R || !R->OnPass.IsValid()) { continue; }
+						if (const TSharedPtr<FJsonValue> W = R->OnPass->TryGetField(TEXT("give_weapon")))
+						{
+							if (W->Type == EJson::String) { Camp->GiveWeaponByName(FName(*W->AsString())); } else { Camp->GiveWeaponByGameId(int32(W->AsNumber())); }
+							Granted += FString::Printf(TEXT(" %s:weapon"), *Id);
+						}
+						if (const TSharedPtr<FJsonValue> A = R->OnPass->TryGetField(TEXT("give_ammo")))
+						{
+							TArray<TSharedPtr<FJsonValue>> List;
+							if (A->Type == EJson::Array) { List = A->AsArray(); } else { List.Add(A); }
+							for (const TSharedPtr<FJsonValue>& E : List)
+							{
+								const TSharedPtr<FJsonObject> O = E.IsValid() ? E->AsObject() : nullptr;
+								if (!O.IsValid()) { continue; }
+								double Num = 0.0, GameId = 0.0; FString Name;
+								O->TryGetNumberField(TEXT("n"), Num);
+								if (O->TryGetStringField(TEXT("id"), Name)) { Camp->GiveAmmoByName(FName(*Name), int32(Num)); }
+								else if (O->TryGetNumberField(TEXT("id"), GameId)) { Camp->GiveAmmoByGameId(int32(GameId), int32(Num)); }
+							}
+							Granted += FString::Printf(TEXT(" %s:ammo"), *Id);
+						}
+					}
+					UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human arsenal: fists only + grants of %d earlier mission(s):%s"), Before.Num(), Granted.IsEmpty() ? TEXT(" none") : *Granted);
+				}
 			}
 			HumanPrepareNav(D, At);
 			return;
@@ -984,6 +1038,12 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 			return;
 		}
 		Human.ProgressAt = Smoke.Elapsed;
+	}
+	else if (Why == TEXT("fight") && Smoke.Elapsed - Human.FightSigAt > 60.0)
+	{
+		UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human STUCK %s"), *HumanStuckReport(*FString::Printf(TEXT("fight stalled 60 s (no damage either way, target state unchanged: %s)"), *Human.FightInfo)));
+		Quit(false, HumanStuckReport(TEXT("STUCK fight stalled")));
+		return;
 	}
 	else if (Smoke.Elapsed - Human.ProgressAt > Human.StuckSeconds)
 	{

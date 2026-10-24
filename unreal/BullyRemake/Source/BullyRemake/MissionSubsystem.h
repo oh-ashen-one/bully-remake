@@ -726,6 +726,9 @@ private:
 		double LastShot = -10.0;
 		// chase: where each mission npc has run (a player runs where he saw the npc run -- ledges and drops included)
 		TMap<FName, TArray<FVector>> Trails;
+		double FightSig = -1.0;            // fight-stall watch: health/state signature and when it last changed
+		double FightSigAt = 0.0;
+		double LastFightAt = -10.0;
 		FString FightInfo;                 // last fight tick: me vs target (beat log)
 		bool bForceSprint = false;         // set around a HumanSteer call: sprint even for a short hop (a chase's breadcrumbs)
 	} Human;

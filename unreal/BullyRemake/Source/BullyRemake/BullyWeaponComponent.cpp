@@ -544,3 +544,13 @@ void UBullyWeaponComponent::TickSmoke()
 		break;
 	}
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// sm-humandrive: fists-only reset for the human-mode mission smoke
+
+void UBullyWeaponComponent::EmptyAll()
+{
+	for (const FBullyWeaponDef& D : Defs) { Ammo.Add(D.Id, 0); }
+	Equipped = -1;
+	UE_LOG(LogBullyWeapons, Display, TEXT("BR_WEAPON emptied all %d weapon(s) (fists only)"), Defs.Num());
+}

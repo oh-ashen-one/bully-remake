@@ -122,7 +122,7 @@ void UBullyCutsceneSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		if (FParse::Value(FCommandLine::Get(), TEXT("-BRShotResX="), V) && V > 0) { Shots.ResX = V; }
 		if (FParse::Value(FCommandLine::Get(), TEXT("-BRShotResY="), V) && V > 0) { Shots.ResY = V; }
 		FString Times;
-		if (FParse::Value(FCommandLine::Get(), TEXT("-BRCutsceneShotTimes="), Times))
+		if (FParse::Value(FCommandLine::Get(), TEXT("-BRCutsceneShotTimes="), Times, /*bShouldStopOnSeparator=*/false))
 		{
 			TArray<FString> Parts;
 			Times.ParseIntoArray(Parts, TEXT(","));
@@ -590,6 +590,17 @@ void UBullyCutsceneSubsystem::TickShots(float Dt)
 	HR.bDumpBufferVisualizationTargets = false;
 	const bool bOk = GEngine->GameViewport && GEngine->GameViewport->Viewport && GEngine->GameViewport->Viewport->TakeHighResScreenShot();
 	UE_LOG(LogBullyCutscene, Display, TEXT("BR_CUTSCENESHOT %s t=%.2f -> %s (sub %d)"), bOk ? TEXT("shot") : TEXT("REFUSED"), Elapsed, *File, SubIndex);
+	// placement evidence: where each actor's Root bone and the camera are, in world cm
+	for (ASkeletalMeshActor* A : ActorsSpawned)
+	{
+		if (!IsValid(A)) { continue; }
+		USkeletalMeshComponent* C = A->GetSkeletalMeshComponent();
+		const FName RootBone = C->GetNumBones() > 2 ? C->GetBoneName(2) : NAME_None;
+		const FVector R = RootBone.IsNone() ? A->GetActorLocation() : C->GetBoneLocation(RootBone);
+		const FVector Fwd = RootBone.IsNone() ? A->GetActorForwardVector() : C->GetBoneQuaternion(RootBone).GetAxisX();
+		UE_LOG(LogBullyCutscene, Display, TEXT("BR_CUTSCENESHOT   actor %s root=%s fwd=%s"), *A->Tags[0].ToString(), *R.ToCompactString(), *Fwd.ToCompactString());
+	}
+	if (Cam) { UE_LOG(LogBullyCutscene, Display, TEXT("BR_CUTSCENESHOT   camera at %s rot %s fov %.1f"), *Cam->GetActorLocation().ToCompactString(), *Cam->GetActorRotation().ToCompactString(), Cam->GetCameraComponent()->FieldOfView); }
 	++Shots.Next;
 	Shots.Hold = 0;
 	if (Shots.Next >= Shots.Times.Num()) { Shots.QuitAt = Now + 2.0; }

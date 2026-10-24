@@ -120,5 +120,14 @@ Same container as the other streamed banks (`audio-formats.md`): entry *i* is li
 - **None** (clean clone, or `-BRNoCutscenes`): the mission runs its fallback beats exactly as before.
 - Enter / gamepad right face button skips after a short grace period. Mission smoke runs skip each cutscene after 1.2 s.
 
+## 7. Mission speech (not wired yet)
+
+`audio/PLAYLIST/Speech.bin` / `Speech.lst` (40,400 entries) name scripted mission lines `<Speaker>_<mission>_<NNN>_v<k>.rsm`
+with the mission in cutscene-style form (`1-03`) and `NNN` the id the mission script passes to
+`SoundPlayScriptedSpeechEvent("M_1_03", NNN)`; `_v<k>` are alternate takes. **INFERRED** (ids in the ch1 recon notes
+appear as file numbers). The matching subtitle strings sit in the mission's own table (`Config/Text/<Language>.img/1_03.bin`),
+but their key format is **OPEN** (none of the obvious id/speaker/file-name spellings hash to a table entry), so the
+missions keep their own text lines for now.
+
 Open items: the `e0/e1` camera columns; the unknown subtitle key prefix; prop actors (car, tea set, slingshot, stone,
 board game) are not imported yet; whether the in-game cutscene camera should also apply the Offset_Node yaw to props.

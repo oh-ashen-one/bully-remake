@@ -230,6 +230,9 @@ bool UBullyCutsceneSubsystem::LoadData(const FString& Id, FBullyCutsceneData& Ou
 
 UBullyCutsceneSubsystem::ETier UBullyCutsceneSubsystem::Probe(const FString& Id)
 {
+	// -BRNoCutscenes: behave exactly like a clean clone with nothing imported (fallback verification)
+	static const bool bDisabled = FParse::Param(FCommandLine::Get(), TEXT("BRNoCutscenes"));
+	if (bDisabled) { return ETier::None; }
 	FBullyCutsceneData D;
 	if (!LoadData(Id, D) || (D.WavPath.IsEmpty() && D.Subs.Num() == 0) || D.Duration <= 0.f) { return ETier::None; }
 	if (!D.HasCamera()) { return ETier::Audio; }
@@ -548,6 +551,17 @@ void UBullyCutsceneSubsystem::TickShots(float Dt)
 		if (Shots.ReadyAt < 0.0) { Shots.ReadyAt = Now; }
 		if (Now - Shots.ReadyAt < Shots.Warmup) { return; }
 		Shots.bStarted = true;
+		// stand the (hidden) player at the scene so streaming/LOD/lighting are those of the cutscene's location
+		FBullyCutsceneData Peek;
+		if (LoadData(Shots.Id, Peek) && Peek.Actors.Num() > 0)
+		{
+			if (APawn* P = World->GetFirstPlayerController()->GetPawn())
+			{
+				const FVector At = Peek.Actors[0].Offset + FVector(0, 0, 120.0);
+				P->TeleportTo(At, P->GetActorRotation(), false, true);
+				UE_LOG(LogBullyCutscene, Display, TEXT("BR_CUTSCENESHOT player moved to %s (scene origin of %s)"), *At.ToCompactString(), *Peek.Actors[0].Name);
+			}
+		}
 		const bool bAudioOnly = FParse::Param(FCommandLine::Get(), TEXT("BRCutsceneAudioTier"));
 		if (Play(Shots.Id, nullptr, [this](bool) { Shots.QuitAt = GetWorld()->GetTimeSeconds() + 1.0; }, !bAudioOnly) == ETier::None)
 		{

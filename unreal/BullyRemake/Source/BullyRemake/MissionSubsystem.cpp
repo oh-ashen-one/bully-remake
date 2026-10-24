@@ -1191,6 +1191,9 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 		BeginStage(Index + 1, false);
 		return;
 	}
+	// sm-cutscenes: a stage can complete inside its own on_start (a cutscene that is not imported passes straight
+	// through), before TickSmoke ever samples it -- count it as seen when it begins
+	if (Smoke.bEnabled) { Smoke.StagesSeen.AddUnique(Index); }
 	const FMissionStage& St = Mission->Stages[Index];
 	StageStartTime = GetWorld()->GetTimeSeconds();
 	StageEvents.Reset();

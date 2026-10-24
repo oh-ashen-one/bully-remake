@@ -275,6 +275,22 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   stage-scoped, moved to the elf stages' on_start (the wave-A rule). Verified: 3_01A **PASS 4/4**, 3_01C **PASS
   3/3**, 3_01D **PASS 12/12**, 3_XM **PASS 8/8** (all incl. fail/retry), campaign **PASS 5/5**, full regression
   (all 40 prior missions) re-PASS.
+- **Ch3 Wave C (3_02, 3_S10)** — zero new C++. `3_02.json` (Bait, 6 stages: the intro, taunt-Gord social (the
+  insult/hit OR-gate is npc_insult_event/ped_hit_event work — he's untargetable so the hit branch is latent), the
+  cross-town lure with npc_follow Gord + the plain 120 s countdown, the warehouse fade hop (3_02_BMX.json, area
+  62), the reveal, and the brawl as three preps vs defender-Johnny + two greaser defenders (spawn_defender from
+  wave D; Johnny's KO fails). Smoke caught a real deadlock: leash-on-a-follow-target (driver chase-follows the
+  leash NPC while npc_follow trails the player — neither advances) — the leash was dropped as redundant with the
+  follow; lesson recorded). The bike chase/brawl are foot versions (bike_brawl_mode pending); the mission_spawner
+  harassers skipped; the clean/dirty outro variant always plays clean (Gord is unhittable in town — the check is
+  ped_hit_event-pending); the $10 clean-bait bonus pays via in-mission reward; the BMX park unlock rides the
+  campaign row (main.lua F_BMXGarage gating VERIFIED). `3_S10.json` (Tagging, 10 stages: money floor + spray
+  grant, into New Coventry, the tutorial tag as a timed-hold, the market restock, five tag spots — tag_prop_system
+  v1 IS the hold-interact per tag; the two real tut-adjacent tag volumes + three invented points beside the A/B/C
+  load triggers are marked (the per-tag coordinates aren't in the extract), the greasers outro with the $30
+  accumulated-cash compression; consumable watchdog stubbed by the start grant; free tagging rides the campaign
+  row). Verified: 3_02 **PASS 6/6**, 3_S10 **PASS 10/10** (both incl. fail/retry), campaign **PASS 5/5**, full
+  regression (all 44 prior missions) re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

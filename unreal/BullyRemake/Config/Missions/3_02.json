@@ -1,0 +1,107 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "3_02 'Bait' — fresh off Jealous Johnny: find Gord in the business district, taunt him into a rage, and lure him across town into the BMX warehouse where Johnny Vincent's greasers are waiting (recon: docs/re-notes/ch3/3_02-bait.md; the interior is imported/triggers/3_02_BMX.json — the second DAT, VERIFIED there). v1 simplifications (see the recon's gap table): the baked 3-02 intro is a title card + speech beat; the provoke is a taunt SOCIAL (the insult-callback/hit OR-gate is npc_insult_event + ped_hit_event work — Gord is untargetable here so the hit branch is latent); Gord's 'chase' across town is our npc_follow (he trails the player at follow distance — lure_to_zone's hostile-chase version is pending; the 60 m watchdog is redundant with the follow (and leash-driving a follow target deadlocks the pair — caught in the smoke), so the pace fail is just the plain visible 120 s countdown — the recon flags the original's stop-not-restart asymmetry as OPEN, ours just burns); the bikes are gone (no vehicle bundle — the bike chase and the PedBikeBrawl brawl are foot versions, documented; bike_brawl_mode pending); the mission spawner of bike harassers is skipped (mission_spawner is a real subsystem, pending); the warehouse reveal is a letterbox speech beat (the skippable 4-camera NIS compresses); the brawl is three prep waves vs defender-Johnny + two greaser defenders (spawn_defender from wave D — their KOs fail, matching cbCriticalJohnny); the garage door prop choreography is the fade hop. The Gord-untouched outro variant: our town phase has no way to hit Gord, so the clean variant always plays — the $10 bonus pays via the in-mission reward (the variant check is ped_hit_event-pending). Pass: $20 + the BMX park unlock flag via the campaign on_pass (main.lua F_BMXGarage gating VERIFIED there); greasers +5 / preps -5 relative (omitted, set-only table). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "3_02",
+  "title": "Bait",
+  "retry": "stage",
+  "start": { "location_cm": [50511.6, 22421.4, 231.8], "yaw": 0 },
+  "trigger_file": "imported/triggers/3_02.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Johnny wants Gord delivered to the bike park.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "BAIT", "sub": "The Vale. Gord's riding circles like he owns the place.", "seconds": 3 },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "JIMMY", "text": "Johnny's plan: make Gord furious enough to chase me across town — right into the greasers' garage. Bait him, don't beat him.", "seconds": 4.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "find_gord",
+      "objective": "Find Gord in the business district and taunt him.",
+      "blip": "3_02_GORD",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "gord", "point": "3_02_GORD", "mesh": "GN_Boy01", "ped_model_id": 30, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "escort", "point": "3_02_PREP1", "mesh": "GN_Boy02", "ped_model_id": 34, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "3_02_GORD", "radius_cm": 600 },
+        { "type": "social", "actor_tag": "br_npc_gord", "radius_cm": 300, "prompt": "Taunt Gord" }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:gord", "latched": true },
+      "fail_text": "Gord got knocked out — the bait's ruined.",
+      "on_complete": [
+        { "type": "say", "speaker": "JIMMY", "text": "Nice bike. Your girlfriend say you could have it?", "seconds": 2.5 },
+        { "type": "say", "speaker": "GORD", "text": "WHAT did you say?! You're DEAD, Hopkins!", "seconds": 2.5 },
+        { "type": "npc_despawn", "npc": "escort" }
+      ]
+    },
+    {
+      "id": "lure",
+      "objective": "Lure Gord to the BMX park — don't lose him!",
+      "blip": "3_02_PARKSPAWN",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 120, "visible": true, "event": "countdown:chase_out" },
+        { "type": "npc_follow", "npc": "gord", "dist": 300, "gait": "sprint" },
+        { "type": "say", "speaker": "GORD", "text": "Come here, you little— GET BACK HERE!", "seconds": 2.5 }
+      ],
+      "complete": { "type": "reach_location", "point": "3_02_PARKSPAWN", "radius_cm": 800 },
+      "fail": { "type": "event", "name": "countdown:chase_out", "latched": true },
+      "fail_text": "Gord lost the trail.",
+      "on_complete": [ { "type": "countdown_cancel" } ]
+    },
+    {
+      "id": "reveal",
+      "objective": "Into the warehouse...",
+      "blip": false,
+      "on_start": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "3_02_WHPLAYER" },
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "reveal", "lines": [
+          { "speaker": "JOHNNY", "text": "Well well. Gord. Thanks for dropping by.", "seconds": 3 },
+          { "speaker": "GORD", "text": "The bike park?! HOPKINS, YOU—", "seconds": 2.5 },
+          { "speaker": "JOHNNY", "text": "Get 'em, boys.", "seconds": 2 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:reveal", "latched": true }
+    },
+    {
+      "id": "brawl",
+      "objective": "The brawl. Greasers vs preps.",
+      "blip": false,
+      "on_start": [
+        { "type": "npc_despawn", "npc": "gord" },
+        { "type": "spawn_defender", "npc": "johnny", "point": "3_02_WHJOHN", "mesh": "GN_Bully04", "ped_model_id": 23 },
+        { "type": "spawn_defender", "npc": "gr1", "point": "3_02_WHGR1", "mesh": "GN_Bully02", "ped_model_id": 24 },
+        { "type": "spawn_defender", "npc": "gr2", "point": "3_02_WHGR2", "mesh": "GN_Bully03", "ped_model_id": 27 },
+        { "type": "spawn_wave", "group": "preps", "points": ["3_02_WHGORD", "3_02_WHPREP1", "3_02_WHPREP2"], "mesh": "GN_Boy01", "hostile": true, "target": "johnny" }
+      ],
+      "complete": { "type": "event", "name": "wave:preps", "latched": true },
+      "fail": { "type": "event", "name": "npc_ko:johnny", "latched": true },
+      "fail_text": "Johnny went down."
+    },
+    {
+      "id": "outro",
+      "objective": "The bike park belongs to the greasers.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "JOHNNY", "text": "You led him here clean — never even laid a finger on him. Beautiful bait work, Hopkins.", "seconds": 3.5 },
+          { "speaker": "JOHNNY", "text": "The park's ours now. And this — this is yours.", "seconds": 3 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "reward", "money": 10, "text": "Clean bait bonus: $10" },
+        { "type": "log", "text": "campaign on_pass for 3_02 pays $20 + unlocks bmx_park (the main.lua F_BMXGarage gating is VERIFIED in the recon); the clean/dirty outro variant check is ped_hit_event-pending (ours always plays clean — Gord is untargetable in town)" }
+      ]
+    }
+  ]
+}

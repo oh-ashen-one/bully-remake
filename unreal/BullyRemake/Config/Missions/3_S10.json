@@ -1,0 +1,116 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "3_S10 'Tagging' — spray five greaser-territory tags across New Coventry: the tutorial tag under the bridge, a spray-can restock at the market, then five spots, then the greasers-get-angry outro (recon: docs/re-notes/ch3/3_S10-tagging.md). **tag_prop_system v1 = the timed hold-interact per tag** ('Spraying the tag...' — the prop state graph invisible->Useable->Tagged and the trace minigame are engine-side, pending; the recon flags the tagging minigame itself as a remake dependency). The 29-tag table's per-tag coordinates are NOT in the extract (the recon carries ids + cash values only), so the five mission tags are: the two real tut-adjacent tag volumes (3_S10_Tut_Tag02/03) + three invented points beside the batch load triggers A/B/C (marked; tag_a/b/c). Batches/altitude blips/persistent-tag mode are documented pending. The spray-can economy: money_ensure $1 floor at start (the original's floor) + a restock buy at the market; the refresher watchdog (always keep 1 spray) is narrative (give_item at start; consumable_watchdog pending); the broke-and-dry fail is moot under the floor (documented). The leave-the-poor-area fail is skipped (its volumes are area-0 boxes; armed-by-progress variant pending). Per-tag cash accumulates into one $30 pass reward (money_reward_accumulator pending; the original shows the accumulated sum in the banner). Preppies +5 / greasers -25 are relative (omitted — set-only table; respect_delta pending); free tagging unlocks via the campaign on_pass's free_tagging flag (the SMissPass 3_S10 spray-crate overrides are VERIFIED there — the world loot is world-state work). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "3_S10",
+  "title": "Tagging",
+  "retry": "stage",
+  "start": { "location_cm": [10306.4, 13224.0, 675.3], "yaw": 0 },
+  "trigger_file": "imported/triggers/3_S10.json",
+  "points": {
+    "tag_tut2": { "location_cm": [48698.1, 25746.1, 248.0] },
+    "tag_tut3": { "location_cm": [47049.9, 28091.8, 266.4] },
+    "tag_a": { "location_cm": [51560.8, 29362.4, 159.4] },
+    "tag_b": { "location_cm": [48483.8, 42360.5, 28.1] },
+    "tag_c": { "location_cm": [52397.8, 45811.0, 137.8] }
+  },
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Greaser territory could use some color.",
+      "blip": "3_S10_PoorAreaBlip",
+      "on_start": [
+        { "type": "banner", "text": "TAGGING", "sub": "New Coventry's walls are blank canvases.", "seconds": 3 },
+        { "type": "money_ensure", "money": 1 },
+        { "type": "give_item", "item": "spray", "n": 1 },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "JIMMY", "text": "A can of spray paint and the whole poor side of town to sign. Time to make a mark.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "to_poor",
+      "objective": "Head into New Coventry.",
+      "blip": "3_S10_PoorAreaBlip",
+      "complete": { "type": "reach_location", "point": "3_S10_PoorAreaBlip", "radius_cm": 800 }
+    },
+    {
+      "id": "tutorial_tag",
+      "objective": "The first tag — under the bridge.",
+      "blip": "3_S10_TutBlip",
+      "on_start": [
+        { "type": "minigame_launch", "id": "tut", "point": "3_S10_TutBlip", "radius_cm": 300, "seconds": 2.5, "text": "Spraying the tag..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:tut_ok", "latched": true },
+      "on_complete": [ { "type": "say", "speaker": "JIMMY", "text": "Not bad. Five more, bigger and bolder.", "seconds": 2.5 } ]
+    },
+    {
+      "id": "buy_spray",
+      "objective": "Restock at the market.",
+      "blip": "3_S10_Market",
+      "complete": { "type": "reach_location", "point": "3_S10_Market", "radius_cm": 600 },
+      "on_complete": [
+        { "type": "money_take", "money": 1 },
+        { "type": "give_item", "item": "spray", "n": 1 },
+        { "type": "say", "speaker": "CLERK", "text": "Spray cans. Again. Painting anything nice?", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "tag1",
+      "objective": "Tag five spots: one.",
+      "blip": "tag_tut2",
+      "on_start": [ { "type": "minigame_launch", "id": "tag1", "point": "tag_tut2", "radius_cm": 300, "seconds": 2.5, "text": "Spraying the tag..." } ],
+      "complete": { "type": "event", "name": "minigame:tag1_ok", "latched": true }
+    },
+    {
+      "id": "tag2",
+      "objective": "Tag five spots: two.",
+      "blip": "tag_tut3",
+      "on_start": [ { "type": "minigame_launch", "id": "tag2", "point": "tag_tut3", "radius_cm": 300, "seconds": 2.5, "text": "Spraying the tag..." } ],
+      "complete": { "type": "event", "name": "minigame:tag2_ok", "latched": true }
+    },
+    {
+      "id": "tag3",
+      "objective": "Tag five spots: three.",
+      "blip": "tag_a",
+      "on_start": [ { "type": "minigame_launch", "id": "tag3", "point": "tag_a", "radius_cm": 300, "seconds": 2.5, "text": "Spraying the tag..." } ],
+      "complete": { "type": "event", "name": "minigame:tag3_ok", "latched": true },
+      "on_complete": [ { "type": "hint", "text": "The greasers are noticing your handiwork.", "seconds": 3 } ]
+    },
+    {
+      "id": "tag4",
+      "objective": "Tag five spots: four.",
+      "blip": "tag_b",
+      "on_start": [ { "type": "minigame_launch", "id": "tag4", "point": "tag_b", "radius_cm": 300, "seconds": 2.5, "text": "Spraying the tag..." } ],
+      "complete": { "type": "event", "name": "minigame:tag4_ok", "latched": true }
+    },
+    {
+      "id": "tag5",
+      "objective": "Tag five spots: the last one.",
+      "blip": "tag_c",
+      "on_start": [ { "type": "minigame_launch", "id": "tag5", "point": "tag_c", "radius_cm": 300, "seconds": 2.5, "text": "Spraying the tag..." } ],
+      "complete": { "type": "event", "name": "minigame:tag5_ok", "latched": true }
+    },
+    {
+      "id": "outro",
+      "objective": "The greasers found your tags.",
+      "blip": "3_S10_Greasers",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "greaser1", "point": "3_S10_Greasers", "mesh": "GN_Bully04", "ped_model_id": 22, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "greaser2", "point": "3_S10_Greasers", "mesh": "GN_Bully03", "ped_model_id": 24, "invulnerable": true, "untargetable": true },
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "GREASER", "text": "Yo! Who tags OUR streets?! ...Wait. That's actually good work.", "seconds": 3 },
+          { "speaker": "GREASER2", "text": "Johnny's gonna hear about this, Hopkins.", "seconds": 2.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "reward", "money": 30, "text": "Tags seen all over town: $30" },
+        { "type": "log", "text": "campaign on_pass for 3_S10 sets free_tagging (the spray-crate loot overrides are world-state work); per-tag cash accumulator + prop state graph documented pending (see _note)" }
+      ]
+    }
+  ]
+}

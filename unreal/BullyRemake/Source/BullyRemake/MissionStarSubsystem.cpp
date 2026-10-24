@@ -341,6 +341,20 @@ void UMissionStarSubsystem::TickSmoke(float Dt)
 			FString::Printf(TEXT("1_09 pass -> clock paused=%d; 1_B pass -> chapter=%d (want 2), force-completes=%d, respect bullies=%d nerds=%d jocks=%d"),
 				bClockPaused ? 1 : 0, Camp->GetChapter(), bForced ? 1 : 0,
 				Camp->GetRespect(TEXT("bullies")), Camp->GetRespect(TEXT("nerds")), Camp->GetRespect(TEXT("jocks"))));
+		// check 5: the chapter-2 boss arc — 2_B's pass takes the campaign to chapter 3 (force-completing the
+		// level-2 classes, preppies 100), and the Chapt2Trans handoff seeds the chapter-3 faction table
+		Camp->NotifyPassed(TEXT("2_09"));
+		Camp->NotifyPassed(TEXT("2_B"));
+		const bool bCh3 = Camp->GetChapter() == 3;
+		const bool bForced2 = Camp->IsCompleted(TEXT("C_Chem_2")) && Camp->IsCompleted(TEXT("C_Art_2")) && Camp->IsCompleted(TEXT("C_Wrestling_2"))
+			&& Camp->IsCompleted(TEXT("C_English_2")) && Camp->IsCompleted(TEXT("C_Photography_1")) && Camp->IsCompleted(TEXT("C_Photography_2"));
+		const bool bPrep100 = Camp->GetRespect(TEXT("preppies")) == 100;
+		Camp->NotifyPassed(TEXT("Chapt2Trans"));
+		const bool bFactions = Camp->GetRespect(TEXT("bullies")) == 100 && Camp->GetRespect(TEXT("nerds")) == 85 && Camp->GetRespect(TEXT("preppies")) == 100
+			&& Camp->GetRespect(TEXT("greasers")) == 50 && Camp->GetRespect(TEXT("jocks")) == 45 && Camp->GetRespect(TEXT("townies")) == 0;
+		SmokeCheck(TEXT("5_ch2_arc"), bCh3 && bForced2 && bPrep100 && bFactions,
+			FString::Printf(TEXT("2_B pass -> chapter=%d (want 3), lvl-2 force-completes=%d, preppies=%d; Chapt2Trans -> faction table=%d"),
+				Camp->GetChapter(), bForced2 ? 1 : 0, Camp->GetRespect(TEXT("preppies")), bFactions ? 1 : 0));
 		Smoke.Phase = 11; Smoke.PhaseAt = Smoke.Elapsed;
 		return;
 	}

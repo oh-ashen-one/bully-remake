@@ -1,0 +1,52 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_R03 'Paper Route' — the repeatable rich-neighborhood delivery job, v1 (recon: docs/re-notes/ch2/2_R03-paper-route.md — the 2_R* ids are town jobs, NOT races; the recon flags the original assignment guess as wrong). **No PaperRoute.DAT / Mailboxes_Rich.DAT was ever extracted** — the route plays across 2_04's rich-neighborhood geography (borrowed trigger file), with the seven mailboxes as stationary target dummies at that file's own beach-head cluster points (the mailbox props aren't drivable world props — same posture as 1_04/2_S02/2_05). TIER DECISION: single-tier v1 in the tier-0 tutorial shape (35 s hilltop dash, 7 deliveries) — the difficulty ladder is indexed by GetMissionSuccessCount('2_R03_X') in the original, our completion is one-shot and the campaign has no cross-run counter, so repeatable_job_tiers is recorded as pending (attempt counts are per-launch retries, not success counts — deliberately not abused). v1 simplifications (see the recon's gap table): the vendor intro NIS is a speech beat; the mission bike (delete-current + grant + auto-mount) is skipped (vehicle_grant pending — the route is on foot); a delivered paper is a smashed target dummy, not a projectile-hit mailbox (deliverable_target_props pending); the per-paper payout accumulates into one $14 pass reward (7 x $2 — money_reward_accumulator pending; the original pays 200 cents per paper through the banner + stat 171); ALL hazards are skipped (dogs/cars/rival mailmen/eggers/old-lady gag — hazard_randomizer + vehicle_hazard_controller pending); the out-of-papers grace fail and the short-of-quota timer fail are skipped (no ammo economy); population/vehicle/bus-stop overrides are skipped. No SMissPass entry (VERIFIED absence). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_R03",
+  "title": "Paper Route",
+  "retry": "stage",
+  "start": { "location_cm": [28937.7, -29533.5, 446.2], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_04.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "The news vendor needs a runner.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "PAPER ROUTE", "sub": "Morning edition, rich side of town.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "vendor", "point": "2_04_Owner", "mesh": "TO_Mailman", "ped_model_id": 116, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "NEWS VENDOR", "text": "Papers, kid. Seven houses minimum, up the hill and back. The route pays two bucks a door.", "seconds": 4 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "hilltop",
+      "objective": "Get up to the route — 35 seconds!",
+      "blip": "2_04_FirstNode",
+      "on_start": [
+        { "type": "countdown_start", "seconds": 35, "visible": true, "event": "countdown:route_out" }
+      ],
+      "complete": { "type": "reach_location", "point": "2_04_FirstNode", "radius_cm": 800 },
+      "fail": { "type": "event", "name": "countdown:route_out", "latched": true },
+      "fail_text": "The papers went stale.",
+      "on_complete": [ { "type": "countdown_cancel" } ]
+    },
+    {
+      "id": "deliver",
+      "objective": "Deliver to seven mailboxes!",
+      "blip": true,
+      "on_start": [
+        { "type": "spawn_wave", "group": "mailboxes", "points": ["2_04_Prep1", "2_04_Prep2", "2_04_Prep3", "2_04_Owner", "2_04_RaceCorona", "2_04_PlayerEnd", "2_04_PlayerBikeEnd"], "mesh": "GN_Bully02", "hostile": false, "advance_at": 7 },
+        { "type": "hint", "text": "Hit every marked mailbox.", "seconds": 3 }
+      ],
+      "complete": { "type": "event", "name": "wave:mailboxes", "latched": true },
+      "on_complete": [
+        { "type": "say", "speaker": "NEWS VENDOR", "text": "Every house, on time. You're hired tomorrow too, kid.", "seconds": 3 },
+        { "type": "reward", "money": 14, "text": "Route done: $14" },
+        { "type": "log", "text": "single-tier v1 (tier-0 shape); the success-count ladder + per-paper payout accumulator are documented pending (see _note)" }
+      ]
+    }
+  ]
+}

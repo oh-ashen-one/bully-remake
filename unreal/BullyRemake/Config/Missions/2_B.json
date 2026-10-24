@@ -1,0 +1,91 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_B — the Darby Harrington boss fight, the actual Chapter 2 boss (recon: docs/re-notes/ch2/2_B-darby-boss-fight.md): chained from 2_09's win (the gateway), in the boxing gym (area 27). Darby's opening chase plays on the real _2_B_DARBY_FLEE path to his rest point (the original SKIPS it on restart via IsMissionFromRestart — VERIFIED; our retry:\"stage\" never replays it either), the two posted prep pairs fight, the ring intro is a letterbox speech exchange, and the boss fight is Darby (hits_to_beat 6 standing in for 300 HP with the x0.2 damage-taken multipliers; boss_bar) plus one summoned pair from the door spawn points — win requires Darby AND his summons down, matching the original's 'Darby HP <= 0 with no preps alive'. STUBBED GAPS (the wave's named deep systems, documented per the recon's gap table): boss_rest_cycle (the 5 s-after-each-wave retreat/vault/return cadence, HP phase maxima), summon_wave_from_doors (continuous 2-at-a-time summons with the no-repeat model rule and the immortal first pair), door_barricade_prop (bracing the two DRBrace doors to cut the spawns — with one fixed summon pair there is nothing to brace), projectile_dodge_window + the bar bottle throws, the health pickups (50%/forced-100%-under-40%), and the doors-lock choreography. Biff lies KO'd ringside in the original — ours is a standing invulnerable color NPC (no lying pose in the stand-in set). The boxing outfit backup/swap, weapon snapshot, and punishment-off are skipped (those systems are pending). The pass chains into Chapt2Trans via mission on_complete start_mission (mirrors 1_B -> Chapt1Trans). Pass side effects live in the campaign row (chapter_set 3 + level-2 force-completes + preppies 100 + yearbook_darby — SMissPass VERIFIED). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_B",
+  "title": "Boxing Challenge: Darby",
+  "retry": "stage",
+  "start": { "location_cm": [-70960.0, -37340.0, 29514.4], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_B.json",
+  "stages": [
+    {
+      "id": "opening",
+      "objective": "Darby runs his mouth — and runs.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "DARBY HARRINGTON", "sub": "The real champion of Bullworth Vale.", "seconds": 3 },
+        { "type": "letterbox", "on": true },
+        { "type": "spawn_npc", "npc": "darby", "point": "2_B_DARBY_START", "mesh": "GN_Bully05", "ped_model_id": 37, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "biff", "point": "2_B_BIFF", "mesh": "GN_Bully03", "ped_model_id": 133, "invulnerable": true, "untargetable": true },
+        { "type": "say", "speaker": "DARBY", "text": "The gym rat who beat my champion. Come — let me show you how a HARRINGTON fights.", "seconds": 3.5 },
+        { "type": "npc_move_to", "npc": "darby", "via": ["2_B_DARBY_FLEE"], "point": "2_B_DARBY_REST", "gait": "sprint" },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "npc_arrived:darby", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" },
+      "_retry_note": "the original skips this chase on restart (IsMissionFromRestart, VERIFIED) — our retry:stage never replays it anyway"
+    },
+    {
+      "id": "first_wave",
+      "objective": "Darby's posted guards want a word.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "first", "points": ["2_B_PREP_02", "2_B_PREP_03"], "mesh": "GN_Boy01", "hostile": true },
+        { "type": "spawn_wave", "group": "ring", "points": ["2_B_PREP_06", "2_B_PREP_10"], "mesh": "GN_Boy02", "hostile": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "wave:first", "latched": true },
+        { "type": "event", "name": "wave:ring", "latched": true }
+      ] }
+    },
+    {
+      "id": "ring_intro",
+      "objective": "Darby takes the ring.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "ring", "lines": [
+          { "speaker": "DARBY", "text": "Boys, boys — sit this one out. Watch a gentleman work.", "seconds": 3 },
+          { "speaker": "DARBY", "text": "You embarrassed my club, Hopkins. That simply isn't done.", "seconds": 3 },
+          { "speaker": "JIMMY", "text": "Your club sucks, Darby.", "seconds": 2.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:ring", "latched": true }
+    },
+    {
+      "id": "boss",
+      "objective": "Beat Darby Harrington.",
+      "blip": false,
+      "on_start": [
+        { "type": "npc_despawn", "npc": "darby" },
+        { "type": "spawn_wave", "group": "darby_fight", "points": ["2_B_DARBY_FIGHT"], "mesh": "GN_Bully05", "hostile": true, "hits_to_beat": 6 },
+        { "type": "boss_bar", "group": "darby_fight", "label": "DARBY HARRINGTON", "half_line": "Darby's smirk is GONE." },
+        { "type": "spawn_wave", "group": "summon", "points": ["2_B_DOOR01_PREP_SPAWN", "2_B_DOOR02_PREP_SPAWN"], "mesh": "GN_Boy01", "hostile": true },
+        { "type": "say", "speaker": "DARBY", "text": "Boys! Softening him up — then I finish him personally.", "seconds": 3 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "wave:darby_fight", "latched": true },
+        { "type": "event", "name": "wave:summon", "latched": true }
+      ] },
+      "_gaps_note": "boss_rest_cycle (retreat/vault/return cadence), summon_wave_from_doors (2-at-a-time respawns + immortal first pair), door_barricade_prop (brace the summon doors to cut spawns), projectile_dodge_window and the bottle throws from the bar are stubbed to a single summon pair + a straight boss fight (see _note)"
+    },
+    {
+      "id": "outro",
+      "objective": "The gym falls silent.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "DARBY", "text": "This... isn't... over...", "seconds": 2.5 },
+          { "speaker": "JIMMY", "text": "It is. The Vale just learned winter's over.", "seconds": 3 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "log", "text": "campaign on_pass for 2_B: ChapterSet(3), level-2 class force-completes (+C_Photography_1), preppies 100, yearbook_darby; the baked 2-BB cutscene is the speech beat; chains into Chapt2Trans" }
+      ]
+    }
+  ],
+  "on_complete": [ { "type": "start_mission", "mission": "Chapt2Trans", "seconds": 1.5 } ]
+}

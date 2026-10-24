@@ -214,6 +214,28 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   Verified: `2_S06` **PASS 10/10**, `2_S05` **PASS 6/6**, `2_S05B` **PASS 8/8** (all incl. fail/retry), campaign
   **PASS 4/4**, full regression (all 31 prior missions) re-PASS. **Chapter 2's scripted missions are done except
   2_09/2_B/Chapt2Trans** (boxing gateway + Darby boss + the transition) and the 2_R03/2_R04 town jobs.
+- **Ch2 Waves G+H (the finale: 2_09, 2_B, Chapt2Trans + the town jobs 2_R03, 2_R04)**: `2_09.json` (Boxing
+  Challenge, 4 stages: the snowy-approach reach (snow is weather-force-pending), the gym fade hop, the weigh-in,
+  the Bif match as hits_to_beat 8 + boss_bar — the whole Boxing_util round/stun/get-up/decision system is the
+  documented compression). `2_B.json` (Darby boss, 5 stages: the opening flee on the real 2_B_DARBY_FLEE path (the
+  original skips it on restart; our retry:stage does too), the two posted prep pairs, the ring-intro exchange, then
+  Darby (hits_to_beat 6 for 300 HP x0.2-taken) + one summoned door pair — win needs BOTH down, matching 'Darby HP
+  <= 0 with no preps alive'; boss_rest_cycle / summon_wave_from_doors / door_barricade_prop /
+  projectile_dodge_window / bottle throws are the documented stubs). `Chapt2Trans.json` (1 stage: fixed aerial of
+  the construction vignette (camera-rail playback pending), CHAPTER 3 card, three narration lines, clock 08:30,
+  the dorm handoff with a wandering Pete; Christmas entities + the baked 3-0 intro logged as out of scope).
+  Chains wired like 1_B: 2_09 on_complete -> start_mission 2_B -> start_mission Chapt2Trans. The campaign smoke
+  grew check 5 (`5_ch2_arc`: 2_B pass -> chapter 3 + level-2 force-completes + preppies 100; Chapt2Trans -> the
+  ch3 faction table) — **PASS 5/5**. Wave H (verification held green, so the jobs rode along): `2_R03.json` (Paper
+  Route: single-tier v1 in the tier-0 shape — 35 s hilltop dash + 7 mailbox dummies across 2_04's borrowed
+  beach-head geography (no PaperRoute.DAT), one $14 pass reward; repeatable_job_tiers + per-paper accumulator +
+  all hazards documented pending) and `2_R04.json` (Firefighter: single-area v1 — the briefing, the call, three
+  fire dummies on 2_01's borrowed business block (no 2_R04.DAT); fire_prop_system + the cross-run area ladder
+  (shared.g2SS07MissionState / the 2_S07 wrapper, OPEN) documented pending; no payout, matching the original
+  script). Verified: 2_09 **PASS 4/4**, 2_B **PASS 5/5**, Chapt2Trans **PASS 1/1**, 2_R03/2_R04 **PASS 3/3**
+  (fail/retry where present), campaign **PASS 5/5**, full regression (all 34 prior missions) re-PASS.
+  **Chapter 2 is DONE** — every catalog Ch2 mission + the jobs have real, headless-verified mission files, and the
+  campaign arc demonstrably reaches chapter 3.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

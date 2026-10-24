@@ -1,0 +1,68 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_09 'Boxing Challenge' — the chapter-2 boss GATEWAY: walk to the boxing club in the Vale snow, enter the ring, and take Bif's belt; the KO hands straight off to 2_B (Darby) (recon: docs/re-notes/ch2/2_09-boxing-challenge.md — the script is a thin wrapper around Boxing_util.lua, so the match IS the minigame). v1 simplifications (see the recon's gap table): the forced snow is skipped (weather_force pending); the two baked cutscenes (2-09, 2-09B) are title-card + speech beats; the door EntityInteract prompt is a reach beat; the entire Boxing_util match — 40 s rounds, corner resets, between-round heals, stun regen windows, knockdown/get-up struggle with tree-called difficulty conditions, damage-stage model swaps, the 12-round health-% decision, the contextual 2D commentary — compresses to one boss fight (hits_to_beat 8 + boss_bar 'BIF'; round_loop/stun_state_event/ko_count_getup_difficulty/decision_by_health_percent/contextual_commentary all recorded as pending); the boxing outfit swap, weapon strip + inventory snapshot, fighting-system switch and the ringside crowd are skipped (clothing/weapon systems pending; crowd_ring exists but the ring has no geometry for it to read); the clock pause from BoxingMissionSetup is real (clock pause/unpause); stat 180/181 counters are not built. The win chains into 2_B via mission on_complete start_mission (the original plays the baked 2-B cutscene inline then the table hands off — same net effect). No SMissPass case for 2_09 (VERIFIED absence — the chapter unlocks hang off 2_B). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_09",
+  "title": "Boxing Challenge",
+  "retry": "stage",
+  "start": { "location_cm": [23012.6, -24252.1, 403.0], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_09.json",
+  "points": {
+    "ring": { "location_cm": [-72296.3, -36793.8, 29442.0] }
+  },
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "The boxing club is calling.",
+      "blip": "2_09_BoxingClubDoor",
+      "on_start": [
+        { "type": "banner", "text": "BOXING CHALLENGE", "sub": "Old Bullworth Vale. The gym crowd is watching.", "seconds": 3 },
+        { "type": "clock", "pause": true },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "JIMMY", "text": "Bif Taylor. Undefeated. Rich. About to be two out of three.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "approach",
+      "objective": "Get to the boxing club.",
+      "blip": "2_09_BoxingClubDoor",
+      "complete": { "type": "reach_location", "point": "2_09_BoxingClubDoor", "radius_cm": 500 },
+      "on_complete": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "2_09_Cutscene1" },
+        { "type": "log", "text": "into the gym (area 27); the door interact prompt is a reach beat; snow is weather-force-pending" }
+      ]
+    },
+    {
+      "id": "weigh_in",
+      "objective": "Bif is waiting in the ring.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "weigh_in", "lines": [
+          { "speaker": "BIF", "text": "The scholarship kid wants a title shot. Adorable. Try not to bleed on the canvas.", "seconds": 3.5 },
+          { "speaker": "JIMMY", "text": "Touch gloves. Then count the lights.", "seconds": 2.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:weigh_in", "latched": true }
+    },
+    {
+      "id": "match",
+      "objective": "Beat Bif. Take the belt.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "bif", "points": ["ring"], "mesh": "GN_Bully05", "hostile": true, "hits_to_beat": 8 },
+        { "type": "boss_bar", "group": "bif", "label": "BIF TAYLOR", "half_line": "Bif is hurt! He can't keep this up!" },
+        { "type": "say", "speaker": "CROWD", "text": "FIGHT! FIGHT! FIGHT!", "seconds": 2 }
+      ],
+      "complete": { "type": "event", "name": "wave:bif", "latched": true },
+      "on_complete": [
+        { "type": "clock", "unpause": true },
+        { "type": "say", "speaker": "BIF", "text": "...best man won. Darby will want a word about this.", "seconds": 3 }
+      ]
+    }
+  ],
+  "on_complete": [ { "type": "start_mission", "mission": "2_B", "seconds": 1.5 } ]
+}

@@ -1,0 +1,53 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_R04 'Firefighter' — the volunteer extinguisher job, v1 (recon: docs/re-notes/ch2/2_R04-firefighter.md — like 2_R03, a repeatable town job, not a race). **No 2_R04.DAT was ever extracted** — the fire call plays in 2_01's business-district geography (borrowed trigger file); the three burning props are stationary target dummies at invented points clustered on the 2_01_GeneralStore block (marked; the original's 24 registered PAnim props with per-model burn tuning aren't drivable world props). TIER DECISION: single-tier v1, ONE area (the ladder's first rung — the original registers only 'Downtown' anyway, the PoorHouse region is vestigial there); the cross-run area ladder lives in shared.g2SS07MissionState (a 2_S07 wrapper we haven't recon'd — job_escalation_shared_state recorded as pending). v1 simplifications (see the recon's gap table): the fireman's conversation-tree briefing is two speech beats (the conv tree owns all voice in the original; M_2_R04 doesn't exist); the briefing plays on every attempt, not just the first (IsMissionFromRestart skip — our retry restarts the current stage, so it only replays if you fail it, noted); the extinguisher is a narrative item (no weapon model on mission items yet); the fires are target dummies (fire_prop_system — FireCreate/fire health/burn-down-fail — pending); the prop-burned-down fail is skipped (no fire damage model); random_objective_area collapses to the fixed single area. No payout anywhere in the original script (VERIFIED — the wrapper presumably pays, OPEN) — our pass pays nothing either. Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "2_R04",
+  "title": "Firefighter",
+  "retry": "stage",
+  "start": { "location_cm": [58741.5, 4731.2, 834.2], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_01.json",
+  "points": {
+    "fire1a": { "location_cm": [53499.3, 8530.6, 682.4] },
+    "fire1b": { "location_cm": [53299.3, 8330.6, 682.4] }
+  },
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "The firehouse needs a volunteer.",
+      "blip": "2_01_BusStopPoint",
+      "on_start": [
+        { "type": "banner", "text": "FIREFIGHTER", "sub": "Downtown volunteer call.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "fireman", "point": "2_01_BusStopPoint", "mesh": "TO_Construct01", "ped_model_id": 82, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "FIREMAN", "text": "You look strong. Block's reporting fires — grab an extinguisher and put them out before they burn down.", "seconds": 4 },
+          { "speaker": "FIREMAN", "text": "Spray till they're out. And kid — don't let the props burn through.", "seconds": 3 }
+        ] },
+        { "type": "give_item", "item": "extinguisher", "n": 1 }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "call",
+      "objective": "Fire call — the general store block!",
+      "blip": "2_01_GeneralStore",
+      "complete": { "type": "reach_location", "point": "2_01_GeneralStore", "radius_cm": 800 },
+      "on_complete": [ { "type": "say", "speaker": "JIMMY", "text": "Smoke. There — three of them going up.", "seconds": 2.5 } ]
+    },
+    {
+      "id": "extinguish",
+      "objective": "Put out every fire!",
+      "blip": true,
+      "on_start": [
+        { "type": "spawn_wave", "group": "fires", "points": ["2_01_GeneralStore", "fire1a", "fire1b"], "mesh": "GN_Bully03", "hostile": false, "advance_at": 3 },
+        { "type": "hint", "text": "Spray them all down.", "seconds": 3 }
+      ],
+      "complete": { "type": "event", "name": "wave:fires", "latched": true },
+      "on_complete": [
+        { "type": "take_item", "item": "extinguisher", "n": 1 },
+        { "type": "say", "speaker": "FIREMAN", "text": "All out. Not bad for a volunteer. Same time next week?", "seconds": 3 },
+        { "type": "log", "text": "single-area v1 (ladder rung 1); no payout in the original script (the 2_S07 wrapper question is OPEN) — campaign on_pass stays empty" }
+      ]
+    }
+  ]
+}

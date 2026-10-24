@@ -1,0 +1,105 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "2_S04 'Character Sheets' — Melvin's side mission: four character sheets held by bullies at four spots around the school grounds; KO each stash guard, collect all four, return them to Melvin at the library (recon: docs/re-notes/ch1/2_S04-character-sheets.md). Engine evidence places it at the Ch1->2 boundary (SMissPass F_LaunchingMission fires the Chapt1Trans dependency on launch), so the campaign table lists it as chapter-2-onset even though fan canon calls it a chapter-1 side mission — contradiction flagged in the recon. v1 simplifications (see the recon's gap table): the sheets collect in a fixed order (the original is any-order with four concurrent monitors); each stash is one hostile guard at the guard point instead of its bespoke encounter (sheet 1's rochambeau duel, sheet 2's Thad-ally ambush and health-nerd soda drop, sheet 3's Bucky tease scene, sheet 4's fleeing-smoker chase legs with marble drops are all skipped — those need qte_duel/recruit_ally/bark_dialog_loop/flee_loop primitives that do not exist yet); the HUD charasheet counter and objective checklist are the objective line only (collect_counter/checklist pending); Melvin's ambient-population suppression swap is skipped (no unique_ped_suppress primitive); the boys'-dorm trophy is pending (no trophy system). Guard meshes stand in for the original peds: sheet1 ped 85 GN_Bully03, sheet2 ped 99 GN_Bully02, sheet3 ped 102 GN_Bully01, sheet4 ped 99 GN_Bully02. Pass pays $10 via the campaign on_pass (M_PASS 1000 cents). Wording is original.",
+  "id": "2_S04",
+  "title": "Character Sheets",
+  "retry": "stage",
+  "start": { "location_cm": [18882.1, 14606.8, 787.4], "yaw": 0 },
+  "trigger_file": "imported/triggers/2_S04.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Melvin's character sheets were stolen.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "CHARACTER SHEETS", "sub": "Melvin's life's work, scattered to the bullies.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "melvin", "point": "2_S04_Melvin", "mesh": "GN_Boy02", "ped_model_id": 6, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "MELVIN", "text": "My character sheets! The bullies took all four of them. Get them back and I'll make it worth your while.", "seconds": 4 }
+        ] },
+        { "type": "npc_move_to", "npc": "melvin", "point": "2_S04_Library" }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:melvin" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Melvin got knocked out."
+    },
+    {
+      "id": "sheet1",
+      "objective": "Sheet one: behind the library.",
+      "blip": "2_S04_Sheet1",
+      "on_start": [
+        { "type": "spawn_wave", "group": "g1", "points": ["2_S04_Sheet1Bruiser"], "mesh": "GN_Bully03", "hostile": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "2_S04_Sheet1", "radius_cm": 800 },
+        { "type": "event", "name": "wave:g1", "latched": true }
+      ] },
+      "on_complete": [ { "type": "give_item", "item": "sheet1", "n": 1 } ]
+    },
+    {
+      "id": "sheet2",
+      "objective": "Sheet two: the auto shop yard.",
+      "blip": "2_S04_Sheet2",
+      "on_start": [
+        { "type": "spawn_wave", "group": "g2", "points": ["2_S04_Sheet2_G1"], "mesh": "GN_Bully02", "hostile": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "2_S04_Sheet2", "radius_cm": 800 },
+        { "type": "event", "name": "wave:g2", "latched": true }
+      ] },
+      "on_complete": [ { "type": "give_item", "item": "sheet2", "n": 1 } ]
+    },
+    {
+      "id": "sheet3",
+      "objective": "Sheet three: the school parking lot.",
+      "blip": "2_S04_Sheet3",
+      "on_start": [
+        { "type": "spawn_wave", "group": "g3", "points": ["2_S04_Sheet3_1"], "mesh": "GN_Bully01", "hostile": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "2_S04_Sheet3", "radius_cm": 800 },
+        { "type": "event", "name": "wave:g3", "latched": true }
+      ] },
+      "on_complete": [ { "type": "give_item", "item": "sheet3", "n": 1 } ]
+    },
+    {
+      "id": "sheet4",
+      "objective": "Sheet four: by the gym.",
+      "blip": "2_S04_Sheet4",
+      "on_start": [
+        { "type": "spawn_wave", "group": "g4", "points": ["2_S04_Sheet4"], "mesh": "GN_Bully02", "hostile": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "reach_location", "point": "2_S04_Sheet4", "radius_cm": 800 },
+        { "type": "event", "name": "wave:g4", "latched": true }
+      ] },
+      "on_complete": [ { "type": "give_item", "item": "sheet4", "n": 1 } ]
+    },
+    {
+      "id": "return",
+      "objective": "Return the sheets to Melvin at the library.",
+      "blip": "2_S04_Library",
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "sheet1" },
+        { "type": "has_item", "name": "sheet2" },
+        { "type": "has_item", "name": "sheet3" },
+        { "type": "has_item", "name": "sheet4" },
+        { "type": "social", "actor_tag": "br_npc_melvin", "radius_cm": 300, "prompt": "Return the sheets" }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:melvin", "latched": true },
+      "fail_text": "Melvin got hurt.",
+      "on_complete": [
+        { "type": "take_item", "item": "sheet1", "n": 1 },
+        { "type": "take_item", "item": "sheet2", "n": 1 },
+        { "type": "take_item", "item": "sheet3", "n": 1 },
+        { "type": "take_item", "item": "sheet4", "n": 1 },
+        { "type": "pair_anim", "npc": "melvin", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "say", "speaker": "MELVIN", "text": "My sheets! You're the best friend a dungeon master ever had, Jimmy.", "seconds": 3.5 },
+        { "type": "log", "text": "campaign on_pass for 2_S04 pays $10 (M_PASS 1000); boys'-dorm trophy pending (no trophy system)" }
+      ]
+    }
+  ]
+}

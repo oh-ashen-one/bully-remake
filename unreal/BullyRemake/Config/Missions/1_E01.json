@@ -1,0 +1,67 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_E01 — the errand-system tutorial pseudo-mission: Petey in the boys' dorm asks the player to carry a parcel to Beatrice waiting outside (recon: docs/re-notes/ch1/1_E01-errand-tutorial.md). Not a catalog story mission; passing 1_07 force-completes it in the original (our campaign table does the same) — but it exists as a playable mission so the errand loop is real once. v1 simplifications: the tutorial cards are the speech/hint beats; the accept/deliver pair-anims are stubs; the 'left the dorm early' fail is skipped (1_E01 has no DAT, so there is no trigger file to build the dorm's area box from — leave_area has nothing to read); the clock pauses for the errand like the original and unpauses on delivery. The door unlock (DT_DormExitDoorL) is skipped. Coordinates are the recon's raw literals (no DAT exists). Pass pays $5 via the campaign on_pass (errand completion 500). Wording is original.",
+  "id": "1_E01",
+  "title": "Petey's Errand",
+  "retry": "stage",
+  "start": { "location_cm": [-49980.0, -31830.0, 3140.0], "yaw": 0 },
+  "points": {
+    "petey_dorm": { "location_cm": [-51429.0, -31855.0, 3147.0] },
+    "beatrice_outside": { "location_cm": [27650.0, 3620.0, 620.0] }
+  },
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Petey wants a favor.",
+      "blip": "petey_dorm",
+      "on_start": [
+        { "type": "banner", "text": "AN ERRAND", "sub": "The boys' dorm, between classes.", "seconds": 3 },
+        { "type": "clock", "pause": true },
+        { "type": "spawn_npc", "npc": "petey", "point": "petey_dorm", "mesh": "GN_Boy02", "ped_model_id": 134, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "PETEY", "text": "Psst. Jimmy. Do me a favor? Please?", "seconds": 3 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:petey" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Petey got knocked out."
+    },
+    {
+      "id": "accept",
+      "objective": "Take Petey's parcel.",
+      "blip": "petey_dorm",
+      "on_start": [
+        { "type": "say", "speaker": "PETEY", "text": "Get this to Beatrice. She's waiting outside. Don't read it.", "seconds": 3.5 }
+      ],
+      "complete": { "type": "social", "actor_tag": "br_npc_petey", "radius_cm": 250, "prompt": "Take the parcel" },
+      "on_complete": [
+        { "type": "give_item", "item": "parcel", "n": 1 },
+        { "type": "pair_anim", "npc": "petey", "seconds": 1.5, "clips": "GIVE" }
+      ]
+    },
+    {
+      "id": "deliver",
+      "objective": "Deliver the parcel to Beatrice, outside.",
+      "blip": "beatrice_outside",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "beatrice", "point": "beatrice_outside", "mesh": "GN_Asiangirl", "ped_model_id": 3, "mission_critical": true, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "parcel" },
+        { "type": "social", "actor_tag": "br_npc_beatrice", "radius_cm": 250, "prompt": "Deliver the parcel" }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:beatrice", "latched": true },
+      "fail_text": "Beatrice got hurt.",
+      "on_complete": [
+        { "type": "take_item", "item": "parcel", "n": 1 },
+        { "type": "pair_anim", "npc": "beatrice", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "say", "speaker": "BEATRICE", "text": "From Petey? ...Thanks, Jimmy.", "seconds": 3 },
+        { "type": "clock", "unpause": true },
+        { "type": "log", "text": "errand complete ($5 via campaign on_pass; the blue-X errand giver framework is a later wave)" }
+      ]
+    }
+  ]
+}

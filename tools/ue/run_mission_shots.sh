@@ -5,9 +5,10 @@
 # spawned characters and the authored framings, in pixels. This is the render the headless smoke harness can't give you:
 # the smoke run proves the cuts/beats fire; this shows what they actually frame. The subsystem waits for shader/texture/
 # distance-field compilation to drain, warms up, starts the mission, shoots every stage, then quits itself (it stops
-# before a chaining mission -- e.g. arrival -> day_one -- so you only get the mission you asked for).
+# before a chaining mission -- e.g. arrival -> day_one -- so you only get the mission you asked for). The smoke driver
+# runs alongside (drive-current, no-quit, no fail/retry) so interactive stages advance; --no-drive opts out.
 #
-#   tools/ue/run_mission_shots.sh <mission_id> [--out DIR] [--res 1920x1080] [--seconds-limit 900]
+#   tools/ue/run_mission_shots.sh <mission_id> [--out DIR] [--res 1920x1080] [--seconds-limit 900] [--no-drive]
 #
 # Same engine-safety envelope as the other runners: GPU-slot wrapper (cap enforced; FIFO-waits if both slots are busy),
 # window watchdog that SIGTERMs the engine if any window appears (empty window_watch.txt = no-window evidence), no retry,
@@ -21,11 +22,15 @@ RES=1920x1080
 MAP=/Game/Imported/Maps/Bullworth
 LABEL=bully-mission-shots
 LIMIT=900
+# The smoke driver advances the mission so every stage is captured (undriven runs stall at the first interactive
+# stage); it runs drive-current + no-quit + no fail/retry exercise (see -BRMissionShotsDrive in MissionSubsystem).
+DRIVE="-BRMissionSmoke -BRMissionShotsDrive"
 while [ $# -gt 0 ]; do
   case "$1" in
     --out) OUT="$2"; shift 2 ;;
     --res) RES="$2"; shift 2 ;;
     --seconds-limit) LIMIT="$2"; shift 2 ;;
+    --no-drive) DRIVE=""; shift ;;
     -*) br_die "unknown argument $1" ;;
     *) [ -z "$MISSION" ] || br_die "only one mission id"; MISSION="$1"; shift ;;
   esac
@@ -46,7 +51,7 @@ START=$(date +%s)
   "$UE_CMD" "$BR_UPROJECT" "$MAP" -game -RenderOffScreen -ResX="$RX" -ResY="$RY" -windowed \
   -unattended -nosplash -nocrashreports -NoSound -notraceserver -NoVSync -stdout -FullStdOutLogOutput -forcelogflush \
   -abslog="$OUT/ue_run.log" -BRNoAmbient -BRMissionShots="$MISSION" -BRShotDir="$OUT" -BRShotResX="$RX" -BRShotResY="$RY" \
-  ${BR_EXTRA_ARGS:-} \
+  $DRIVE ${BR_EXTRA_ARGS:-} \
   > "$OUT/stdout.log" 2>&1 &
 WRAP=$!
 br_window_watch "$WRAP" "$OUT/window_watch.txt" &

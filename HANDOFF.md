@@ -96,6 +96,29 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   incl. the alarm countdown, 1_11_Dummy 1/1, 1_B 3/3 incl. the boss bar + half bark, Chapt1Trans 1/1), campaign
   **PASS 4/4**, all prior smokes re-PASS. **Chapter 1 is complete**: every mission in the campaign table has a real,
   headless-verified mission file.
+- **Wave G (the side missions: 1_E01, 1_G1, 1_S01, 2_S04)** — pure data on the existing primitives (zero new mission
+  C++): `1_E01.json` (Petey's Errand, 3 stages: clock-paused parcel carry from the boys' dorm to Beatrice outside;
+  no DAT exists, so the points are the recon's raw literals), `1_G1.json` (The Diary, 5 stages: dorm window break-in
+  hop, prefect spotter, diary minigame, get out, deliver), `1_S01.json` (Hattrick vs. Galloway, 5 stages: three
+  bottles under three spotters — monitor/Edna/Hattrick — trophy-case hold minigame, deliver to Ms. Phillips),
+  `2_S04.json` (Character Sheets, 6 stages: Melvin walk-off to the library, four guarded sheet stashes as
+  reach+wave stages, return-and-hand-over; the rochambeau duel / Thad ally / fleeing-smoker chase are compressed
+  per the recon gap table — they need qte_duel/recruit_ally/flee_loop primitives that don't exist yet). All wording
+  original. Verified: all four smoke **PASS** (1_E01 3/3, 1_G1 5/5, 1_S01 5/5, 2_S04 6/6 — each incl. the
+  fail/retry exercise), campaign **PASS 4/4**, full regression (all 19 prior missions) re-PASS.
+- **Finale: rendered stills for every Chapter 1 mission.** `tools/ue/run_mission_shots.sh` needed two harness fixes
+  first (MissionSubsystem): shots mode now optionally runs the smoke driver alongside (`-BRMissionShotsDrive`, on by
+  default in the script; `--no-drive` opts out) so interactive stages actually advance — undriven runs stalled at
+  the first interactive stage or inflated the shot count via fail/retry re-shots; and a pending shot now flushes at
+  stage end (a fast driver beat the 1.9 s settle delay and overwrote pending shots) + the run quits on mission
+  completion instead of burning to the time limit. Result: every Ch1 mission captured N/N — 1_02B 14/14, 1_02C 3/3,
+  1_03 7/7, 1_04 8/8, 1_05 10/10, 1_06_01 7/7, 1_07 7/7, 1_08 9/9, 1_09 6/6, 1_10 6/6, 1_11x1 4/4, 1_11xp 7/7,
+  1_11x2 7/7, 1_11_Dummy 1/1, 1_B 3/3, Chapt1Trans 1/1, 1_E01 3/3, 1_G1 5/5, 1_S01 5/5, 2_S04 6/6, day_one 26/26,
+  arrival 6/6 — in `~/bully-remake-evidence/missions/shots_<id>/` (1920×1080, evidence dir, not committed).
+  Post-harness-change smokes re-verified (day_one 26/26, 1_02B 14/14, campaign 4/4). Known content gap the stills
+  expose: interior beats (e.g. the 1_03 garage) render near-black — the imported map has no interior lighting;
+  exterior framings are golden-hour clean. **Chapter 1 is DONE** — story spine, side missions, campaign table,
+  headless smokes and rendered stills all green.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

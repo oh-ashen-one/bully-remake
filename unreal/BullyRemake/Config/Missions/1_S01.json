@@ -1,0 +1,88 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_S01 'Hattrick vs. Galloway' — the SE-added side mission: collect Ms. Phillips's three hidden bottles (bathroom stall, cafeteria kitchen, locked trophy case) while Hattrick, the Principal, Edna and a hall monitor patrol, then deliver them at the school bus (recon: docs/re-notes/ch1/1_S01-hattrick-vs-galloway.md). v1 simplifications (see the recon's gap table): the baked 1-S01 cutscene is a title card + speech beat; the bottles collect in a fixed order (the original is any-order); the guards are stealth spotters (cone + range + line of sight), not patrol paths; the trophy case 'break the glass' is the v1 hold-interact; the patrol conversations, stall search, Edna's guard pair and the hobo walk-by are compressed to spotters + speech; the three bottles are three item ids (bottle1/2/3) so the delivery checks the full checklist. Pass grants the camera (328) via the campaign on_pass (logged — photography system pending). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "1_S01",
+  "title": "Hattrick vs. Galloway",
+  "retry": "stage",
+  "start": { "location_cm": [-65228.0, 29521.9, 21.0], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_S01.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Ms. Phillips needs her bottles back.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "HATTRICK VS. GALLOWAY", "sub": "A favor for the art teacher.", "seconds": 3 },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "MS. PHILLIPS", "text": "Three bottles, hidden around the school. Bring them to me at the bus — and don't get caught.", "seconds": 4 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "bottle_bath",
+      "objective": "Bottle one: the bathroom stall.",
+      "blip": "1_S01_2nd_Bottle_Bath",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "monitor", "point": "1_S01_Running_Prefect_Start", "mesh": "PFH1_Seth", "ped_model_id": 54, "invulnerable": true, "untargetable": true, "yaw": 0 },
+        { "type": "spotter", "npc": "monitor", "range_cm": 1200, "cone_deg": 60, "seconds": 2 }
+      ],
+      "complete": { "type": "reach_location", "point": "1_S01_2nd_Bottle_Bath", "radius_cm": 400 },
+      "fail": { "type": "event", "name": "spotted_by:monitor", "latched": true },
+      "fail_text": "The hall monitor caught you.",
+      "on_complete": [ { "type": "give_item", "item": "bottle1", "n": 1 } ]
+    },
+    {
+      "id": "bottle_cafe",
+      "objective": "Bottle two: the cafeteria kitchen.",
+      "blip": "1_S01_3rd_Bottle_Cafe",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "edna", "point": "1_S01_Edna", "mesh": "TO_Poorwoman", "ped_model_id": 58, "invulnerable": true, "untargetable": true, "yaw": -90 },
+        { "type": "spotter", "npc": "edna", "range_cm": 1200, "cone_deg": 60, "seconds": 2 }
+      ],
+      "complete": { "type": "reach_location", "point": "1_S01_3rd_Bottle_Cafe", "radius_cm": 400 },
+      "fail": { "type": "event", "name": "spotted_by:edna", "latched": true },
+      "fail_text": "The cook caught you in her kitchen.",
+      "on_complete": [ { "type": "give_item", "item": "bottle2", "n": 1 } ]
+    },
+    {
+      "id": "bottle_case",
+      "objective": "Bottle three: the locked trophy case.",
+      "blip": "1_S01_Bottle3_CASE",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "hattrick", "point": "1_S01_Crabble", "mesh": "TO_Business1", "ped_model_id": 61, "invulnerable": true, "untargetable": true, "yaw": -90 },
+        { "type": "spotter", "npc": "hattrick", "range_cm": 1200, "cone_deg": 60, "seconds": 2 },
+        { "type": "minigame_launch", "id": "case", "point": "1_S01_Bottle3_CASE", "radius_cm": 250, "seconds": 2.5, "text": "Breaking the case glass..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:case_ok", "latched": true },
+      "fail": { "type": "event", "name": "spotted_by:hattrick", "latched": true },
+      "fail_text": "Hattrick heard the glass break.",
+      "on_complete": [ { "type": "give_item", "item": "bottle3", "n": 1 } ]
+    },
+    {
+      "id": "deliver",
+      "objective": "Deliver the bottles to Ms. Phillips at the bus.",
+      "blip": "1_S01_Phillips",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "phillips", "point": "1_S01_Phillips", "mesh": "TO_RichW1", "ped_model_id": 63, "mission_critical": true, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "bottle1" },
+        { "type": "has_item", "name": "bottle2" },
+        { "type": "has_item", "name": "bottle3" },
+        { "type": "social", "actor_tag": "br_npc_phillips", "radius_cm": 300, "prompt": "Hand over the bottles" }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:phillips", "latched": true },
+      "fail_text": "Ms. Phillips got hurt.",
+      "on_complete": [
+        { "type": "take_item", "item": "bottle1", "n": 1 },
+        { "type": "take_item", "item": "bottle2", "n": 1 },
+        { "type": "take_item", "item": "bottle3", "n": 1 },
+        { "type": "pair_anim", "npc": "phillips", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "say", "speaker": "MS. PHILLIPS", "text": "For the darkroom. You're a dear, Jimmy.", "seconds": 3 },
+        { "type": "log", "text": "campaign on_pass for 1_S01 grants the camera (328 — logged; photography is a later system)" }
+      ]
+    }
+  ]
+}

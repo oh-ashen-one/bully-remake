@@ -572,6 +572,7 @@ private:
 	// after each stage begins -- real mission cameras, spawned characters, the authored framings -- so the cutscene
 	// composition gets a pixel pass (headless logs confirm the cuts fire; only a render shows what they frame).
 	void TickMissionShots(float Dt);
+	void FirePendingShot();   // takes the scheduled stage shot now (also used to flush it on stage end before teardown)
 	struct FMissionShots
 	{
 		bool bEnabled = false;

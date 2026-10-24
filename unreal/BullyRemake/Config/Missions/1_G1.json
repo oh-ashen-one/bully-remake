@@ -1,0 +1,82 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "1_G1 'The Diary' — the optional evening infiltration: in through the window after hours, take Beatrice's confiscated diary from the staff room, get back out, return it (recon: docs/re-notes/ch1/1_G1-the-diary.md; the DAT stem is 1_G1_new). v1 simplifications (see the recon's gap table): the baked 1-G1 cutscene is a title card + speech beat; the lattice climb is pending a traversal system, so the window approach uses a ground-level stand-in point; the door locksets (all doors locked, windows open) and the proxy/pry beat are skipped; the diary pickup is the v1 hold-interact; the staff room is its own area-23 pocket; a single prefect spotter stands in for the authority patrol (the original only clears peds on being spotted — a full bust route is punishment-system work); the diary HUD element and the girlfriend flag are noted. Window 19:00-23:00 on the campaign row. Pass pays $20 via the campaign on_pass (M_PASS 2000). Wording is original; ped_model_id records the original model ids.",
+  "id": "1_G1",
+  "title": "The Diary",
+  "retry": "stage",
+  "start": { "location_cm": [24316.4, 2427.0, 617.6], "yaw": 0 },
+  "trigger_file": "imported/triggers/1_G1_new.json",
+  "points": {
+    "window_base": { "location_cm": [16743.7, 7502.6, 610.0] }
+  },
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Beatrice needs her diary back.",
+      "blip": "1_G1_BeaSpawn",
+      "on_start": [
+        { "type": "banner", "text": "THE DIARY", "sub": "After hours. The school is locked.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "beatrice", "point": "1_G1_BeaSpawn", "mesh": "GN_Asiangirl", "ped_model_id": 3, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "BEATRICE", "text": "They took my diary. It's in the staff room. Tonight, Jimmy — please.", "seconds": 4 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:beatrice" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Beatrice got hurt."
+    },
+    {
+      "id": "break_in",
+      "objective": "Get inside through the window.",
+      "blip": "window_base",
+      "complete": { "type": "reach_location", "point": "window_base", "radius_cm": 500 },
+      "on_complete": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "1_G1_HallEntryPoint" },
+        { "type": "spawn_npc", "npc": "prefect", "point": "1_G1_SecondFloorWindow", "mesh": "PFH1_Seth", "ped_model_id": 50, "invulnerable": true, "untargetable": true, "yaw": 90 },
+        { "type": "spotter", "npc": "prefect", "range_cm": 1200, "cone_deg": 60, "seconds": 2 },
+        { "type": "log", "text": "in through the window (the lattice climb is traversal work; the door locksets are skipped)" }
+      ]
+    },
+    {
+      "id": "get_diary",
+      "objective": "The diary is in the staff room.",
+      "blip": "1_G1_Diary",
+      "on_start": [
+        { "type": "minigame_launch", "id": "diary", "point": "1_G1_Diary", "radius_cm": 250, "seconds": 2.5, "text": "Taking the diary..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:diary_ok", "latched": true },
+      "fail": { "type": "event", "name": "spotted_by:prefect", "latched": true },
+      "fail_text": "A prefect caught you in the school at night.",
+      "on_complete": [ { "type": "give_item", "item": "diary", "n": 1 } ]
+    },
+    {
+      "id": "get_out",
+      "objective": "Get back out the way you came.",
+      "blip": "window_base",
+      "complete": { "type": "reach_location", "point": "1_G1_PlayerStart", "radius_cm": 600 },
+      "fail": { "type": "event", "name": "spotted_by:prefect", "latched": true },
+      "fail_text": "A prefect caught you in the school at night.",
+      "on_complete": [ { "type": "log", "text": "out clean (stealth music off; Beatrice is waiting)" } ]
+    },
+    {
+      "id": "deliver",
+      "objective": "Return the diary to Beatrice.",
+      "blip": "1_G1_BeaSpawn",
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "diary" },
+        { "type": "social", "actor_tag": "br_npc_beatrice", "radius_cm": 250, "prompt": "Return the diary" }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:beatrice", "latched": true },
+      "fail_text": "Beatrice got hurt.",
+      "on_complete": [
+        { "type": "take_item", "item": "diary", "n": 1 },
+        { "type": "pair_anim", "npc": "beatrice", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "say", "speaker": "BEATRICE", "text": "My diary! You actually did it. Thank you, Jimmy.", "seconds": 3.5 },
+        { "type": "log", "text": "campaign on_pass for 1_G1 pays $20 (M_PASS 2000); the girlfriend/social-flag effect is social-system work" }
+      ]
+    }
+  ]
+}

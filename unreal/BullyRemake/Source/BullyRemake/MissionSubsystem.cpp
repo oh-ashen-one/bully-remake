@@ -783,13 +783,20 @@ void UMissionSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSIONSHOT capture armed: mission '%s' -> %s at %dx%d"), *Shots.MissionId, *Shots.Dir, Shots.ResX, Shots.ResY);
 	}
 	FString SmokeId;
-	if (!Shots.bEnabled && (FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmoke")) || FParse::Value(FCommandLine::Get(), TEXT("-BRMissionSmoke="), SmokeId)))
+	const bool bSmokeParam = FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmoke")) || FParse::Value(FCommandLine::Get(), TEXT("-BRMissionSmoke="), SmokeId);
+	// -BRMissionShotsDrive: let the smoke driver advance the mission during a shots pass so every stage is captured
+	// (undriven shots stall at the first interactive stage). The shots pass owns the deferred mission start and the
+	// quit; the driver runs drive-current (empty id), never quits, and skips the fail/retry exercise (a retry would
+	// re-shoot a stage and inflate the shot count past TotalStages, quitting before the last stage's capture).
+	const bool bShotsDrive = Shots.bEnabled && FParse::Param(FCommandLine::Get(), TEXT("BRMissionShotsDrive"));
+	if (bSmokeParam && (!Shots.bEnabled || bShotsDrive))
 	{
 		Smoke.bEnabled = true;
-		Smoke.MissionId = SmokeId.IsEmpty() ? TEXT("smoke_day_one") : SmokeId;
-		Smoke.bWantFailTest = !FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeNoFail"));
+		Smoke.MissionId = bShotsDrive ? TEXT("") : (SmokeId.IsEmpty() ? TEXT("smoke_day_one") : SmokeId);
+		Smoke.bWantFailTest = !bShotsDrive && !FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeNoFail"));
+		Smoke.bNoQuit = bShotsDrive;
 		Smoke.bWrongWay = FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeWrongWay"));
-		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION smoke harness armed: mission '%s' (fail/retry test %s, wrong-way %s)"), *Smoke.MissionId, Smoke.bWantFailTest ? TEXT("on") : TEXT("off"), Smoke.bWrongWay ? TEXT("on") : TEXT("off"));
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION smoke harness armed: mission '%s' (fail/retry test %s, wrong-way %s, shots-drive %s)"), *Smoke.MissionId, Smoke.bWantFailTest ? TEXT("on") : TEXT("off"), Smoke.bWrongWay ? TEXT("on") : TEXT("off"), bShotsDrive ? TEXT("on") : TEXT("off"));
 	}
 }
 
@@ -1120,6 +1127,9 @@ void UMissionSubsystem::FireEvent(FName Event)
 void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 {
 	if (!Mission.IsValid()) { return; }
+	// shots: the stage that just ended never reached its settle delay (a fast driver beat it) -- capture its end
+	// state now, before this stage's teardown/actions change the scene.
+	if (Shots.bEnabled && Shots.PendingAt >= 0.0) { FirePendingShot(); }
 	if (Index >= Mission->Stages.Num()) { CompleteMission(); return; }
 	StageIndex = Index;
 	State = EState::Running;
@@ -2152,6 +2162,27 @@ void UMissionSubsystem::LogStatus() const
 // ---------------------------------------------------------------------------------------------------------------
 // rendered cutscene capture (-BRMissionShots)
 
+void UMissionSubsystem::FirePendingShot()
+{
+	UWorld* World = GetWorld();
+	if (!World || Shots.PendingAt < 0.0) { return; }
+	const FString File = Shots.Dir / (Shots.PendingName + TEXT(".png"));
+	FHighResScreenshotConfig& HR = GetHighResScreenshotConfig();
+	HR.SetResolution(uint32(Shots.ResX), uint32(Shots.ResY), 1.0f);
+	HR.SetFilename(File);
+	HR.bMaskEnabled = false;
+	HR.bDumpBufferVisualizationTargets = false;
+	const bool bOk = GEngine->GameViewport && GEngine->GameViewport->Viewport
+		&& GEngine->GameViewport->Viewport->TakeHighResScreenShot();
+	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSIONSHOT %s stage %d -> %s (t=%.1f)"),
+		bOk ? TEXT("shot") : TEXT("REFUSED"), Shots.PendingStage + 1, *File, World->GetTimeSeconds());
+	++Shots.Count;
+	Shots.PendingStage = -1;
+	Shots.PendingAt = -1.0;
+	// After the last stage's shot, let the capture flush, then quit before the mission chains onward.
+	if (Shots.Count >= Shots.TotalStages) { Shots.QuitAt = World->GetTimeSeconds() + 2.0; }
+}
+
 void UMissionSubsystem::TickMissionShots(float Dt)
 {
 	UWorld* World = GetWorld();
@@ -2206,23 +2237,14 @@ void UMissionSubsystem::TickMissionShots(float Dt)
 	}
 
 	// 2) Fire the pending beat shot once its settle delay has passed (re-render at the requested size).
-	if (Shots.PendingAt >= 0.0 && Now >= Shots.PendingAt)
+	if (Shots.PendingAt >= 0.0 && Now >= Shots.PendingAt) { FirePendingShot(); }
+
+	// 2b) Safety: the mission completed (or is chaining) with shots still outstanding -- never burn to the script's
+	//     time limit; flush whatever is pending and quit.
+	if (Shots.bStarted && State == EState::Complete && Shots.QuitAt < 0.0)
 	{
-		const FString File = Shots.Dir / (Shots.PendingName + TEXT(".png"));
-		FHighResScreenshotConfig& HR = GetHighResScreenshotConfig();
-		HR.SetResolution(uint32(Shots.ResX), uint32(Shots.ResY), 1.0f);
-		HR.SetFilename(File);
-		HR.bMaskEnabled = false;
-		HR.bDumpBufferVisualizationTargets = false;
-		const bool bOk = GEngine->GameViewport && GEngine->GameViewport->Viewport
-			&& GEngine->GameViewport->Viewport->TakeHighResScreenShot();
-		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSIONSHOT %s stage %d -> %s (t=%.1f)"),
-			bOk ? TEXT("shot") : TEXT("REFUSED"), Shots.PendingStage + 1, *File, Now);
-		++Shots.Count;
-		Shots.PendingStage = -1;
-		Shots.PendingAt = -1.0;
-		// After the last stage's shot, let the capture flush, then quit before the mission chains onward.
-		if (Shots.Count >= Shots.TotalStages) { Shots.QuitAt = Now + 2.0; }
+		FirePendingShot();
+		Shots.QuitAt = Now + 2.0;
 	}
 
 	// 3) Done: quit cleanly (the arrival mission would otherwise chain straight into day_one).
@@ -2282,7 +2304,7 @@ void UMissionSubsystem::TickSmoke(float Dt)
 			// Only expect a fail/retry exercise if this mission actually defines a smoke_fail stage (day_one does;
 			// a plain errand mission need not). Keeps the harness usable for any mission.
 			Smoke.bWantFailTest = false;
-			if (Mission.IsValid())
+			if (!Shots.bEnabled && Mission.IsValid())   // shots-drive never exercises fail/retry (see arming note)
 			{
 				for (const FMissionStage& St : Mission->Stages)
 				{

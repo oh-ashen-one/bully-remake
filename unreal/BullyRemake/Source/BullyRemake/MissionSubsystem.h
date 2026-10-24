@@ -453,6 +453,9 @@ private:
 	// sm-humandrive: where each mission npc stood when the current stage began (a stage retry puts them back there,
 	// otherwise a chase retry starts with the runaway already at his destination)
 	TMap<FName, FTransform> StageStartNpcXf;
+	// sm-humandrive: a knocked-out player fails the stage (retry revives him) when the stage has no KO rule of its own
+	double PlayerOutSince = -1.0;
+	bool bForceFailReason = false;
 	struct FLeadOrder
 	{
 		TWeakObjectPtr<ABullyScriptedNPC> Npc;
@@ -723,6 +726,8 @@ private:
 		double LastShot = -10.0;
 		// chase: where each mission npc has run (a player runs where he saw the npc run -- ledges and drops included)
 		TMap<FName, TArray<FVector>> Trails;
+		FString FightInfo;                 // last fight tick: me vs target (beat log)
+		bool bForceSprint = false;         // set around a HumanSteer call: sprint even for a short hop (a chase's breadcrumbs)
 	} Human;
 	/** Human driver helpers (MissionHumanDrive.cpp). */
 	void HumanPrepareNav(const FMissionDef& D, const FVector& PlayerAt);

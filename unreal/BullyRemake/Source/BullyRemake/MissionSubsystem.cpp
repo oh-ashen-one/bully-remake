@@ -1105,7 +1105,8 @@ void UMissionSubsystem::FailMission(const FString& Reason)
 {
 	if (State != EState::Running || !Mission.IsValid()) { return; }
 	const FMissionStage& St = Mission->Stages[StageIndex];
-	const FString Why = St.FailText.IsEmpty() ? Reason : St.FailText;   // a stage can carry a keyed fail line
+	const FString Why = (St.FailText.IsEmpty() || bForceFailReason) ? Reason : St.FailText;   // a stage can carry a keyed fail line
+	bForceFailReason = false;
 	State = EState::Failed;
 	FailTime = GetWorld()->GetTimeSeconds();
 	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION stage %d: %s -> FAIL (%s) attempt %d"), StageIndex + 1, *St.Objective, *Why, Attempt);
@@ -1120,7 +1121,13 @@ void UMissionSubsystem::FailMission(const FString& Reason)
 void UMissionSubsystem::RetryNow()
 {
 	if (!Mission.IsValid()) { return; }
-	if (Mission->Retry == FMissionDef::ERetry::None) { StopMission(TEXT("failed, retry disabled")); return; }
+	if (Mission->Retry == FMissionDef::ERetry::None)
+	{
+		// sm-humandrive: a knocked-out player gets back up when the mission ends (no retry to revive him)
+		if (ABullyCharacter* P = Cast<ABullyCharacter>(GetPlayerPawn()); P && P->GetCombat() && P->GetCombat()->IsOut()) { P->GetCombat()->Revive(); }
+		StopMission(TEXT("failed, retry disabled"));
+		return;
+	}
 	++Attempt;
 	// campaign attempt counting is retry-aware (the original's attempt count gates first-attempt tutorial cards)
 	if (UBullyCampaignSubsystem* Camp = UBullyCampaignSubsystem::Get(GetWorld())) { Camp->NoteAttempt(Mission->Id); }
@@ -2253,6 +2260,23 @@ void UMissionSubsystem::Tick(float Dt)
 			FailMission(Mission->RootFailText.IsEmpty() ? TEXT("mission area left") : Mission->RootFailText);
 		}
 		else if (Evaluate(St.Complete)) { CompleteStage(); }
+		// sm-humandrive: a KO'd player with no stage rule for it would lie on the floor forever (soft-lock): fail the stage
+		// after a beat, like the original's knocked-out mission fail; the retry revives him
+		if (State == EState::Running)
+		{
+			const ABullyCharacter* PlayerChar = Cast<ABullyCharacter>(GetPlayerPawn());
+			if (PlayerChar && PlayerChar->GetCombat() && PlayerChar->GetCombat()->IsOut())
+			{
+				if (PlayerOutSince < 0.0) { PlayerOutSince = World->GetTimeSeconds(); }
+				else if (World->GetTimeSeconds() - PlayerOutSince > 4.0)
+				{
+					PlayerOutSince = -1.0;
+					bForceFailReason = true;
+					FailMission(TEXT("You got knocked out."));
+				}
+			}
+			else { PlayerOutSince = -1.0; }
+		}
 	}
 	else if (State == EState::Failed && Mission.IsValid())
 	{

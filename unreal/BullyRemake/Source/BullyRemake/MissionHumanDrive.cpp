@@ -339,7 +339,7 @@ float UMissionSubsystem::HumanSteer(const FVector& Goal, float ArriveCm, bool bS
 	const FVector Right = FVector::CrossProduct(FVector::UpVector, Fwd);
 	const FVector2D Stick(FVector::DotProduct(Dir, Right), FVector::DotProduct(Dir, Fwd));
 	HumanInject(TEXT("move"), FInputActionValue(Stick.GetSafeNormal()));
-	if (bSprint && Dist > 900.f) { HumanInject(TEXT("sprint"), FInputActionValue(true)); }
+	if (bSprint && (Dist > 900.f || Human.bForceSprint)) { HumanInject(TEXT("sprint"), FInputActionValue(true)); }
 	return Dist;
 }
 
@@ -393,6 +393,7 @@ bool UMissionSubsystem::HumanFight(const FMissionStage& St)
 		return false;
 	}
 	AActor* TA = Best->GetOwner();
+	Human.FightInfo = FString::Printf(TEXT("%s vs %s"), *PC->Describe(), *Best->Describe());
 	const FVector TL = TA->GetActorLocation();
 	const float D2 = FVector::Dist2D(TL, Me);
 	const float Dz = TL.Z - Me.Z;
@@ -675,6 +676,45 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 			return;
 		}
 		if (!HumanNavReady()) { return; }
+		// diagnostics: -BRMissionSmokeHumanProbe="x,y,z>x,y,z;..." logs the navmesh path and a capsule sweep per pair
+		{
+			FString Probe;
+			if (FParse::Value(FCommandLine::Get(), TEXT("-BRMissionSmokeHumanProbe="), Probe, false))
+			{
+				TArray<FString> Pairs;
+				Probe.TrimQuotes().ParseIntoArray(Pairs, TEXT(";"));
+				for (const FString& Pr : Pairs)
+				{
+					FString L, R;
+					if (!Pr.Split(TEXT(">"), &L, &R)) { continue; }
+					auto Vec = [](const FString& T) { TArray<FString> C; T.ParseIntoArray(C, TEXT(",")); return C.Num() == 3 ? FVector(FCString::Atof(*C[0]), FCString::Atof(*C[1]), FCString::Atof(*C[2])) : FVector::ZeroVector; };
+					const FVector A = Vec(L), B = Vec(R);
+					TArray<FVector> Pts; bool bPart = true;
+					const bool bOk = HumanFindPath(A, B, Pts, bPart);
+					FString PS;
+					for (const FVector& V : Pts) { PS += FString::Printf(TEXT(" (%.0f,%.0f,%.0f)"), V.X, V.Y, V.Z); }
+					FHitResult H;
+					FCollisionQueryParams Q(SCENE_QUERY_STAT(BullyHumanProbe), true, GetPlayerPawn());
+					const bool bHit = World->SweepSingleByChannel(H, A + FVector(0, 0, 95.f), B + FVector(0, 0, 95.f), FQuat::Identity, ECC_Pawn, FCollisionShape::MakeCapsule(34.f, 88.f), Q);
+					const UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>(H.GetComponent());
+					UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human probe %s -> %s: path %s%s |%s | capsule sweep %s"), *A.ToCompactString(), *B.ToCompactString(),
+						bOk ? TEXT("ok") : TEXT("NONE"), bOk && bPart ? TEXT(" PARTIAL") : TEXT(""), *PS,
+						bHit ? *FString::Printf(TEXT("HIT %s/%s at %s (t=%.2f)"), *GetNameSafe(H.GetActor()), SMC ? *GetNameSafe(SMC->GetStaticMesh()) : TEXT("-"), *H.ImpactPoint.ToCompactString(), H.Time) : TEXT("clear"));
+					FString NavAt(TEXT("off navmesh"));
+					if (UNavigationSystemV1* NS = FNavigationSystem::GetCurrent<UNavigationSystemV1>(World))
+					{
+						FHitResult FH;
+						const FVector Mid = (A + B) * 0.5f;
+						if (World->LineTraceSingleByObjectType(FH, Mid + FVector(0, 0, 300.f), Mid - FVector(0, 0, 600.f), FCollisionObjectQueryParams(ECC_WorldStatic), Q))
+						{
+							FNavLocation NL;
+							if (NS->ProjectPointToNavigation(FH.ImpactPoint, NL, FVector(40.f, 40.f, 60.f))) { NavAt = FString::Printf(TEXT("nav %s"), *NL.Location.ToCompactString()); }
+						}
+					}
+					UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human probe floors at mid %s [%s]: %s"), *((A + B) * 0.5f).ToCompactString(), *NavAt, *HumanFloorStack(World, (A + B) * 0.5f, GetPlayerPawn()));
+				}
+			}
+		}
 		Smoke.bStarted = true;
 		Human.MissionNavWait = 0.0;   // the pre-start build is not part of the mission's minutes
 		if (!StartMission(Smoke.MissionId, 0, /*bDevOverride*/ true)) { Quit(false, TEXT("mission failed to load")); return; }
@@ -886,11 +926,13 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 					if (Best != INDEX_NONE) { Tr->RemoveAt(0, Best + 1); }
 					bDirect = Tr->Num() == 0;
 				}
-				if (bDirect) { HumanSteer(NL, 250.f, true, true); }
+				if (bDirect) { Human.bForceSprint = FVector::Dist2D(Me, NL) > 400.f; HumanSteer(NL, 250.f, true, true); Human.bForceSprint = false; }
 				else
 				{
 					Human.GoalWhy = FString::Printf(TEXT("chasing %s (his trail, %d crumbs)"), *L->Name.ToString(), Tr->Num());
+					Human.bForceSprint = true;   // a chase is flat out
 					HumanSteer((*Tr)[0], 1.f, true, false);   // never 'arrive' on a crumb (it is popped once we stand on its level)
+					Human.bForceSprint = false;
 				}
 			}
 		}
@@ -955,5 +997,6 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 		UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human beat: stage %d '%s' doing [%s] pos=%s goal=%s (%s) d=%.0f speed=%.0f path=%s/%d t=%.0f"), StageIndex + 1, *St.Id.ToString(), *Why,
 			*Me.ToCompactString(), *Human.ProgGoal.ToCompactString(), *Human.GoalWhy, FVector::Dist2D(Me, Human.ProgGoal), P->GetHorizontalSpeed(),
 			Human.bPathOk ? (Human.bPathPartial ? TEXT("partial") : TEXT("ok")) : TEXT("none"), Human.Path.Num(), Smoke.Elapsed);
+		if (Why == TEXT("fight")) { UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human fight: %s"), *Human.FightInfo); }
 	}
 }

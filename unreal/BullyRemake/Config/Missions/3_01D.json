@@ -1,0 +1,159 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "3_01D 'Rudy the Red Nosed Santa' — Rudy's shabby Santa's Court: Jimmy hunts five sparkly ornaments across Bullworth Town under a 185 s timer (elf+dog ambushes after the 2nd and 4th), then shoots the Santa's-lap photo session for five kids (recon: docs/re-notes/ch3/3_01D-rudy-the-red-nosed-santa.md). The file's area-36 tags are mislabeled (the coords are normal-map Bullworth Town) — noted. v1 simplifications (see the recon's gap table): the three baked cutscenes (3-01DA/DB/DC) are title-card + speech beats; the weapon snapshot/restore, the store lockdown, the yearbook-photo suppression and the pathing hole are skipped (world/engine systems pending); the five ornaments are fixed-order reach beats with the counter as the stage count (collect_counter pending; the original is any-order); the elf ambushes are real waves at the count thresholds (elf models are enum-unresolved in the dump — stand-in meshes; the dog is folded in); the photo session (M3) reuses the 3_01 photo stub (timed hold-interact per shot) and compresses the five kids' paired anim-state tables + tree-driven good-pose windows (bGoodFace) to two shots — photo_pose_window/photo_session_lock/paired_anim_state_table are recorded pending; the round-two exhaustion fail can't exist in our fixed shape (documented); the mom reaction barks are one say per shot; the camera (426) force-arm is narrative. Pass pays $50 via the campaign on_pass (M_PASS 5000 + the MissionSucceed 50 arg — INFERRED decode there). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "3_01D",
+  "title": "Rudy the Red Nosed Santa",
+  "retry": "stage",
+  "start": { "location_cm": [49473.2, 11397.3, 514.9], "yaw": 0 },
+  "trigger_file": "imported/triggers/3_01D.json",
+  "fail": { "type": "event", "name": "npc_ko:rudy", "latched": true },
+  "fail_text": "Rudy got hurt.",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Rudy's Santa's Court needs dressing.",
+      "blip": "3_01D_RudyStart",
+      "on_start": [
+        { "type": "banner", "text": "RUDY THE RED NOSED SANTA", "sub": "Bullworth Town, last minute.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "rudy", "point": "3_01D_RudyStart", "mesh": "TO_Poorwoman", "ped_model_id": 252, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "RUDY", "text": "Kid! The court's bare and the kids are coming. Bring me anything sparkly — five pieces. And watch the elves. They bite. *hic*", "seconds": 4.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "orn1",
+      "objective": "Find sparkly garbage: one of five.",
+      "blip": "3_01D_OBJECT1",
+      "on_start": [ { "type": "countdown_start", "seconds": 185, "visible": true, "event": "countdown:orn_out", "resume": true } ],
+      "complete": { "type": "reach_location", "point": "3_01D_OBJECT1", "radius_cm": 400 },
+      "fail": { "type": "event", "name": "countdown:orn_out", "latched": true },
+      "fail_text": "The kids showed up to a bare court.",
+      "on_complete": [ { "type": "give_item", "item": "ornament", "n": 1 } ]
+    },
+    {
+      "id": "orn2",
+      "objective": "Two of five.",
+      "blip": "3_01D_OBJECT2",
+      "on_start": [ { "type": "countdown_start", "seconds": 185, "visible": true, "event": "countdown:orn_out", "resume": true } ],
+      "complete": { "type": "reach_location", "point": "3_01D_OBJECT2", "radius_cm": 400 },
+      "fail": { "type": "event", "name": "countdown:orn_out", "latched": true },
+      "fail_text": "The kids showed up to a bare court.",
+      "on_complete": [ { "type": "give_item", "item": "ornament", "n": 1 } ]
+    },
+    {
+      "id": "ambush1",
+      "objective": "The elves found you!",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "elf1", "points": ["3_01D_ELF1", "3_01D_ELF2"], "mesh": "GN_Boy02", "hostile": true },
+        { "type": "say", "speaker": "ELF", "text": "That's OUR sparkly garbage, human!", "seconds": 2.5 }
+      ],
+      "complete": { "type": "event", "name": "wave:elf1", "latched": true }
+    },
+    {
+      "id": "orn3",
+      "objective": "Three of five.",
+      "blip": "3_01D_OBJECT3",
+      "on_start": [ { "type": "countdown_start", "seconds": 185, "visible": true, "event": "countdown:orn_out", "resume": true } ],
+      "complete": { "type": "reach_location", "point": "3_01D_OBJECT3", "radius_cm": 400 },
+      "fail": { "type": "event", "name": "countdown:orn_out", "latched": true },
+      "fail_text": "The kids showed up to a bare court.",
+      "on_complete": [ { "type": "give_item", "item": "ornament", "n": 1 } ]
+    },
+    {
+      "id": "orn4",
+      "objective": "Four of five.",
+      "blip": "3_01D_OBJECT4",
+      "on_start": [ { "type": "countdown_start", "seconds": 185, "visible": true, "event": "countdown:orn_out", "resume": true } ],
+      "complete": { "type": "reach_location", "point": "3_01D_OBJECT4", "radius_cm": 400 },
+      "fail": { "type": "event", "name": "countdown:orn_out", "latched": true },
+      "fail_text": "The kids showed up to a bare court.",
+      "on_complete": [ { "type": "give_item", "item": "ornament", "n": 1 } ]
+    },
+    {
+      "id": "ambush2",
+      "objective": "More elves!",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "elf2", "points": ["3_01D_ELF3", "3_01D_ELF1"], "mesh": "GN_Greekboy", "hostile": true },
+        { "type": "say", "speaker": "ELF", "text": "Drop the ornaments and nobody gets jingled!", "seconds": 2.5 }
+      ],
+      "complete": { "type": "event", "name": "wave:elf2", "latched": true }
+    },
+    {
+      "id": "orn5",
+      "objective": "The last one!",
+      "blip": "3_01D_OBJECT5",
+      "on_start": [ { "type": "countdown_start", "seconds": 185, "visible": true, "event": "countdown:orn_out", "resume": true } ],
+      "complete": { "type": "reach_location", "point": "3_01D_OBJECT5", "radius_cm": 400 },
+      "fail": { "type": "event", "name": "countdown:orn_out", "latched": true },
+      "fail_text": "The kids showed up to a bare court.",
+      "on_complete": [
+        { "type": "give_item", "item": "ornament", "n": 1 },
+        { "type": "countdown_cancel" }
+      ]
+    },
+    {
+      "id": "return",
+      "objective": "Back to Rudy's court.",
+      "blip": "3_01D_Return",
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "ornament" },
+        { "type": "social", "actor_tag": "br_npc_rudy", "radius_cm": 350, "prompt": "Hand over the ornaments" }
+      ] },
+      "on_complete": [
+        { "type": "take_item", "item": "ornament", "n": 5 },
+        { "type": "pair_anim", "npc": "rudy", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "say", "speaker": "RUDY", "text": "HA! Look at it sparkle! Now — the kids want photos with Santa. You're the camera monkey.", "seconds": 4 }
+      ]
+    },
+    {
+      "id": "photo1",
+      "objective": "Photos: Pedro on Santa's lap.",
+      "blip": "3_01D_JimmyPhoto",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "kid", "point": "3_01D_KID1", "mesh": "GN_Boy01", "ped_model_id": 69, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "mom", "point": "3_01D_MOTHER", "mesh": "TO_RichW1", "ped_model_id": 80, "invulnerable": true, "untargetable": true },
+        { "type": "npc_move_to", "npc": "rudy", "point": "3_01D_RudyThrone" },
+        { "type": "minigame_launch", "id": "photo1", "point": "3_01D_JimmyPhoto", "radius_cm": 600, "seconds": 2.5, "text": "Photo: the first kid on Santa's lap..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:photo1_ok", "latched": true },
+      "on_complete": [
+        { "type": "say", "speaker": "MOM", "text": "Oh, he's smiling! Lovely.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "photo2",
+      "objective": "Photos: the rest of the line.",
+      "blip": "3_01D_JimmyPhoto",
+      "on_start": [
+        { "type": "npc_despawn", "npc": "kid" },
+        { "type": "spawn_npc", "npc": "kid", "point": "3_01D_KID3", "mesh": "GN_Asiangirl", "ped_model_id": 138, "invulnerable": true, "untargetable": true },
+        { "type": "minigame_launch", "id": "photo2", "point": "3_01D_JimmyPhoto", "radius_cm": 600, "seconds": 2.5, "text": "Photo: the whole line, smiling..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:photo2_ok", "latched": true },
+      "on_complete": [
+        { "type": "say", "speaker": "MOM", "text": "Five beautiful pictures! What a professional.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "outro",
+      "objective": "Santa's Court is saved.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "RUDY", "text": "Ornaments up, kids photographed, nobody's crying. Best court in Bullworth! Here, kid — fifty bucks, don't spend it on soap.", "seconds": 4.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "log", "text": "campaign on_pass for 3_01D pays $50 (M_PASS 5000); the photo session's pose windows/session lock documented pending (see _note)" }
+      ]
+    }
+  ]
+}

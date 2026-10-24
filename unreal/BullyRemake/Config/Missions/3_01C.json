@@ -1,0 +1,59 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "3_01C 'Nutcrackin'' — the Christmas pageant: Ms. Peters' percussionist is sick, so Jimmy fills in on xylophone at the auditorium in the Nutcracker outfit (recon: docs/re-notes/ch3/3_01C-nutcrackin.md). v1 simplifications (see the recon's gap table): the baked 3-01CA/3-01CB cutscenes are title-card + speech beats; the outfit swap is narrative (no clothing system — the Nutcracker grant on pass is the campaign's outfit_nutcracker collectible flag); **minigame_rhythm is stubbed as one long timed-hold minigame** ('Playing the carol...' — the ClassMusic.DAT note charts were never extracted, so per-note hit/miss anims, the sampled-note banks, and the competitive out-score-the-AI-partner rule (ClassMusicGetWinner — VERIFIED there) are all pending); the stage props (six geometry instances) and the nutcracker special-entity set are skipped (geometry_prop_instance/special_entity_set_load pending); the dancers + conductor + AI partner are invulnerable color; the camera auto-cycle is skipped (camera_path_cycle pending); there is no mid-song fail in the original either (VERIFIED). Pass pays $20 + the Nutcracker outfit via the campaign on_pass (in-script grants, VERIFIED). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "3_01C",
+  "title": "Nutcrackin'",
+  "retry": "stage",
+  "start": { "location_cm": [-61930.4, 29640.5, 2.0], "yaw": 0 },
+  "trigger_file": "imported/triggers/3_01C.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "The pageant needs a percussionist.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "NUTCRACKIN'", "sub": "The school auditorium, pageant night.", "seconds": 3 },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "MS. PETERS", "text": "Jimmy! Our percussionist has the flu and the show MUST go on. Here's your costume — the xylophone part is all yours.", "seconds": 4.5 }
+        ] },
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "3_01C_PlayerStart" }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "perform",
+      "objective": "Play the carol. Don't blow it.",
+      "blip": "3_01C_Band01",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "peters", "point": "3_01C_MsPeters", "mesh": "TO_BusinessW1", "ped_model_id": 249, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "partner", "point": "3_01C_Band02", "mesh": "GN_Boy02", "ped_model_id": 255, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "dancer1", "point": "3_01C_Dancer01", "mesh": "GN_Asiangirl", "ped_model_id": 257, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "dancer2", "point": "3_01C_Dancer02", "mesh": "TO_RichW1", "ped_model_id": 256, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "dancer3", "point": "3_01C_Dancer03", "mesh": "TO_BusinessW1", "ped_model_id": 258, "invulnerable": true, "untargetable": true },
+        { "type": "letterbox", "on": true },
+        { "type": "say", "speaker": "MS. PETERS", "text": "Places! And... begin!", "seconds": 2.5 },
+        { "type": "letterbox", "on": false },
+        { "type": "minigame_launch", "id": "carol", "point": "3_01C_Band01", "radius_cm": 400, "seconds": 8, "text": "Playing the carol..." }
+      ],
+      "complete": { "type": "event", "name": "minigame:carol_ok", "latched": true }
+    },
+    {
+      "id": "outro",
+      "objective": "The crowd goes wild.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "MS. PETERS", "text": "Bravo! BRAVO! Jimmy, you saved the pageant — the costume is yours to keep.", "seconds": 3.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "3_01C_PlayerEnd" },
+        { "type": "log", "text": "campaign on_pass for 3_01C pays $20 + outfit_nutcracker; minigame_rhythm (charts + competitive scoring) documented pending" }
+      ]
+    }
+  ]
+}

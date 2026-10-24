@@ -1,0 +1,73 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "3_01A 'Balls of Snow' — Rudy the drunken hobo-Santa puts Jimmy on a rooftop stand in New Coventry to pelt ten townies with snowballs before the cops nab HIM for it (recon: docs/re-notes/ch3/3_01A-balls-of-snow.md; the file's DAT points keep the internal '3_10' naming — noted there). v1 simplifications (see the recon's gap table): the baked 3-01AA/3-01AB bookends are title-card + speech beats; the ladder climb is a reach beat + fade hop onto the stand (traversal pending); **fixed_gallery_mode compresses to a stationary shooting beat** — the player is not actually locked into snowball cam (the tree swap/camera preset/on-hit reset wrapper is pending); the ten victims are stationary target dummies at the file's own spawn/bike-cluster points (the walk/path/bike movement types and the refill-once table are target_gallery_spawner work); the snowball-only hit filter (ped_hit_with_weapon 313) is skipped — any hit counts; Rudy's cheer-on-hit and ammo nags are skipped (event barks pending); **the heat-mirror bust mechanic (player's punishment mirrored onto Rudy; cop reaches him -> fail) is skipped** — heat_mirror_to_npc/authority_reach_npc_fail are recorded pending (our heat system is punishment-lite); the >50 m abandon watchdog is a real leash on Rudy (npc_distance_fail as the leash variant — no warn-tutorial tier); the 180 s timer is our visible countdown. Population/vehicle overrides skipped. Pass pays $20 + the Reindeer Antlers via the campaign on_pass (SP_Antlers, VERIFIED cross-source). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "3_01A",
+  "title": "Balls of Snow",
+  "retry": "stage",
+  "start": { "location_cm": [53524.5, 38205.7, 255.2], "yaw": 0 },
+  "trigger_file": "imported/triggers/3_01A.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Rudy's got a proposition.",
+      "blip": "3_10_RudyScene01",
+      "on_start": [
+        { "type": "banner", "text": "BALLS OF SNOW", "sub": "New Coventry, in the snow.", "seconds": 3 },
+        { "type": "spawn_npc", "npc": "rudy", "point": "3_10_RudyScene01", "mesh": "TO_Poorwoman", "ped_model_id": 252, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "RUDY", "text": "Kid! *hic* Wanna make twenty bucks? Get up that ladder and rain snowballs on those fancy townies. Don't hit the grown-ups — the cops blame ME for that.", "seconds": 5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:rudy" },
+        { "type": "event", "name": "smoke_fail" }
+      ] },
+      "fail_text": "Rudy got hurt."
+    },
+    {
+      "id": "climb",
+      "objective": "Get up to the stand.",
+      "blip": "3_10_Ladder01",
+      "complete": { "type": "reach_location", "point": "3_10_Ladder01", "radius_cm": 500 },
+      "on_complete": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "3_10_Mission01" },
+        { "type": "say", "speaker": "RUDY", "text": "That's the spot! Let 'em have it!", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "gallery",
+      "objective": "Pelt ten townies with snowballs!",
+      "blip": true,
+      "on_start": [
+        { "type": "countdown_start", "seconds": 180, "visible": true, "event": "countdown:gallery_out" },
+        { "type": "spawn_wave", "group": "victims", "points": ["3_10_SBStart01", "3_10_SBStart02", "3_10_SSStart01", "3_10_SSStart02", "3_10_Bike01", "3_10_Bike02", "3_10_Biker01", "3_10_Biker02", "3_10_Mission01Fire", "3_10_MissionEnd"], "mesh": "TO_NH_Res_01", "hostile": false, "advance_at": 10 },
+        { "type": "hint", "text": "Ten hits before the cold wears off!", "seconds": 3 }
+      ],
+      "complete": { "type": "event", "name": "wave:victims", "latched": true },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "countdown:gallery_out", "latched": true },
+        { "type": "leash", "npc": "rudy", "radius_cm": 5000, "seconds": 30 }
+      ] },
+      "fail_text": "You left Rudy to freeze.",
+      "on_complete": [ { "type": "countdown_cancel" } ]
+    },
+    {
+      "id": "outro",
+      "objective": "Ten for ten.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "RUDY", "text": "HA! Ten! Beautiful arm, kid. Here — and take the hat. You've earned the antlers.", "seconds": 3.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "3_10_PlayerWarp" },
+        { "type": "log", "text": "campaign on_pass for 3_01A pays $20 + outfit_antlers; the heat-mirror bust is documented pending (see _note)" }
+      ]
+    }
+  ]
+}

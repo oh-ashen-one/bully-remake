@@ -257,6 +257,24 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   pending — and the walkthrough's 'spotted fails' claim is VERIFIED wrong per the script). Zero new C++ this wave.
   Verified: 3_07 **PASS 2/2**, 3_08 **PASS 2/2** (attempts 1 — both fail-free by design), 3_01 **PASS 6/6**,
   campaign **PASS 5/5**, full regression (all 40 prior missions incl. waves G+H) re-PASS.
+- **Ch3 Wave B (the SE Christmas arc: 3_01A, 3_01C, 3_01D, 3_XM)** — four missions, zero new C++ (all campaign
+  rows already existed from wave A). `3_01A.json` (Balls of Snow, 4 stages: Rudy's pitch, the ladder reach + fade
+  hop to the stand, the gallery as ten stationary dummies at the file's own spawn/bike points under the 180 s
+  countdown + a real leash-on-Rudy abandon fail; fixed_gallery_mode/target_gallery_spawner/ped_hit_with_weapon and
+  the heat-mirror bust are documented pending). `3_01C.json` (Nutcrackin', 3 stages: Peters' brief + fade into the
+  area-19 stage, the pageant as ONE long timed-hold with the cast as color — minigame_rhythm (ClassMusic.DAT charts
+  were never extracted) + the out-score-the-AI rule documented pending; outfit + $20 via the campaign row).
+  `3_01D.json` (Rudy, 12 stages: five ornament reaches under the 185 s countdown, the two elf ambushes as real
+  waves at the count thresholds, the return, the Santa's-lap photo session as two 3_01-style photo stubs
+  compressing the five kids' pose-window tables — photo_pose_window/photo_session_lock pending; $50 via the row).
+  `3_XM.json` (Miracle on Bullworth St., 8 stages: the 19:30 clock set is real (snow pending), the timed
+  get-to-square, three wrecking sets of stand-in dummies at the square's own points + six marked invented ones (the
+  weighted 100-pt meter stays pending — 2_S02 posture), an elf wave per set boundary compressing the escalation
+  ladder, zone_timer stand-in for the cumulative area budget, the queue sim cut to two color NPCs; Elf outfit via
+  the row). One self-inflicted bug caught pre-smoke: elf waves were spawned in on_complete — waves are
+  stage-scoped, moved to the elf stages' on_start (the wave-A rule). Verified: 3_01A **PASS 4/4**, 3_01C **PASS
+  3/3**, 3_01D **PASS 12/12**, 3_XM **PASS 8/8** (all incl. fail/retry), campaign **PASS 5/5**, full regression
+  (all 40 prior missions) re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

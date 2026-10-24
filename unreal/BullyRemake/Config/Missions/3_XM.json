@@ -1,0 +1,416 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "3_XM 'Miracle on Bullworth St.' \u2014 winter evening at the town-square Santa's Grotto: Rudy (the drunk 'real' Santa) wants the rival grotto wrecked \u2014 Jimmy smashes the display while elf guards trickle in harder as the damage meter drops (recon: docs/re-notes/ch3/3_XM-miracle-on-bullworth-st.md; the baked intro '3-01BA' + M_3_01B speech group reveal the production id was 3_01B \u2014 noted there). v1 simplifications (see the recon's gap table): the forced snow + 19:30 clock set: the clock is real, the snow is weather-force-pending; the 'Miracle' grotto special-entity set and its nav-block discs are skipped (special_entity_set_load/nav_block_radius pending) \u2014 the square plays in open geometry around the file's Santa/queue points; the six sequential destruction groups with the GLOBAL 100-point weighted meter (20 props x 5; early smashing counts) compress to three sequential stand-in dummy sets (2_S02's posture \u2014 weighted_destruction_meter stays pending) at the file's own square points + six marked invented ones; the per-prop one-shot barks are one Santa bark per set (note the original's own 'ccane'/'x_cas2' speech-table bugs, VERIFIED there); the elf escalation ladder (concurrency caps at the meter thresholds + 60 s wave clock + respawn-to-pool) compresses to one hostile elf wave per set boundary (meter_threshold_escalation pending); the Santa-queue ambience (families arriving, the knee beat, the flee-scatter cascade) is cut to two color NPCs (queue_line_simulation/npc_ally_pair pending \u2014 ambience-only in the original too); Santa himself is untargetable theater (re-face + shake-fist = one say per set); the weapon-300 resupply pile is skipped; the area fail (cumulative 10 s out-of-zone >30 m) is a zone_timer on the square box (continuous vs cumulative \u2014 documented approximation). Pass grants the Elf outfit via the campaign on_pass (ClothingGivePlayerOutfit VERIFIED). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "3_XM",
+  "title": "Miracle on Bullworth St.",
+  "retry": "stage",
+  "start": {
+    "location_cm": [
+      51285.2,
+      11288.8,
+      537.0
+    ],
+    "yaw": 0
+  },
+  "trigger_file": "imported/triggers/3_XM.json",
+  "points": {
+    "grotto1": {
+      "location_cm": [
+        58500.0,
+        9200.0,
+        575.0
+      ]
+    },
+    "grotto2": {
+      "location_cm": [
+        59200.0,
+        9300.0,
+        577.0
+      ]
+    },
+    "grotto3": {
+      "location_cm": [
+        58200.0,
+        8800.0,
+        570.0
+      ]
+    },
+    "grotto4": {
+      "location_cm": [
+        59000.0,
+        8700.0,
+        577.0
+      ]
+    },
+    "grotto5": {
+      "location_cm": [
+        58600.0,
+        9600.0,
+        575.0
+      ]
+    },
+    "grotto6": {
+      "location_cm": [
+        58400.0,
+        9000.0,
+        573.0
+      ]
+    }
+  },
+  "triggers": [
+    {
+      "id": "grotto_area",
+      "location_cm": [
+        58906.1,
+        8956.7,
+        577.4
+      ],
+      "half_extent_cm": [
+        3500,
+        3500,
+        600
+      ]
+    }
+  ],
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Rudy has a grudge against the grotto.",
+      "blip": "3_XM_BumStart",
+      "on_start": [
+        {
+          "type": "banner",
+          "text": "MIRACLE ON BULLWORTH ST.",
+          "sub": "The town square, Christmas Eve rush.",
+          "seconds": 3
+        },
+        {
+          "type": "clock",
+          "set": "19:30"
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "bum",
+          "point": "3_XM_BumStart",
+          "mesh": "TO_Poorwoman",
+          "ped_model_id": 252,
+          "mission_critical": true,
+          "invulnerable": true,
+          "untargetable": true,
+          "face": "player"
+        },
+        {
+          "type": "speech_sequence",
+          "id": "intro",
+          "lines": [
+            {
+              "speaker": "RUDY",
+              "text": "They gave MY corner to some department-store phony! Wreck his little winter wonderland, kid \u2014 every candle, every candy cane. I'll make it worth your while.",
+              "seconds": 5
+            }
+          ]
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "speech:intro",
+        "latched": true
+      },
+      "fail": {
+        "type": "any",
+        "conditions": [
+          {
+            "type": "event",
+            "name": "npc_ko:bum"
+          },
+          {
+            "type": "event",
+            "name": "smoke_fail"
+          }
+        ]
+      },
+      "fail_text": "Rudy got hurt."
+    },
+    {
+      "id": "to_square",
+      "objective": "Get to the grotto \u2014 quick!",
+      "blip": "3_XM_SantaStart",
+      "on_start": [
+        {
+          "type": "countdown_start",
+          "seconds": 35,
+          "visible": true,
+          "event": "countdown:square_out"
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "santa",
+          "point": "3_XM_SantaStart",
+          "mesh": "TO_Construct01",
+          "ped_model_id": 253,
+          "invulnerable": true,
+          "untargetable": true
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "kid1",
+          "point": "3_XM_KidStart",
+          "mesh": "GN_Boy01",
+          "ped_model_id": 138,
+          "invulnerable": true,
+          "untargetable": true
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "parent1",
+          "point": "3_XM_ParentStart",
+          "mesh": "TO_RichW1",
+          "ped_model_id": 80,
+          "invulnerable": true,
+          "untargetable": true
+        }
+      ],
+      "complete": {
+        "type": "reach_location",
+        "point": "3_XM_SantaStart",
+        "radius_cm": 1800
+      },
+      "fail": {
+        "type": "event",
+        "name": "countdown:square_out",
+        "latched": true
+      },
+      "fail_text": "The moment passed.",
+      "on_complete": [
+        {
+          "type": "countdown_cancel"
+        }
+      ]
+    },
+    {
+      "id": "wreck1",
+      "objective": "Wreck it: the snowman and the sleigh.",
+      "blip": true,
+      "on_start": [
+        {
+          "type": "spawn_wave",
+          "group": "set1",
+          "points": [
+            "3_XM_SeeSanta",
+            "grotto1"
+          ],
+          "mesh": "GN_Bully02",
+          "hostile": false,
+          "advance_at": 2
+        },
+        {
+          "type": "say",
+          "speaker": "SANTA",
+          "text": "HO HO\u2014 hey! HEY! Stop that, you little monster!",
+          "seconds": 3
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "wave:set1",
+        "latched": true
+      },
+      "fail": {
+        "type": "zone_timer",
+        "trigger": "grotto_area",
+        "seconds": 10,
+        "visible": true
+      },
+      "fail_text": "You left the square mid-wrecking.",
+      "on_complete": []
+    },
+    {
+      "id": "wreck1_elves",
+      "objective": "The elves fight back!",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "spawn_wave",
+          "group": "elves1",
+          "points": [
+            "3_XM_ElfSpawn01",
+            "3_XM_ElfSpawn02"
+          ],
+          "mesh": "GN_Boy02",
+          "hostile": true
+        },
+        {
+          "type": "say",
+          "speaker": "SANTA",
+          "text": "ELVES! Defend the grotto!",
+          "seconds": 2.5
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "wave:elves1",
+        "latched": true
+      },
+      "fail": {
+        "type": "zone_timer",
+        "trigger": "grotto_area",
+        "seconds": 10,
+        "visible": true
+      },
+      "fail_text": "You left the square mid-wrecking."
+    },
+    {
+      "id": "wreck2",
+      "objective": "Candles, presents, candy canes!",
+      "blip": true,
+      "on_start": [
+        {
+          "type": "spawn_wave",
+          "group": "set2",
+          "points": [
+            "3_XM_Weapons",
+            "grotto2",
+            "grotto3",
+            "grotto4"
+          ],
+          "mesh": "GN_Bully03",
+          "hostile": false,
+          "advance_at": 4
+        },
+        {
+          "type": "say",
+          "speaker": "SANTA",
+          "text": "The PRESENTS! Those took WEEKS!",
+          "seconds": 2.5
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "wave:set2",
+        "latched": true
+      },
+      "fail": {
+        "type": "zone_timer",
+        "trigger": "grotto_area",
+        "seconds": 10,
+        "visible": true
+      },
+      "fail_text": "You left the square mid-wrecking.",
+      "on_complete": []
+    },
+    {
+      "id": "wreck2_elves",
+      "objective": "More elves!",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "spawn_wave",
+          "group": "elves2",
+          "points": [
+            "3_XM_ElfSpawn03",
+            "3_XM_ElfSpawn01"
+          ],
+          "mesh": "GN_Greekboy",
+          "hostile": true
+        },
+        {
+          "type": "say",
+          "speaker": "SANTA",
+          "text": "MORE ELVES! Defend Christmas!",
+          "seconds": 2.5
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "wave:elves2",
+        "latched": true
+      },
+      "fail": {
+        "type": "zone_timer",
+        "trigger": "grotto_area",
+        "seconds": 10,
+        "visible": true
+      },
+      "fail_text": "You left the square mid-wrecking."
+    },
+    {
+      "id": "wreck3",
+      "objective": "Finish it: the castle.",
+      "blip": true,
+      "on_start": [
+        {
+          "type": "spawn_wave",
+          "group": "set3",
+          "points": [
+            "grotto5",
+            "grotto6",
+            "3_XM_Lineup"
+          ],
+          "mesh": "GN_Bully04",
+          "hostile": false,
+          "advance_at": 3
+        },
+        {
+          "type": "say",
+          "speaker": "SANTA",
+          "text": "Not the castle! NOT THE CASTLE!",
+          "seconds": 2.5
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "wave:set3",
+        "latched": true
+      },
+      "fail": {
+        "type": "zone_timer",
+        "trigger": "grotto_area",
+        "seconds": 10,
+        "visible": true
+      },
+      "fail_text": "You left the square mid-wrecking."
+    },
+    {
+      "id": "outro",
+      "objective": "The grotto is rubble.",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "letterbox",
+          "on": true
+        },
+        {
+          "type": "speech_sequence",
+          "id": "outro",
+          "lines": [
+            {
+              "speaker": "SANTA",
+              "text": "My beautiful grotto... ruined... RUINED!",
+              "seconds": 2.5
+            },
+            {
+              "speaker": "RUDY",
+              "text": "HAHA! Merry Christmas, phony! Kid \u2014 you did beautiful work. Here: the elf suit. You earned it.",
+              "seconds": 4
+            }
+          ]
+        },
+        {
+          "type": "letterbox",
+          "on": false
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "speech:outro",
+        "latched": true
+      },
+      "on_complete": [
+        {
+          "type": "log",
+          "text": "campaign on_pass for 3_XM grants outfit_elf (VERIFIED); the weighted 100-pt meter + escalation ladder + queue sim documented pending (see _note)"
+        }
+      ]
+    }
+  ]
+}

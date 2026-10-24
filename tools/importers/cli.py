@@ -244,6 +244,36 @@ def cmd_audio(a) -> int:
     return 0
 
 
+def cmd_cutscene(a) -> int:
+    """Baked cutscenes (Cuts.img + PLAYLIST/Cuts.bin + Config/Text): manifests + audio into <out>/cutscenes/<id>/."""
+    from . import cutscene as cs
+    install = resolve_install(a.install)
+    if a.action == "list":
+        for r in cs.list_cutscenes(install):
+            print(f"{r['id']:12s} audio={'y' if r['audio'] else '-'} sub={'y' if r['sub'] else '-'} hxd={','.join(r['hxds'])}")
+        return 0
+    ids = list(a.ids or [])
+    if a.chapter1 or not ids:
+        ids = list(cs.CHAPTER1_OPENING) + [i for i in ids if i not in cs.CHAPTER1_OPENING]
+    rc = 0
+    with _archive(install, "Stream/World.img") as world:
+        for cid in ids:
+            try:
+                m = cs.build(install, cid, a.out, language=a.language, with_audio=not a.no_audio, world_img=world)
+            except (FormatError, OSError, ValueError) as ex:
+                print(f"{cid}: FAILED {ex}", file=sys.stderr)
+                rc = 1
+                continue
+            print(json.dumps({"id": cid, "duration_s": m["duration_s"],
+                              "audio_s": m["audio"]["seconds"] if m["audio"] else None,
+                              "subtitles": len(m["subtitles"]),
+                              "subtitle_match": sorted({s["match"] or "missing" for s in m["subtitles"]}),
+                              "camera_frames": m["camera"]["frames"], "camera_cuts": len(m["camera"]["cuts"]),
+                              "actors": [x["name"] for x in m["actors"]], "warnings": m["warnings"],
+                              "out": os.path.join(a.out, "cutscenes", cid)}))
+    return rc
+
+
 def cmd_anim(a) -> int:
     from .agr import arrow_displacement, parse_agr
     from .ped import load_hxd, read_group_agr
@@ -492,6 +522,14 @@ def main(argv=None) -> int:
     p.add_argument("--config", default="unreal/BullyRemake/Config/FootstepSurfaces.json",
                    help="footsteps: hand-authored surface -> cue-family rules")
     p.set_defaults(fn=cmd_audio)
+
+    p = sub.add_parser("cutscene", help="baked cutscenes: list, or build camera/actors/subtitles manifest + audio WAV into <out>/cutscenes/<id>/")
+    p.add_argument("action", choices=["list", "build"])
+    p.add_argument("ids", nargs="*", help="cutscene ids as Cuts.img names them (1-1-1, 1-02B, 1-03, ...); default: the Chapter 1 opening set")
+    p.add_argument("--chapter1", action="store_true", help="also build the Chapter 1 opening set (1-1-1 1-1-2 1-02B 1-02E 1-02D 1-03 1-04)")
+    p.add_argument("--language", default="American", help="Config/Text/<language>.img for subtitle text (default American)")
+    p.add_argument("--no-audio", action="store_true", help="skip decoding the Cuts.bin stream")
+    p.set_defaults(fn=cmd_cutscene)
 
     p = sub.add_parser("nft", help="decode .nft texture dictionaries to PNG")
     p.add_argument("names", nargs="+", help="World.img .nft names or paths to loose .nft/.txd files")

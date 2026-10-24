@@ -3,6 +3,7 @@
 
 #include "BullyCampaignSubsystem.h"
 #include "BullyClockSubsystem.h"
+#include "BullyStorySubsystem.h"
 #include "Engine/Engine.h"
 #include "Engine/World.h"
 #include "GameFramework/Character.h"
@@ -41,7 +42,10 @@ void UMissionStarSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 	// except -BRCampaignSmoke, which is the star system's own test (its run also carries harmless flags like
 	// -BRNoAmbient, so the exemption is on the smoke flag, not on the switch list).
 	Smoke.bEnabled = FParse::Param(FCommandLine::Get(), TEXT("BRCampaignSmoke"));
-	if (!Smoke.bEnabled)
+	// -BRStory / -BRStorySmoke[=new|continue] (BullyStorySubsystem) are the PLAYER's story mode (and its own headless
+	// test): the stars are the whole point of them, so they are exempt from the harness suppression like the campaign smoke.
+	const bool bStoryRun = UBullyStorySubsystem::IsStoryRunRequested();
+	if (!Smoke.bEnabled && !bStoryRun)
 	{
 		TArray<FString> Tokens, Switches;
 		FCommandLine::Parse(FCommandLine::Get(), Tokens, Switches);

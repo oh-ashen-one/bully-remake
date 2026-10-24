@@ -2219,7 +2219,7 @@ void UMissionSubsystem::Tick(float Dt)
 	{
 		if (World->GetTimeSeconds() - FailTime >= Mission->FailDelay) { RetryNow(); }
 	}
-	else if (State == EState::Complete && Hud.IsValid() && Hud->IsShown() && Hud->GetState().BannerLeft <= 0.f)
+	else if (State == EState::Complete && !bKeepHud && Hud.IsValid() && Hud->IsShown() && Hud->GetState().BannerLeft <= 0.f)
 	{
 		Hud->ClearObjective();
 		Hud->Hide();

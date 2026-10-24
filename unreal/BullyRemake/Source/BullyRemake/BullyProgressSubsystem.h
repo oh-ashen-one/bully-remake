@@ -14,10 +14,14 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "BullyProgressSubsystem.generated.h"
 
+class UBullyStorySubsystem;
+
 UCLASS()
 class UBullyProgressSubsystem : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
+
+	friend class UBullyStorySubsystem;   // story-mode save/load restores the private wallet/inventory
 
 public:
 	static UBullyProgressSubsystem* Get(const UObject* WorldContext);

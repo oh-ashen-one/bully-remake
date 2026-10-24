@@ -292,6 +292,7 @@ void UBullyCampaignSubsystem::GiveWeaponByGameId(int32 GameId)
 
 void UBullyCampaignSubsystem::GiveWeaponByName(FName WeaponId)
 {
+	GrantedWeapons.Add(WeaponId);   // remembered for the story save (weapon unlocks)
 	// v1: every weapon starts unlocked (BullyWeaponComponent), so a grant is a top-up plus the log line.
 	if (UBullyWeaponComponent* W = PlayerWeapons(GetGameInstance()))
 	{

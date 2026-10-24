@@ -36,6 +36,8 @@
 #include "MissionTrigger.h"
 #include "Components/BrushComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
 #include "EngineUtils.h"
 #include "Engine/Engine.h"
 #include "Engine/LocalPlayer.h"
@@ -545,6 +547,26 @@ bool UMissionSubsystem::HumanFight(const FMissionStage& St)
 	return true;
 }
 
+// forensics: the static floors stacked at an XY (z top->down) with actor / mesh / bounds size
+static FString HumanFloorStack(UWorld* W, const FVector& At, const AActor* Ignore)
+{
+	FString Floors;
+	if (!W) { return Floors; }
+	FCollisionQueryParams Q(SCENE_QUERY_STAT(BullyHumanFloors), true, Ignore);
+	FVector From = At + FVector(0, 0, 1500.f);
+	for (int32 i = 0; i < 8; ++i)
+	{
+		FHitResult H;
+		if (!W->LineTraceSingleByObjectType(H, From, At - FVector(0, 0, 1500.f), FCollisionObjectQueryParams(ECC_WorldStatic), Q)) { break; }
+		const UStaticMeshComponent* SMC = Cast<UStaticMeshComponent>(H.GetComponent());
+		const FVector Ext = H.GetComponent() ? H.GetComponent()->Bounds.BoxExtent : FVector::ZeroVector;
+		Floors += FString::Printf(TEXT("%s%.0f(%s/%s %.0fx%.0fx%.0fm)"), Floors.IsEmpty() ? TEXT("") : TEXT(","), H.ImpactPoint.Z, *GetNameSafe(H.GetActor()).Left(28),
+			SMC ? *GetNameSafe(SMC->GetStaticMesh()) : TEXT("-"), Ext.X / 50.f, Ext.Y / 50.f, Ext.Z / 50.f);
+		From = H.ImpactPoint - FVector(0, 0, 5.f);
+	}
+	return Floors;
+}
+
 FString UMissionSubsystem::HumanStuckReport(const TCHAR* Why) const
 {
 	const APawn* P = GetPlayerPawn();
@@ -552,16 +574,7 @@ FString UMissionSubsystem::HumanStuckReport(const TCHAR* Why) const
 	FString Floors;
 	if (UWorld* W = GetWorld())
 	{
-		TArray<FHitResult> Hits;
-		FCollisionQueryParams Q(SCENE_QUERY_STAT(BullyHumanFloors), true, P);
-		FVector From = Human.ProgGoal + FVector(0, 0, 1500.f);
-		for (int32 i = 0; i < 8; ++i)
-		{
-			FHitResult H;
-			if (!W->LineTraceSingleByObjectType(H, From, Human.ProgGoal - FVector(0, 0, 1500.f), FCollisionObjectQueryParams(ECC_WorldStatic), Q)) { break; }
-			Floors += FString::Printf(TEXT("%s%.0f(%s)"), Floors.IsEmpty() ? TEXT("") : TEXT(","), H.ImpactPoint.Z, *GetNameSafe(H.GetActor()).Left(28));
-			From = H.ImpactPoint - FVector(0, 0, 5.f);
-		}
+		Floors = HumanFloorStack(W, Human.ProgGoal, P);
 		if (UNavigationSystemV1* NS = FNavigationSystem::GetCurrent<UNavigationSystemV1>(W))
 		{
 			FNavLocation NL;
@@ -643,6 +656,10 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 		Human.MissionNavWait = 0.0;   // the pre-start build is not part of the mission's minutes
 		if (!StartMission(Smoke.MissionId, 0, /*bDevOverride*/ true)) { Quit(false, TEXT("mission failed to load")); return; }
 		Smoke.bWantFailTest = false;
+		if (APawn* Pw = GetPlayerPawn())
+		{
+			UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human start floors at %s (z top->down): %s"), *Pw->GetActorLocation().ToCompactString(), *HumanFloorStack(World, Pw->GetActorLocation(), Pw));
+		}
 		return;
 	}
 	if (Smoke.Elapsed - Human.NavWaitTotal > Human.Limit) { Quit(false, FString::Printf(TEXT("time limit %.0f s"), Human.Limit)); return; }

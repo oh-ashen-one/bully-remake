@@ -1437,6 +1437,9 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			}
 			else
 			{
+				// sm-humandrive: drop the previous move's pending arrival before cancelling it, otherwise
+				// the cancelled command fires a stale npc_arrived:<id> that latches in a retried stage
+				PendingArrive.Remove(N);
 				N->ClearCommands(true);
 				if (Route.Num() > 0)
 				{

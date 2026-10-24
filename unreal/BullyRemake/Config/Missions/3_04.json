@@ -1,0 +1,159 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "3_04 'Wrong Part of Town' — the greasers are shaking down Cornelius in New Coventry; save him, meet Algie + Chad + Lola, then the signature escape with the player riding the back of Chad's bike shooting pursuers, and walk Algie home to the nerds (recon: docs/re-notes/ch3/3_04-wrong-part-of-town.md). v1 simplifications (see the recon's gap table): the baked 3-04/3-04B cutscenes are title-card + speech beats; the W2 tableau (Johnny grapple-holding Cornelius in a shove loop + the cheer ring — npc_grapple_hold_scene pending) is a spawned color tableau; the rescue cutscene is a letterbox speech beat and Johnny/Gary's walk-off is a despawn; Cornelius's zone-ally toggle (ally_zone_recruit_toggle pending) is a wave-D defender for the fight (always-on, documented); the Algie-flee micro-scene is folded into the meet beat; **the back-of-the-bike chase — player_rides_npc_vehicle (PlayerFixToBackOfVehicle + locked chase camera + forced slingshot) is the wave's big pending primitive — compresses to Chad sprinting the real 49-node _3_04_BIKEESCAPE route 1 with the player leash-following on foot** (routes 02-04 and their ~1.5 km are cut; mounted_chaser_spawner/chase_camera_cuts/vehicle_jump_action/chaser_wipeout_event are pending); the mid-chase chaser waves compress to the hill-ambush fight (the real hill points); the stage-4 escort is a reach beat with Algie as a defender + Earnest/Cornelius as mission-critical greeters (the outro NIS's four beats compress to three speech lines); the preps' attitude flips, ambient-population overrides, named sound emitters and unique-model suppressions are world-system work (skipped). Player max-health bookkeeping and the no-damage unbolt are skipped. Pass grants weapon 307 (bottle-rocket launcher, INFERRED in the recon) via the campaign on_pass (SMissPass VERIFIED); greasers -5 / nerds +5 are relative (omitted — respect_delta pending). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "3_04",
+  "title": "Wrong Part of Town",
+  "retry": "stage",
+  "start": { "location_cm": [18710.2, 15172.3, 774.6], "yaw": 0 },
+  "trigger_file": "imported/triggers/3_04.json",
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Something's up in New Coventry.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "WRONG PART OF TOWN", "sub": "New Coventry. Greaser turf.", "seconds": 3 },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "JIMMY", "text": "Cornelius went into greaser country and didn't come back. Time for a rescue.", "seconds": 3.5 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "tableau",
+      "objective": "Find Cornelius.",
+      "blip": "3_04_spawnCorneliusStg1",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "cornelius", "point": "3_04_spawnCorneliusStg1", "mesh": "GN_Greekboy", "ped_model_id": 9, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "johnny", "point": "3_04_spawnJohnnyStg1", "mesh": "GN_Bully04", "ped_model_id": 23, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "gary", "point": "3_04_spawnGaryStg1", "mesh": "GN_Bully01", "ped_model_id": 130, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "goon1", "point": "3_04_spawnGoon1Stg1", "mesh": "GN_Bully02", "ped_model_id": 22, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "goon2", "point": "3_04_spawnGoon2Stg1", "mesh": "GN_Bully03", "ped_model_id": 28, "invulnerable": true, "untargetable": true },
+        { "type": "say", "speaker": "JOHNNY", "text": "Look at this little nerd, wandering into the WRONG part of town...", "seconds": 3 }
+      ],
+      "complete": { "type": "reach_location", "point": "3_04_spawnCorneliusStg1", "radius_cm": 800 },
+      "fail": { "type": "event", "name": "npc_ko:cornelius", "latched": true },
+      "fail_text": "Cornelius got hurt."
+    },
+    {
+      "id": "rescue",
+      "objective": "Break it up!",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "rescue", "lines": [
+          { "speaker": "JIMMY", "text": "Hey, Johnny! Pick on someone your own size.", "seconds": 2.5 },
+          { "speaker": "JOHNNY", "text": "Hopkins. This isn't your business — but fine. Boys, keep the nerd. We're done here.", "seconds": 3.5 }
+        ] },
+        { "type": "letterbox", "on": false },
+        { "type": "npc_despawn", "npc": "johnny" },
+        { "type": "npc_despawn", "npc": "gary" },
+        { "type": "npc_despawn", "npc": "goon1" },
+        { "type": "npc_despawn", "npc": "goon2" },
+        { "type": "npc_despawn", "npc": "cornelius" },
+        { "type": "spawn_defender", "npc": "cornelius", "point": "3_04_spawnCorneliusStg1", "mesh": "GN_Greekboy" },
+        { "type": "spawn_wave", "group": "attackers", "points": ["3_04_spawnGoon3Stg1", "3_04_spawnGoon4Stg1"], "mesh": "GN_Bully02", "hostile": true, "target": "cornelius" }
+      ],
+      "complete": { "type": "event", "name": "wave:attackers", "latched": true },
+      "fail": { "type": "event", "name": "npc_ko:cornelius", "latched": true },
+      "fail_text": "Cornelius got hurt.",
+      "on_complete": [ { "type": "say", "speaker": "CORNELIUS", "text": "Jimmy! Thank you! Algie's waiting by the bike racks with Chad — hurry!", "seconds": 3.5 } ]
+    },
+    {
+      "id": "meet",
+      "objective": "Meet Algie, Chad and Lola.",
+      "blip": "3_04_spawnAlgieStg2",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "algie", "point": "3_04_spawnAlgieStg2", "mesh": "NDH3_Bucky", "ped_model_id": 4, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "chad", "point": "3_04_spawnChadStg2", "mesh": "GN_Boy01", "ped_model_id": 32, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "lola", "point": "3_04_spawnLolaStg2", "mesh": "GN_Asiangirl", "ped_model_id": 25, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "reach_location", "point": "3_04_spawnAlgieStg2", "radius_cm": 800 },
+      "fail": { "type": "event", "name": "npc_ko:algie", "latched": true },
+      "fail_text": "Algie got hurt.",
+      "on_complete": [
+        { "type": "say", "speaker": "ALGIE", "text": "Jimmy! The greasers are EVERYWHERE. Chad's got his bike — we have to move!", "seconds": 3 }
+      ]
+    },
+    {
+      "id": "chase_setup",
+      "objective": "The escape plan.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "plan", "lines": [
+          { "speaker": "CHAD", "text": "Get on the back, Hopkins. You shoot, I drive.", "seconds": 3 },
+          { "speaker": "JIMMY", "text": "Just don't crash.", "seconds": 2 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:plan", "latched": true }
+    },
+    {
+      "id": "chase",
+      "objective": "The getaway — keep up with Chad!",
+      "blip": false,
+      "on_start": [
+        { "type": "npc_move_to", "npc": "chad", "via": ["3_04_bikeEscape"], "point": "3_04_stg3WarpAlgie", "gait": "sprint" },
+        { "type": "npc_move_to", "npc": "algie", "via": ["3_04_AlgieLeaveLolas"], "point": "3_04_stg3WarpAlgie", "gait": "sprint" },
+        { "type": "say", "speaker": "JIMMY", "text": "They're on us! GO!", "seconds": 2 }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "event", "name": "npc_arrived:chad", "latched": true },
+        { "type": "reach_location", "point": "3_04_stg3WarpAlgie", "radius_cm": 1200 }
+      ] },
+      "fail": { "type": "leash", "npc": "chad", "radius_cm": 6000, "seconds": 5 },
+      "fail_text": "You lost Chad in the chase."
+    },
+    {
+      "id": "hill_ambush",
+      "objective": "The hill ambush!",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "hill", "points": ["3_04_hillPed01", "3_04_hillPed02"], "mesh": "GN_Bully03", "hostile": true },
+        { "type": "say", "speaker": "CHAD", "text": "Ambush! On the hill — take them!", "seconds": 2.5 }
+      ],
+      "complete": { "type": "event", "name": "wave:hill", "latched": true }
+    },
+    {
+      "id": "walk_home",
+      "objective": "Walk Algie back to the nerds.",
+      "blip": "3_04_stg4_Objective",
+      "on_start": [
+        { "type": "npc_despawn", "npc": "algie" },
+        { "type": "npc_despawn", "npc": "chad" },
+        { "type": "npc_despawn", "npc": "lola" },
+        { "type": "spawn_defender", "npc": "algie", "point": "3_04_stg4_spawnAlgie", "mesh": "NDH3_Bucky" },
+        { "type": "spawn_npc", "npc": "earnest", "point": "3_04_stg4_spawnEarnest", "mesh": "GN_Greekboy", "ped_model_id": 10, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "cornelius2", "point": "3_04_stg4_spawnCornelius", "mesh": "GN_Boy02", "ped_model_id": 9, "mission_critical": true, "invulnerable": true, "untargetable": true },
+        { "type": "say", "speaker": "ALGIE", "text": "Almost home. Earnest and Cornelius are just ahead.", "seconds": 3 }
+      ],
+      "complete": { "type": "reach_location", "point": "3_04_stg4_Objective", "radius_cm": 800 },
+      "fail": { "type": "any", "conditions": [
+        { "type": "event", "name": "npc_ko:algie", "latched": true },
+        { "type": "event", "name": "npc_ko:earnest", "latched": true },
+        { "type": "event", "name": "npc_ko:cornelius2", "latched": true }
+      ] },
+      "fail_text": "A nerd went down."
+    },
+    {
+      "id": "outro",
+      "objective": "The nerds owe you.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "outro", "lines": [
+          { "speaker": "CORNELIUS", "text": "You pulled me out of that garage, Jimmy. I won't forget it.", "seconds": 3 },
+          { "speaker": "EARNEST", "text": "And Algie back in one piece! The nerds are in your debt.", "seconds": 3 },
+          { "speaker": "ALGIE", "text": "Best wrong-side-of-town day EVER.", "seconds": 2.5 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:outro", "latched": true },
+      "on_complete": [
+        { "type": "log", "text": "campaign on_pass for 3_04 grants weapon 307 (bottle-rocket launcher, INFERRED in the recon; SMissPass VERIFIED); greasers -5 / nerds +5 relative omitted; player_rides_npc_vehicle is the wave's big pending primitive (see _note)" }
+      ]
+    }
+  ]
+}

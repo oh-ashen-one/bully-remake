@@ -1,0 +1,167 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "3_05 'Tenements' — climb through the tenements window into New Coventry's worst building, collect Lola's five belongings past the greaser guards, and when you grab the laundry basket NORTON smashes through the wall with a sledgehammer; beat him, take the hammer, get out, and bring Lola the bundle for the kiss (recon: docs/re-notes/ch3/3_05-tenements.md; the interior is area 36). The five pickup spots are invented from the file's trigger-volume centers (the five-element _3_05_LOLAPICKUPS pointlist collapsed to one point in the extract — marked; laundry is deliberately LAST, though the recon verifies the original triggers Norton on the laundry pickup in ANY order). v1 simplifications (see the recon's gap table): the baked 3-05 cutscene is a title-card + speech beat; the window traverse is a reach + fade hop (engine/area-side in the original too); the clock pause for the interior is real; the two guard groups' chatter-then-cover behavior (conversation_beat_machine + npc_cover_behavior pending) compresses to hostile waves at the real ambush/catwalk points; the catwalk runner's see-then-flee-then-fight chain (npc_sees_player pending) compresses to a wave; **the no-KO Norton loop (boss_fight_retry_loop: player immortal, 0 HP resets the boss instead of failing) lands as the wave-F player-KO stage retry — the fail revives the player and the boss wave respawns fresh; the fail banner briefly shows (documented; the original never shows one)**; the wall-break pipes entity and the double camera-path intro are a letterbox beat (persistent_fade_entity/camera_rail_pair pending); Norton's custom AI/action trees, damage multipliers, combat-zone mask and social blacklist compress to hits_to_beat 6 + boss_bar; the equip-the-sledgehammer gate (weapon_equipped condition pending) is a give_item beat; the hammer-wall hints are skipped; the window re-lock and the item-strip-on-exit are real (take_item ×5 + give bundle); Lola's gift callback + give/kiss is our social + pair_anim pair. No SMissPass case (VERIFIED absence); greasers -10 is relative (omitted — respect_delta pending). Wording is original; ped_model_id records the original model ids next to the stand-in meshes.",
+  "id": "3_05",
+  "title": "Tenements",
+  "retry": "stage",
+  "start": { "location_cm": [49159.8, 23953.2, 241.7], "yaw": 0 },
+  "trigger_file": "imported/triggers/3_05.json",
+  "points": {
+    "ten_window": { "location_cm": [49500.0, 24500.0, 300.0] },
+    "g1a": { "location_cm": [-54000.0, 3600.0, 3557.9] },
+    "g1b": { "location_cm": [-54250.0, 3700.0, 3557.9] },
+    "cat2": { "location_cm": [-51725.4, 5039.0, 3553.6] },
+    "pickup1": { "location_cm": [-53993.2, 1795.5, 3206.8] },
+    "pickup2": { "location_cm": [-51620.8, 3418.0, 3335.2] },
+    "pickup3": { "location_cm": [-51161.7, 4648.6, 3562.4] },
+    "pickup4": { "location_cm": [-52054.4, 3813.0, 4023.8] },
+    "pickup5": { "location_cm": [-55042.0, 5098.3, 3534.1] },
+    "lola_end": { "location_cm": [49359.8, 24053.2, 241.7] }
+  },
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Lola's things are inside the tenements.",
+      "blip": false,
+      "on_start": [
+        { "type": "banner", "text": "TENEMENTS", "sub": "New Coventry. The building eats people.", "seconds": 3 },
+        { "type": "clock", "pause": true },
+        { "type": "speech_sequence", "id": "intro", "lines": [
+          { "speaker": "JIMMY", "text": "Lola's whole life is in that building — diary, keys, everything. In through the window, past the greasers. Easy.", "seconds": 4 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "fail": { "type": "event", "name": "smoke_fail" }
+    },
+    {
+      "id": "enter",
+      "objective": "Climb through the window.",
+      "blip": "ten_window",
+      "complete": { "type": "reach_location", "point": "ten_window", "radius_cm": 600 },
+      "on_complete": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "3_05_PStart" },
+        { "type": "say", "speaker": "JIMMY", "text": "In. It smells like cigarettes and bad decisions.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "floor1",
+      "objective": "The lounge guard detail.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "fg1", "points": ["g1a", "g1b", "3_05_Ambush"], "mesh": "GN_Bully02", "hostile": true }
+      ],
+      "complete": { "type": "event", "name": "wave:fg1", "latched": true }
+    },
+    {
+      "id": "collect1",
+      "objective": "Lola's things: her diary.",
+      "blip": "pickup1",
+      "complete": { "type": "reach_location", "point": "pickup1", "radius_cm": 400 },
+      "on_complete": [ { "type": "give_item", "item": "diary", "n": 1 } ]
+    },
+    {
+      "id": "collect2",
+      "objective": "Lola's things: her perfume.",
+      "blip": "pickup2",
+      "complete": { "type": "reach_location", "point": "pickup2", "radius_cm": 400 },
+      "on_complete": [ { "type": "give_item", "item": "perfume", "n": 1 } ]
+    },
+    {
+      "id": "catwalk",
+      "objective": "The catwalk gauntlet.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "cg", "points": ["3_05_Catwalk2", "cat2"], "mesh": "GN_Bully03", "hostile": true },
+        { "type": "say", "speaker": "GREASER", "text": "He's on the catwalk! GET HIM!", "seconds": 2.5 }
+      ],
+      "complete": { "type": "event", "name": "wave:cg", "latched": true }
+    },
+    {
+      "id": "collect3",
+      "objective": "Lola's things: her keys.",
+      "blip": "pickup3",
+      "complete": { "type": "reach_location", "point": "pickup3", "radius_cm": 400 },
+      "on_complete": [ { "type": "give_item", "item": "key", "n": 1 } ]
+    },
+    {
+      "id": "collect4",
+      "objective": "Lola's things: her lipstick.",
+      "blip": "pickup4",
+      "complete": { "type": "reach_location", "point": "pickup4", "radius_cm": 400 },
+      "on_complete": [ { "type": "give_item", "item": "lipstick", "n": 1 } ]
+    },
+    {
+      "id": "collect5",
+      "objective": "Lola's things: the laundry basket.",
+      "blip": "pickup5",
+      "complete": { "type": "reach_location", "point": "pickup5", "radius_cm": 400 },
+      "on_complete": [ { "type": "give_item", "item": "laundry", "n": 1 } ]
+    },
+    {
+      "id": "norton_intro",
+      "objective": "The wall is coming down.",
+      "blip": false,
+      "on_start": [
+        { "type": "letterbox", "on": true },
+        { "type": "speech_sequence", "id": "norton", "lines": [
+          { "speaker": "JIMMY", "text": "That wall is making a lot of noise—", "seconds": 2.5 },
+          { "speaker": "NORTON", "text": "RRRAAAGH! NOBODY STEALS FROM THE TENEMENTS!", "seconds": 3 }
+        ] },
+        { "type": "letterbox", "on": false }
+      ],
+      "complete": { "type": "event", "name": "speech:norton", "latched": true }
+    },
+    {
+      "id": "boss",
+      "objective": "Norton. Sledgehammer. Go.",
+      "blip": false,
+      "on_start": [
+        { "type": "spawn_wave", "group": "norton", "points": ["3_05_BossBattleJason"], "mesh": "GN_Bully05", "hostile": true, "hits_to_beat": 6 },
+        { "type": "boss_bar", "group": "norton", "label": "NORTON", "half_line": "Norton's grip is slipping!" }
+      ],
+      "complete": { "type": "event", "name": "wave:norton", "latched": true },
+      "_retry_note": "the original never fails on player KO here (immortal + boss resets); ours retries the stage (the fail banner briefly shows — documented in _note)",
+      "on_complete": [
+        { "type": "give_item", "item": "sledgehammer", "n": 1 },
+        { "type": "say", "speaker": "JIMMY", "text": "Nice hammer. Mine now.", "seconds": 2.5 }
+      ]
+    },
+    {
+      "id": "escape",
+      "objective": "Get out of the tenements.",
+      "blip": "3_05_PStart",
+      "complete": { "type": "reach_location", "point": "3_05_PStart", "radius_cm": 800 },
+      "on_complete": [
+        { "type": "fade", "out": 0.4, "hold": 0.3, "in": 0.6, "point": "3_05_CineStart" },
+        { "type": "clock", "unpause": true },
+        { "type": "take_item", "item": "diary", "n": 1 },
+        { "type": "take_item", "item": "perfume", "n": 1 },
+        { "type": "take_item", "item": "key", "n": 1 },
+        { "type": "take_item", "item": "lipstick", "n": 1 },
+        { "type": "take_item", "item": "laundry", "n": 1 },
+        { "type": "give_item", "item": "bundle", "n": 1 }
+      ]
+    },
+    {
+      "id": "return",
+      "objective": "Bring Lola the bundle.",
+      "blip": "lola_end",
+      "on_start": [
+        { "type": "spawn_npc", "npc": "lola", "point": "lola_end", "mesh": "GN_Asiangirl", "ped_model_id": 25, "mission_critical": true, "invulnerable": true, "untargetable": true }
+      ],
+      "complete": { "type": "all", "conditions": [
+        { "type": "has_item", "name": "bundle" },
+        { "type": "social", "actor_tag": "br_npc_lola", "radius_cm": 300, "prompt": "Give Lola the bundle" }
+      ] },
+      "fail": { "type": "event", "name": "npc_ko:lola", "latched": true },
+      "fail_text": "Lola got hurt.",
+      "on_complete": [
+        { "type": "take_item", "item": "bundle", "n": 1 },
+        { "type": "pair_anim", "npc": "lola", "seconds": 1.5, "clips": "GIVE" },
+        { "type": "say", "speaker": "LOLA", "text": "My things! You beautiful burglar. Come here —", "seconds": 3 },
+        { "type": "pair_anim", "npc": "lola", "seconds": 2.5, "clips": "KISS" },
+        { "type": "log", "text": "no SMissPass case (VERIFIED absence); greasers -10 relative omitted; the no-KO boss loop = our stage retry (see _note)" }
+      ]
+    }
+  ]
+}

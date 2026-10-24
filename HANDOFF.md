@@ -291,6 +291,23 @@ Two waves on the campaign spine (design: `docs/campaign-spine.md`). All headless
   accumulated-cash compression; consumable watchdog stubbed by the start grant; free tagging rides the campaign
   row). Verified: 3_02 **PASS 6/6**, 3_S10 **PASS 10/10** (both incl. fail/retry), campaign **PASS 5/5**, full
   regression (all 44 prior missions) re-PASS.
+- **Ch3 Wave D (3_04, 3_05)** — zero new C++. `3_04.json` (Wrong Part of Town, 9 stages: the tableau (spawned color;
+  npc_grapple_hold_scene pending), the rescue as defender-Cornelius + the attacker wave (his zone-ally toggle is
+  always-on, ally_zone_recruit_toggle pending), the meet, the plan, **the signature back-of-the-bike chase
+  compressed to Chad sprinting the real 49-node 3_04_bikeEscape route 1 with the player leash-following on foot**
+  (player_rides_npc_vehicle is the wave's big pending primitive — PlayerFixToBackOfVehicle + locked chase camera +
+  forced slingshot; routes 02-04 and their ~1.5 km are cut), the hill ambush at the real hill points
+  (mounted_chaser_spawner/chase_camera_cuts pending), the walk-home with defender-Algie + mission-critical
+  Earnest/Cornelius greeters, the outro; weapon 307 via the campaign row). `3_05.json` (Tenements, 13 stages: the
+  intro with the real clock pause, the window fade hop into area 36, two guard-group waves at the real
+  ambush/catwalk volume centers, the five belongings as per-item stages at invented-from-volume-center points (the
+  five-element LOLAPICKUPS pointlist collapsed in the extract — marked; laundry deliberately last though the
+  original triggers Norton on it in ANY order, VERIFIED there), the Norton intro, **the no-KO boss loop landing as
+  the wave-F player-KO stage retry** (revive + fresh boss wave; the fail banner briefly shows — boss_fight_retry_loop
+  documented), the sledgehammer hand-off (weapon_equipped pending), the escape with the real item strip +
+  bundle swap, the Lola gift/kiss return). Verified: 3_04 **PASS 9/9** (t=131 s — the chase is long but fits the
+  budget), 3_05 **PASS 13/13** (both incl. fail/retry), campaign **PASS 5/5**, full regression (all 46 prior
+  missions) re-PASS.
 - **Debts**: lead NPCs corner-cut walls on stuck-snap (no navmesh; `via` waypoints not built); social/pair_anim/lockpick/heat
   are v1 stubs; no bell cue in Sfx.json; tutorial cards replay on a fresh launch (attempt count is per-launch + retry).
   Chocolate humiliate/beat-up routes (recon §S9) not built. Karl's bust chase is scripted, not real pursuit AI.

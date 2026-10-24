@@ -24,5 +24,10 @@ public class BullyRemake : ModuleRules
 
 		// BullyPlayerController: the Esc settings menu is a pure-C++ Slate overlay (no editor-authored UMG asset).
 		PrivateDependencyModuleNames.AddRange(new string[] { "Slate", "SlateCore" });
+
+		// sm-humandrive: the human-mode mission smoke (-BRMissionSmokeHuman, MissionHumanDrive.cpp) paths the player along a
+		// runtime Recast navmesh it builds around the mission's points (no navmesh is authored in the imported level).
+		// ApplicationCore: IPlatformInputDeviceMapper (its injected key presses go through APlayerController::InputKey).
+		PrivateDependencyModuleNames.AddRange(new string[] { "NavigationSystem", "ApplicationCore" });
 	}
 }

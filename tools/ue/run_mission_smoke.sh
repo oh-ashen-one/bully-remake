@@ -5,7 +5,14 @@
 # every stage using only the stage's own conditions (reach / trigger / interact / event), exercises fail->retry when
 # the mission defines a smoke_fail stage, and logs BR_MISSION lines + a PASS/FAIL result.
 #
-#   tools/ue/run_mission_smoke.sh <mission_id> [--out DIR] [--seconds-limit 600] [--wrong-way]
+#   tools/ue/run_mission_smoke.sh <mission_id> [--out DIR] [--seconds-limit 600] [--wrong-way] [--human [--skip-speech] [--chain]]
+#
+# --human (-BRMissionSmokeHuman, sm-humandrive): play the mission like a person instead -- movement/attack/lock-on INPUT along
+# a runtime navmesh path toward the HUD blip / prompt target / chased npc / fight, E only while the prompt shows, real
+# minigame/choice keys, speech and cutscenes waited out (--skip-speech presses Enter instead), NO teleports. >30 s without
+# progress logs `BR_MISSION_SMOKE human STUCK` (position/goal) and FAILS; logs game-time minutes per mission. --chain keeps
+# driving start_mission hand-offs (arrival -> day_one, 1_02B -> 1_02C). Give it a generous --seconds-limit (human pace +
+# the navmesh build); the in-game limit is -BRMissionSmokeHumanLimit (default 1800 game s, set from --seconds-limit).
 #
 # --wrong-way (-BRMissionSmokeWrongWay): drive every positional stage the WRONG way instead. Each reach_location / trigger_enter
 # stage is first overshot (teleport 8 m past its point), then skipped ahead -- the player is teleported onto the goal of the NEXT
@@ -26,11 +33,15 @@ LABEL=bully-mission
 LIMIT=600
 WRONG=""
 SUFFIX=""
+HUMAN=""
 while [ $# -gt 0 ]; do
   case "$1" in
     --out) OUT="$2"; shift 2 ;;
     --seconds-limit) LIMIT="$2"; shift 2 ;;
     --wrong-way) WRONG="-BRMissionSmokeWrongWay"; SUFFIX="_wrongway"; shift ;;
+    --human) HUMAN="$HUMAN -BRMissionSmokeHuman"; SUFFIX="_human"; shift ;;
+    --skip-speech) HUMAN="$HUMAN -BRMissionSmokeHumanSkipSpeech"; shift ;;
+    --chain) HUMAN="$HUMAN -BRMissionSmokeHumanChain"; shift ;;
     -*) br_die "unknown argument $1" ;;
     *) [ -z "$MISSION" ] || br_die "only one mission id"; MISSION="$1"; shift ;;
   esac
@@ -40,6 +51,7 @@ done
 [ -f "$BR_REPO/unreal/BullyRemake/Content/Imported/Maps/Bullworth.umap" ] || br_die "level missing: run tools/ue/run_import.sh first"
 [ -n "$OUT" ] || OUT="$HOME/bully-remake-evidence/missions/smoke_$MISSION$SUFFIX"
 
+[ -z "$HUMAN" ] || HUMAN="$HUMAN -BRMissionSmokeHumanLimit=$(( LIMIT > 120 ? LIMIT - 60 : LIMIT ))"
 br_preflight
 mkdir -p "$OUT"
 OUT="$(cd "$OUT" && pwd)"
@@ -49,7 +61,7 @@ START=$(date +%s)
 "$GPU_SLOT" capture --label "$LABEL" -- \
   "$UE_CMD" "$BR_UPROJECT" "$MAP" -game -nullrhi -unattended -nosplash -nocrashreports -NoSound -notraceserver -NoVSync \
   -stdout -FullStdOutLogOutput -forcelogflush -abslog="$OUT/ue_run.log" -ResX=640 -ResY=360 -windowed -BRNoAmbient \
-  -BRMissionSmoke="$MISSION" $WRONG ${BR_EXTRA_ARGS:-} \
+  -BRMissionSmoke="$MISSION" $WRONG $HUMAN ${BR_EXTRA_ARGS:-} \
   > "$OUT/stdout.log" 2>&1 &
 WRAP=$!
 br_window_watch "$WRAP" "$OUT/window_watch.txt" &

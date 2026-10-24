@@ -158,6 +158,7 @@
 
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
+#include "InputCoreTypes.h"   // sm-humandrive: FKey (human driver key presses)
 #include "MissionSubsystem.generated.h"
 
 class AMissionTrigger;
@@ -167,6 +168,7 @@ class ACameraActor;
 class ABullyScriptedNPC;
 class ABullyCombatPawn;
 struct FSNPCCommand;
+struct FInputActionValue;
 
 struct FMissionCondition
 {
@@ -652,6 +654,81 @@ private:
 		int32 WrongWayTested = 0;      // stages the skip-ahead teleport was applied to
 		TArray<FName> WrongWayStuck;   // stages still open after the skip-ahead teleport
 	} Smoke;
+
+	// ---- sm-humandrive: HUMAN-MODE smoke driver (-BRMissionSmokeHuman; tools/ue/run_mission_smoke.sh --human) -------------
+	// Plays the mission using only what a player can do: movement INPUT (Enhanced Input IA_Move / IA_Sprint / IA_Jump injected
+	// through the real bindings) along a runtime navmesh path toward what the HUD shows (blip, prompt target, the npc being
+	// chased / followed, the fight), real attack / grapple / block / lock-on / weapon input for fights, real E / Enter / J-K-L
+	// key presses (E only while the prompt is on screen), and it waits speech and cutscene beats out (or presses Enter with
+	// -BRMissionSmokeHumanSkipSpeech). No teleports (the mission's own scripted teleports/fades still run, and a mission with no
+	// "start" begins at its campaign star). No progress toward the goal for 30 s (or 60 s with nothing actionable) logs
+	// "BR_MISSION_SMOKE human STUCK" and the run FAILS. Logs game-time minutes per mission. Code: MissionHumanDrive.cpp.
+	void TickSmokeHuman(float Dt);
+	struct FHumanDrive
+	{
+		bool bEnabled = false;
+		bool bSkipSpeech = false;          // press Enter on speech beats instead of waiting them out
+		bool bChain = false;               // keep driving start_mission chains (arrival -> day_one -> ...)
+		double Limit = 1800.0;             // game seconds for the whole run
+		double StuckSeconds = 30.0;
+		// navmesh bounds (spawned per mission) + build wait
+		TArray<TWeakObjectPtr<AActor>> NavVolumes;
+		TArray<FBox> NavBoxes;
+		bool bNavWaiting = false;
+		double NavWaitStart = 0.0;
+		double NavWaitTotal = 0.0;         // excluded from the human minutes
+		bool bPreStartDone = false;
+		// path following
+		TArray<FVector> Path;
+		int32 PathIdx = 0;
+		FVector PathGoal = FVector::ZeroVector;
+		double PathAt = -100.0;
+		bool bPathOk = false;
+		bool bPathPartial = false;
+		FString GoalWhy;
+		// progress / stuck
+		FVector ProgGoal = FVector::ZeroVector;
+		float BestDist = TNumericLimits<float>::Max();
+		double ProgressAt = 0.0;
+		double BlockedSince = -1.0;
+		double LastJump = -10.0;
+		double RecoverUntil = -1.0;
+		FVector RecoverDir = FVector::ZeroVector;
+		int32 Recoveries = 0;
+		double IdleSince = -1.0;
+		FString IdleWhy;
+		// stage / mission bookkeeping
+		int32 LastStage = -1;
+		FString LastMissionId;
+		double StageStartAt = 0.0;
+		double MissionStartAt = 0.0;
+		double MissionNavWait = 0.0;
+		int32 MissionFails = 0;
+		int32 StageFails = 0;
+		bool bFailNoted = false;
+		TArray<FString> Summary;
+		double LastBeat = -10.0;
+		// input
+		TArray<FKey> Release;
+		double LastKeyAt = -10.0;
+		// fight
+		double LastAtk = -10.0;
+		int32 AtkPhase = 0;
+		int32 EnemySwings = 0;
+		FName LastEnemyMove;
+		double LastWeaponCycle = -10.0;
+		double LastShot = -10.0;
+	} Human;
+	/** Human driver helpers (MissionHumanDrive.cpp). */
+	void HumanPrepareNav(const FMissionDef& D, const FVector& PlayerAt);
+	bool HumanNavReady();
+	bool HumanFindPath(const FVector& From, const FVector& To, TArray<FVector>& Out, bool& bPartial) const;
+	void HumanPressKey(const FKey& Key);
+	void HumanInject(FName Action, const FInputActionValue& V) const;
+	/** Steer toward Goal (nav path, replanned as needed). Returns the remaining straight distance. */
+	float HumanSteer(const FVector& Goal, float ArriveCm, bool bSprint, bool bMovingGoal);
+	bool HumanFight(const FMissionStage& St);
+	FString HumanStuckReport(const TCHAR* Why) const;
 
 	TSharedPtr<FMissionDef> Mission;
 	EState State = EState::Idle;

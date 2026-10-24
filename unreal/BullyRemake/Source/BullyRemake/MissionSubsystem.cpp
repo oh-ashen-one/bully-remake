@@ -814,6 +814,18 @@ void UMissionSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		Smoke.bNoQuit = bShotsDrive;
 		Smoke.bWrongWay = FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeWrongWay"));
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION smoke harness armed: mission '%s' (fail/retry test %s, wrong-way %s, shots-drive %s)"), *Smoke.MissionId, Smoke.bWantFailTest ? TEXT("on") : TEXT("off"), Smoke.bWrongWay ? TEXT("on") : TEXT("off"), bShotsDrive ? TEXT("on") : TEXT("off"));
+		// sm-humandrive: -BRMissionSmokeHuman swaps the teleporting driver for the input-only human driver (MissionHumanDrive.cpp)
+		if (!bShotsDrive && FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeHuman")))
+		{
+			Human.bEnabled = true;
+			Human.bSkipSpeech = FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeHumanSkipSpeech"));
+			Human.bChain = FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeHumanChain"));
+			FParse::Value(FCommandLine::Get(), TEXT("-BRMissionSmokeHumanLimit="), Human.Limit);
+			Smoke.bWantFailTest = false;   // a human never fires smoke_fail; real fails at human pace are counted instead
+			Smoke.bWrongWay = false;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE human driver armed: mission '%s' (skip speech %s, chain %s, limit %.0f s)"), *Smoke.MissionId,
+				Human.bSkipSpeech ? TEXT("on") : TEXT("off"), Human.bChain ? TEXT("on") : TEXT("off"), Human.Limit);
+		}
 	}
 }
 
@@ -2151,7 +2163,7 @@ void UMissionSubsystem::Tick(float Dt)
 		bPendingDevOverride = false;
 		StartMission(Id, 0, bDev);
 	}
-	if (Smoke.bEnabled) { TickSmoke(Dt); }
+	if (Smoke.bEnabled) { if (Human.bEnabled) { TickSmokeHuman(Dt); } else { TickSmoke(Dt); } }   // sm-humandrive: human-mode driver
 	if (Shots.bEnabled) { TickMissionShots(Dt); }
 	TickFade(Dt);
 	if (Hud.IsValid()) { Hud->Tick(Dt); }

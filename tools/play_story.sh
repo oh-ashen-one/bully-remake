@@ -64,7 +64,7 @@ else
   echo "build: $([ "$NEED_BUILD" = 1 ] && echo 'needed but skipped (--no-build)' || echo 'up to date')"
 fi
 
-LAUNCH=("$UE_GAME" "$BR_UPROJECT" "$MAP" -game -windowed -ResX="$RX" -ResY="$RY" -BRStory -nosplash -nocrashreports -notraceserver)
+LAUNCH=("$UE_GAME" "$BR_UPROJECT" "$MAP" -game -windowed -ResX="$RX" -ResY="$RY" -BRStory -BRTownLife -nosplash -nocrashreports -notraceserver)
 [ -n "$SLOT" ] && LAUNCH+=("-BRStorySlot=$SLOT")
 [ ${#EXTRA[@]} -gt 0 ] && LAUNCH+=("${EXTRA[@]}")
 WRAPPED=(env "GPU_SLOT_CAPTURE_MAX_HOLD=$MAX_HOLD" "$GPU_SLOT" capture --label "$LABEL" -- "${LAUNCH[@]}")

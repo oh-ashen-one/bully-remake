@@ -577,6 +577,9 @@ private:
 	// sm-cutscenes: the cutscene action (original baked cutscenes via UBullyCutsceneSubsystem)
 	void RunCutsceneAction(const FMissionAction& A);
 	void StopCutscene();
+	/** sm-cutscenes: original cutscenes already shown during this mission run; a retry plays the fallback beats instead
+	 *  (the original skips its intro cutscene after the first attempt). Reset by StartMission, kept across retries. */
+	TSet<FString> CutscenesSeen;
 
 	// wave-D runtime: mission defenders (combat-pawn escortees on the player's team) and the dialogue choice
 	struct FDefenderState

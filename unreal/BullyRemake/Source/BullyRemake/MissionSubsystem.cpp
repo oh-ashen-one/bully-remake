@@ -1038,6 +1038,7 @@ bool UMissionSubsystem::StartMission(const FString& Id, int32 StartStage, bool b
 	Mission = D;
 	Attempt = 1;
 	Flags.Reset(); MissionEvents.Reset(); StageEvents.Reset();
+	CutscenesSeen.Reset();   // sm-cutscenes
 	StartStage = FMath::Clamp(StartStage, 0, D->Stages.Num() - 1);
 
 	if (D->bHasStart) { TeleportPlayer(D->StartLocation, D->StartYaw, true); }
@@ -3272,7 +3273,12 @@ void UMissionSubsystem::RunCutsceneAction(const FMissionAction& A)
 	const FString Id = A.Name.ToString();
 	const FName Ev(*A.Sub);
 	UBullyCutsceneSubsystem* CS = UBullyCutsceneSubsystem::Get(GetWorld());
-	const UBullyCutsceneSubsystem::ETier Tier = CS ? CS->Probe(Id) : UBullyCutsceneSubsystem::ETier::None;
+	UBullyCutsceneSubsystem::ETier Tier = CS ? CS->Probe(Id) : UBullyCutsceneSubsystem::ETier::None;
+	if (Tier != UBullyCutsceneSubsystem::ETier::None && Attempt > 1 && CutscenesSeen.Contains(Id))
+	{
+		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION cutscene %s already shown this run (attempt %d): fallback beats instead"), *Id, Attempt);
+		Tier = UBullyCutsceneSubsystem::ETier::None;
+	}
 	if (Tier == UBullyCutsceneSubsystem::ETier::None)
 	{
 		if (A.Else.Num() > 0)
@@ -3299,6 +3305,7 @@ void UMissionSubsystem::RunCutsceneAction(const FMissionAction& A)
 		RunActions(Staging);
 	}
 	EnsureHud();
+	CutscenesSeen.Add(Id);
 	SetFlag(FName(*FString::Printf(TEXT("cutscene:%s"), *Id)), true);
 	TWeakObjectPtr<UMissionSubsystem> WeakThis(this);
 	const FString MissionId = Mission.IsValid() ? Mission->Id : FString();

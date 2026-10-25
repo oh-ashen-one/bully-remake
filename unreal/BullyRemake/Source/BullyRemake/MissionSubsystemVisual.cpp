@@ -63,8 +63,50 @@ namespace
 		return false;
 	}
 
-	/** How many of the subjects' heads a camera at CL/CR (horizontal fov, 16:9, letterboxed) actually shows unoccluded. */
-	int32 SmvCountFramed(const UWorld* W, const FVector& CL, const FRotator& CR, double FovH, const TArray<AActor*>& Subjects, const TArray<AActor*>& Ignore)
+	/** Capsule radius / half height of a character (defaults for anything else). */
+	void SmvBody(const AActor* A, double& R, double& HH)
+	{
+		R = 35.0; HH = 90.0;
+		if (const ACharacter* C = Cast<ACharacter>(A))
+		{
+			if (const UCapsuleComponent* Cap = C->GetCapsuleComponent()) { R = Cap->GetScaledCapsuleRadius(); HH = Cap->GetScaledCapsuleHalfHeight(); }
+		}
+	}
+
+	/** Does character B's body stand between From and To (a head)? Traces ignore pawns, so this is the body check. */
+	bool SmvBodyBlocks(const FVector& From, const FVector& To, const AActor* B)
+	{
+		double R, HH;
+		SmvBody(B, R, HH);
+		const FVector P = B->GetActorLocation();
+		const FVector D = To - From;
+		const double DD = FVector2D(D.X, D.Y).SizeSquared();
+		if (DD < 1.0) { return false; }
+		const double T = FMath::Clamp(((P.X - From.X) * D.X + (P.Y - From.Y) * D.Y) / DD, 0.0, 1.0);
+		if (T > 0.94) { return false; }   // at the head itself (his own neighbour standing behind him)
+		const FVector Q = From + D * T;
+		return FVector::Dist2D(Q, P) < R * 0.85 && Q.Z > P.Z - HH && Q.Z < P.Z + HH + 12.0;
+	}
+
+	/** A camera at L parked inside / pressed against a character: inside a capsule-plus-clearance, or a lens < 1.2 m from
+	 *  a head. Both read as clipping errors on screen. */
+	bool SmvTooClose(const FVector& L, const TArray<AActor*>& Bodies)
+	{
+		for (const AActor* B : Bodies)
+		{
+			if (!B) { continue; }
+			double R, HH;
+			SmvBody(B, R, HH);
+			const FVector P = B->GetActorLocation();
+			if (FVector::Dist2D(L, P) < R + 65.0 && L.Z > P.Z - HH - 30.0 && L.Z < P.Z + HH + 60.0) { return true; }
+			if (FVector::Dist(L, SmvHead(B)) < 120.0) { return true; }
+		}
+		return false;
+	}
+
+	/** How many of the subjects' heads a camera at CL/CR (horizontal fov, 16:9, letterboxed) actually shows unoccluded
+	 *  (by walls, and by the other characters' bodies). */
+	int32 SmvCountFramed(const UWorld* W, const FVector& CL, const FRotator& CR, double FovH, const TArray<AActor*>& Subjects, const TArray<AActor*>& Ignore, const TArray<AActor*>& Bodies = TArray<AActor*>())
 	{
 		const double T = FMath::Tan(FMath::DegreesToRadians(FovH * 0.5));
 		const double TanH = T * 0.92, TanV = T * 9.0 / 16.0 * 0.80;   // inside the frame edge and the letterbox bars
@@ -75,9 +117,48 @@ namespace
 			const FVector H = SmvHead(S);
 			const FVector L = CR.UnrotateVector(H - CL);
 			FHitResult Hit;
-			if (L.X > 10.0 && FMath::Abs(L.Y) < L.X * TanH && FMath::Abs(L.Z) < L.X * TanV && !SmvTraceStatic(W, CL, H, Hit, Ignore)) { ++N; }
+			if (!(L.X > 10.0 && FMath::Abs(L.Y) < L.X * TanH && FMath::Abs(L.Z) < L.X * TanV) || SmvTraceStatic(W, CL, H, Hit, Ignore)) { continue; }
+			bool bBody = false;
+			for (const AActor* B : Bodies) { if (B && B != S && SmvBodyBlocks(CL, H, B)) { bBody = true; break; } }
+			if (!bBody) { ++N; }
 		}
 		return N;
+	}
+
+	/** Nearest geometry across the lens (traces fanned over the frame from the camera, 1.6 m): a pillar edge or locker
+	 *  corner a few cm from the lens fills half the frame with blur. */
+	double SmvLensClearance(const UWorld* W, const FVector& L, const FRotator& R, double FovH, const TArray<AActor*>& Ignore)
+	{
+		double Best = 160.0;
+		const double H = FovH * 0.5 * 0.85, V = FovH * 0.5 * 9.0 / 16.0 * 0.8;
+		for (const FVector2D& O : { FVector2D(0, 0), FVector2D(H, 0), FVector2D(-H, 0), FVector2D(H * 0.5, 0), FVector2D(-H * 0.5, 0), FVector2D(0, V), FVector2D(0, -V) })
+		{
+			const FVector Dir = (R + FRotator(O.Y, O.X, 0.0)).Vector();
+			FHitResult Hit;
+			if (SmvTraceStatic(W, L, L + Dir * 160.0, Hit, Ignore)) { Best = FMath::Min(Best, double(Hit.Distance)); }
+		}
+		return Best;
+	}
+
+	/** Distance from the lens to the nearest character body (horizontal, to the capsule surface). */
+	double SmvNearestBody(const FVector& L, const TArray<AActor*>& Bodies)
+	{
+		double Best = 1e9;
+		for (const AActor* B : Bodies)
+		{
+			if (!B) { continue; }
+			double R, HH;
+			SmvBody(B, R, HH);
+			Best = FMath::Min(Best, FVector::Dist2D(L, B->GetActorLocation()) - R);
+		}
+		return Best;
+	}
+
+	/** Camera spot inside geometry (a wall, a locker bank)? */
+	bool SmvInsideGeometry(const UWorld* W, const FVector& L)
+	{
+		FCollisionQueryParams Q(SCENE_QUERY_STAT(BullyFrameCamInside), false);
+		return W->OverlapAnyTestByChannel(L, FQuat::Identity, ECC_Camera, FCollisionShape::MakeSphere(25.f), Q);
 	}
 }
 
@@ -103,7 +184,57 @@ bool UMissionSubsystem::ParseFrameCamera(const FJsonObject& O, FMissionAction& A
 	if (O.TryGetStringField(TEXT("side"), Side)) { A.FrameSide = Side.Equals(TEXT("left"), ESearchCase::IgnoreCase) ? 1 : Side.Equals(TEXT("right"), ESearchCase::IgnoreCase) ? -1 : 0; }
 	bool bFace = true;
 	if (O.TryGetBoolField(TEXT("face"), bFace)) { A.bFrameFace = bFace; }
+	const TArray<TSharedPtr<FJsonValue>>* At = nullptr;
+	if (O.TryGetArrayField(TEXT("at_cm"), At) && At && At->Num() == 3)
+	{
+		A.FrameAt = FVector((*At)[0]->AsNumber(), (*At)[1]->AsNumber(), (*At)[2]->AsNumber());
+		A.bFrameHasAt = true;
+	}
 	return true;
+}
+
+void UMissionSubsystem::ParseFadePlace(const FJsonObject& O, const TMap<FName, FVector>& Points, FMissionAction& A)
+{
+	const TSharedPtr<FJsonObject>* Pl = nullptr;
+	if (!O.TryGetObjectField(TEXT("place"), Pl) || !Pl || !Pl->IsValid()) { return; }
+	for (const auto& KV : (*Pl)->Values)
+	{
+		FString Pt;
+		if (!KV.Value.IsValid() || !KV.Value->TryGetString(Pt)) { continue; }
+		if (const FVector* V = Points.Find(FName(*Pt))) { A.FadePlace.Emplace(FName(*KV.Key), *V); }
+		else { UE_LOG(LogBullyMissionVisual, Warning, TEXT("BR_MISSION fade place: unknown point '%s' for npc '%s' (skipped)"), *Pt, *KV.Key); }
+	}
+}
+
+void UMissionSubsystem::ApplyFadePlacements()
+{
+	for (const TPair<FName, FVector>& P : FadePlacePending)
+	{
+		ABullyScriptedNPC* N = NpcById(P.Key);
+		if (!N) { UE_LOG(LogBullyMissionVisual, Warning, TEXT("BR_MISSION fade place: unknown npc '%s'"), *P.Key.ToString()); continue; }
+		N->SetActorLocation(P.Value + FVector(0, 0, 90.f), false, nullptr, ETeleportType::TeleportPhysics);
+		UE_LOG(LogBullyMissionVisual, Display, TEXT("BR_MISSION fade place: %s set down at %s under black"), *P.Key.ToString(), *P.Value.ToCompactString());
+	}
+	FadePlacePending.Reset();
+}
+
+void UMissionSubsystem::FrameBodies(const TArray<AActor*>& Subjects, TArray<AActor*>& Out) const
+{
+	Out = Subjects;
+	APawn* Pawn = GetPlayerPawn();
+	if (Pawn) { Out.AddUnique(Pawn); }
+	const FVector C = Subjects.Num() > 0 && Subjects[0] ? Subjects[0]->GetActorLocation() : (Pawn ? Pawn->GetActorLocation() : FVector::ZeroVector);
+	for (const auto& Pair : Npcs)
+	{
+		if (Pair.Value.IsValid() && FVector::Dist(Pair.Value->GetActorLocation(), C) < 2500.0) { Out.AddUnique(Pair.Value.Get()); }
+	}
+	if (UWorld* W = GetWorld())
+	{
+		for (TActorIterator<ABullyCombatPawn> It(W); It; ++It)
+		{
+			if (*It != Pawn && !(It->GetCombat() && It->GetCombat()->IsOut()) && FVector::Dist(It->GetActorLocation(), C) < 2500.0) { Out.AddUnique(*It); }
+		}
+	}
 }
 
 bool UMissionSubsystem::ResolveFrameSubject(FName Id, AActor*& Out) const
@@ -134,23 +265,35 @@ bool UMissionSubsystem::SolveFrameCamera(const FMissionAction& A, const TArray<A
 {
 	const UWorld* W = GetWorld();
 	if (!W || Subjects.Num() == 0) { return false; }
+	bFrameSoloSpeaker = false;
 	TArray<FVector> Heads;
 	FVector M = FVector::ZeroVector;
 	for (const AActor* S : Subjects) { Heads.Add(SmvHead(S)); M += Heads.Last(); }
 	M /= double(Heads.Num());
 
 	// axis: first subject (the speaker) -> last subject; one subject = his facing
-	FVector U, N;
+	FVector U = FVector::ZeroVector, N;
 	double Span = 0.0;
 	if (Subjects.Num() >= 2)
 	{
 		U = SmvFlat(Heads.Last() - Heads[0]).GetSafeNormal();
 		for (int32 i = 0; i < Heads.Num(); ++i) { for (int32 j = i + 1; j < Heads.Num(); ++j) { Span = FMath::Max(Span, FVector::Dist2D(Heads[i], Heads[j])); } }
 	}
-	if (U.IsNearlyZero())
+	const bool bSingle = U.IsNearlyZero();
+	// where the speaker's face will point: toward the one he is talking to once the face-each-other turn has played
+	// (it is queued, so his current forward can still be his back to the camera)
+	if (Subjects.Num() >= 2)
 	{
-		// single subject (or two on top of each other): put the camera in front of the speaker
-		U = -SmvFlat(Subjects[0]->GetActorForwardVector()).GetSafeNormal();
+		const AActor* To = Subjects.Contains(GetPlayerPawn()) && Subjects[0] != GetPlayerPawn() ? static_cast<const AActor*>(GetPlayerPawn()) : Subjects[1];
+		FrameSpeakerFace = A.bFrameFace ? SmvFlat(To->GetActorLocation() - Subjects[0]->GetActorLocation()).GetSafeNormal() : SmvFlat(Subjects[0]->GetActorForwardVector()).GetSafeNormal();
+	}
+	const FVector SpeakerFace = !FrameSpeakerFace.IsNearlyZero() ? FrameSpeakerFace : SmvFlat(Subjects[0]->GetActorForwardVector()).GetSafeNormal();
+	// 1 = the speaker faces the camera, 0 = profile, -1 = his back
+	auto Facing = [&](const FVector& CamLoc) { return FVector::DotProduct(SpeakerFace, SmvFlat(CamLoc - Subjects[0]->GetActorLocation()).GetSafeNormal()); };
+	if (bSingle)
+	{
+		// single subject (or two on top of each other): the camera goes in FRONT of the speaker
+		U = SpeakerFace;
 		if (U.IsNearlyZero()) { U = FVector(1, 0, 0); }
 	}
 	N = FVector(-U.Y, U.X, 0.0);
@@ -160,9 +303,47 @@ bool UMissionSubsystem::SolveFrameCamera(const FMissionAction& A, const TArray<A
 	const double TanV = TanH * 9.0 / 16.0;
 	const double Medium = 75.0 / TanV;                 // ~150 cm of height in frame: a waist-up two-shot
 	const TArray<AActor*> Ignore = [&]() { TArray<AActor*> I = Subjects; if (APawn* P = GetPlayerPawn()) { I.AddUnique(P); } return I; }();
+	TArray<AActor*> Bodies;
+	FrameBodies(Subjects, Bodies);
+	const TArray<AActor*> Speaker = { Subjects[0] };
+	const FVector LookMid = M - FVector(0, 0, 15.0);   // heads in the upper third
 
-	// subjects too far apart for a readable two-shot (an npc calling across a yard): over the last subject's shoulder
-	// (usually the player), looking at the speaker
+	// the speaker alone, in front of him -- the fallback whenever the group shot would not show him
+	auto SpeakerAlone = [&](const TCHAR* Why) -> bool
+	{
+		if (Subjects.Num() < 2) { return false; }
+		UE_LOG(LogBullyMissionVisual, Display, TEXT("BR_MISSION camera frame: %s -- single on the speaker %s"), Why, *Subjects[0]->GetName());
+		FMissionAction One = A;
+		One.bFrameHasAt = false;
+		One.FrameDist = 0.f;
+		const bool bOk = SolveFrameCamera(One, Speaker, OutLoc, OutLook, OutVisible);
+		bFrameSoloSpeaker = bOk;
+		return bOk;
+	};
+
+	// 0) the original NIS's own camera spot, when it works in our layout: every subject framed, no wall or body in the
+	//    way, not inside geometry, not pressed against anybody
+	if (A.bFrameHasAt)
+	{
+		const FVector L = A.FrameAt;
+		const FRotator R = (LookMid - L).Rotation();
+		const int32 Vis = SmvCountFramed(W, L, R, FovH, Subjects, Ignore, Bodies);
+		const bool bClose = SmvTooClose(L, Bodies), bInside = SmvInsideGeometry(W, L);
+		const double Fc = Facing(L);
+		const bool bLens = SmvLensClearance(W, L, R, FovH, Ignore) < 60.0;
+		if (Vis == Subjects.Num() && !bClose && !bInside && !bLens && Fc > -0.25 && FVector::Dist(L, M) < 2500.0)
+		{
+			OutLoc = L; OutLook = LookMid; OutVisible = Vis;
+			UE_LOG(LogBullyMissionVisual, Display, TEXT("BR_MISSION camera frame: the original camera spot frames %d/%d -- kept"), Vis, Subjects.Num());
+			return true;
+		}
+		UE_LOG(LogBullyMissionVisual, Display, TEXT("BR_MISSION camera frame: the original camera spot frames %d/%d%s%s%s%s -- solving instead"),
+			Vis, Subjects.Num(), bClose ? TEXT(", against a character") : TEXT(""), bInside ? TEXT(", inside geometry") : TEXT(""), Fc <= -0.25 ? TEXT(", behind the speaker") : TEXT(""),
+			bLens ? TEXT(", a wall at the lens") : TEXT(""));
+	}
+
+	// 1) subjects too far apart for a readable two-shot (an npc calling across a hall): over the last subject's shoulder
+	//    (usually the player), looking at the speaker
 	if (Subjects.Num() >= 2 && Span > 650.0 && A.FrameDist <= 0.f)
 	{
 		const FVector Shoulder = Heads.Last();
@@ -172,16 +353,17 @@ bool UMissionSubsystem::SolveFrameCamera(const FMissionAction& A, const TArray<A
 		for (int32 Side : { 1, -1 })
 		{
 			if (A.FrameSide != 0 && Side != A.FrameSide) { continue; }
-			FVector Target = Shoulder + U * 190.0 + N * double(Side) * 75.0 + FVector(0, 0, 18.0);   // behind him (U points speaker -> him)
+			FVector Target = Shoulder + U * 240.0 + N * double(Side) * 90.0 + FVector(0, 0, 18.0);   // behind him (U points speaker -> him); his back stays a framing edge, not half the frame
 			FVector Loc = Target;
 			double Got = FVector::Dist(Shoulder, Target);
 			FHitResult Hit;
 			if (SmvTraceStatic(W, Shoulder, Target, Hit, Ignore)) { Got = FMath::Max(0.0, double(Hit.Distance) - 30.0); Loc = Shoulder + (Target - Shoulder).GetSafeNormal() * Got; }
-			const int32 Vis = SmvCountFramed(W, Loc, (Heads[0] - FVector(0, 0, 10.0) - Loc).Rotation(), FovH, { Subjects[0] }, Ignore);
+			if (Got < 120.0 || SmvTooClose(Loc, Speaker)) { continue; }   // boxed in behind him: no over-the-shoulder from here
+			const int32 Vis = SmvCountFramed(W, Loc, (Heads[0] - FVector(0, 0, 10.0) - Loc).Rotation(), FovH, Speaker, Ignore, Bodies);
 			const double Score = Vis * 10000.0 + Got;
 			if (Score > BestScore) { BestScore = Score; BestLoc = Loc; BestVis = Vis; }
 		}
-		if (BestScore > -1e17 && BestVis > 0)   // speaker not visible over the shoulder (around a corner): try a wide shot instead
+		if (BestScore > -1e17 && BestVis > 0)   // speaker not visible over the shoulder (around a corner): try the others
 		{
 			OutLoc = BestLoc;
 			OutLook = Heads[0] - FVector(0, 0, 10.0);
@@ -190,19 +372,21 @@ bool UMissionSubsystem::SolveFrameCamera(const FMissionAction& A, const TArray<A
 		}
 	}
 
-	struct FCand { FVector Loc; int32 Visible = 0; double Score = -1e18; double Got = 0.0; };
+	// 2) the group shot: swing around the subjects' axis, pull in against walls, score by who is actually seen
+	struct FCand { FVector Loc; int32 Visible = 0; int32 Spk = 0; double Score = -1e18; double Got = 0.0; };
 	FCand Best;
 	const double BaseAng = A.FrameAngle;
-	const double Angles[] = { BaseAng, BaseAng + 15.0, BaseAng - 15.0, BaseAng + 35.0, 0.0 };
+	const double Angles[] = { BaseAng, BaseAng + 15.0, BaseAng - 15.0, BaseAng + 35.0, 0.0, BaseAng + 55.0, -BaseAng };
 	const int32 Sides[] = { 1, -1 };
+	int32 Rejected = 0;
 	for (int32 Side : Sides)
 	{
 		if (A.FrameSide != 0 && Side != A.FrameSide) { continue; }
 		for (double Ang : Angles)
 		{
 			const double R = FMath::DegreesToRadians(Ang);
-			// Subjects.Num()==1: U points from the subject toward the camera side already (in front of him)
-			const FVector Dir = Subjects.Num() >= 2 ? (N * double(Side) * FMath::Cos(R) + U * FMath::Sin(R)).GetSafeNormal()
+			// single subject: U points from him toward the camera side already (in front of him)
+			const FVector Dir = !bSingle ? (N * double(Side) * FMath::Cos(R) + U * FMath::Sin(R)).GetSafeNormal()
 				: (U * FMath::Cos(R) + N * double(Side) * FMath::Sin(R)).GetSafeNormal();
 			const double NeedH = (Span * FMath::Abs(FMath::Cos(R)) + 140.0) / (2.0 * TanH) / 0.8;
 			const double Want = A.FrameDist > 0.f ? double(A.FrameDist) : FMath::Clamp(FMath::Max(Medium, NeedH), 200.0, 1600.0);
@@ -217,19 +401,29 @@ bool UMissionSubsystem::SolveFrameCamera(const FMissionAction& A, const TArray<A
 				Got = FMath::Max(0.0, double(Hit.Distance) - 35.0);
 				Loc = M + (Target - M).GetSafeNormal() * Got;
 			}
-			const int32 Vis = SmvCountFramed(W, Loc, (M - FVector(0, 0, 15.0) - Loc).Rotation(), FovH, Subjects, Ignore);
-			double Score = Vis * 10000.0 + FMath::Min(Got, Want) - FMath::Abs(Ang - BaseAng) * 3.0;
-			if (Got < 140.0) { Score -= 5000.0; }   // a camera in someone's face reads as a clipping error
-			if (Score > Best.Score) { Best.Loc = Loc; Best.Visible = Vis; Best.Score = Score; Best.Got = Got; }
+			// never inside or against a character (the subjects, the player, anybody standing nearby)
+			if (SmvTooClose(Loc, Bodies) || SmvInsideGeometry(W, Loc)) { ++Rejected; continue; }
+			const FRotator Rot = (LookMid - Loc).Rotation();
+			const int32 Vis = SmvCountFramed(W, Loc, Rot, FovH, Subjects, Ignore, Bodies);
+			const int32 Spk = SmvCountFramed(W, Loc, Rot, FovH, Speaker, Ignore, Bodies);
+			double Score = Vis * 10000.0 + Spk * 12000.0 + FMath::Min(Got, Want) - FMath::Abs(Ang - BaseAng) * 3.0
+				+ Facing(Loc) * 4000.0;   // see the speaker's face, not the back of his head
+			// a foreground back filling half the frame, or a wall edge smeared across the lens, reads as a bad shot
+			Score -= FMath::Max(0.0, 230.0 - SmvNearestBody(Loc, Bodies)) * 25.0;
+			Score -= FMath::Max(0.0, 90.0 - SmvLensClearance(W, Loc, Rot, FovH, Ignore)) * 80.0;
+			if (Got < 160.0) { Score -= 5000.0; }   // tight: a lens in someone's face reads as a clipping error
+			if (Score > Best.Score) { Best.Loc = Loc; Best.Visible = Vis; Best.Spk = Spk; Best.Score = Score; Best.Got = Got; }
 		}
 	}
-	if (Best.Score <= -1e17) { return false; }
-	// boxed in on every side (a speaker with his back to a wall): no cut at all beats a lens pressed into his face --
-	// the caller stays on the gameplay camera
-	if (Best.Got < 100.0 || Best.Visible == 0) { return false; }
+	if (Best.Score <= -1e17) { return SpeakerAlone(TEXT("no clear group angle")); }
+	// boxed in on every side (a speaker with his back to a wall), or the group shot loses the speaker: shoot him alone;
+	// failing that, no cut at all beats a lens pressed into his face -- the caller stays on the gameplay camera
+	if (Best.Got < 100.0 || Best.Visible == 0) { return SpeakerAlone(TEXT("group shot boxed in")); }
+	if (Best.Spk == 0 && Subjects.Num() >= 2 && SpeakerAlone(TEXT("the group shot hides the speaker"))) { return true; }
 	OutLoc = Best.Loc;
-	OutLook = M - FVector(0, 0, 15.0);   // heads in the upper third
+	OutLook = LookMid;
 	OutVisible = Best.Visible;
+	if (Rejected > 0) { UE_LOG(LogBullyMissionVisual, Display, TEXT("BR_MISSION camera frame: %d candidate(s) against a character / in geometry skipped"), Rejected); }
 	return true;
 }
 
@@ -239,6 +433,14 @@ void UMissionSubsystem::ApplyFrameCamera(const FMissionAction& A)
 	APawn* Pawn = GetPlayerPawn();
 	APlayerController* PC = Pawn ? Cast<APlayerController>(Pawn->GetController()) : nullptr;
 	if (!World || !PC) { return; }
+	// a fade that teleports the cast is still going to black: solve once they have landed (TickCutsceneFrame)
+	if (!bFrameResolving && FadePhase == EFadePhase::Out && (bFadePendingTeleport || FadePlacePending.Num() > 0))
+	{
+		PendingFrame = MakeShared<FMissionAction>(A);
+		UE_LOG(LogBullyMissionVisual, Display, TEXT("BR_MISSION camera frame: waiting for the fade's teleport before solving"));
+		return;
+	}
+	FrameSpeakerFace = FVector::ZeroVector;
 	TArray<AActor*> Subjects;
 	for (const FName& Id : A.FrameIds)
 	{
@@ -254,7 +456,8 @@ void UMissionSubsystem::ApplyFrameCamera(const FMissionAction& A)
 		const AActor* Anchor = Subjects.Contains(Pawn) ? static_cast<AActor*>(Pawn) : Subjects[0];
 		for (int32 i = Subjects.Num() - 1; i >= 0 && Subjects.Num() > 1; --i)
 		{
-			if (Subjects[i] != Anchor && FVector::Dist(Subjects[i]->GetActorLocation(), Anchor->GetActorLocation()) > 1500.0)
+			// ...but never the speaker: a far speaker (Burton across the field) is shot over the player's shoulder
+			if (i != 0 && Subjects[i] != Anchor && FVector::Dist(Subjects[i]->GetActorLocation(), Anchor->GetActorLocation()) > 1500.0)
 			{
 				UE_LOG(LogBullyMissionVisual, Display, TEXT("BR_MISSION camera frame: %s is %.0f m away -- left out of the shot"), *Subjects[i]->GetName(),
 					FVector::Dist(Subjects[i]->GetActorLocation(), Anchor->GetActorLocation()) / 100.0);
@@ -299,9 +502,12 @@ void UMissionSubsystem::ApplyFrameCamera(const FMissionAction& A)
 		return;
 	}
 	const FRotator Rot = (Look - Loc).Rotation();
+	if (bFrameSoloSpeaker && Subjects.Num() > 1) { Subjects.SetNum(1); }   // a single on the speaker: aim at him only
 	TArray<AActor*> FrIgnore = Subjects;
 	FrIgnore.AddUnique(Pawn);
-	const int32 Framed = SmvCountFramed(World, Loc, Rot, A.Fov > 1.f ? A.Fov : 45.0, Subjects, FrIgnore);
+	TArray<AActor*> FrBodies;
+	FrameBodies(Subjects, FrBodies);
+	const int32 Framed = SmvCountFramed(World, Loc, Rot, A.Fov > 1.f ? A.Fov : 45.0, Subjects, FrIgnore, FrBodies);
 	if (bFrameResolving && FrameLiveFramed >= 0 && Framed <= FrameLiveFramed && CutsceneCam.IsValid())
 	{
 		// nothing better from here: hold the shot instead of cutting to an equal or worse one
@@ -342,6 +548,14 @@ void UMissionSubsystem::ApplyFrameCamera(const FMissionAction& A)
 
 void UMissionSubsystem::TickCutsceneFrame(float Dt)
 {
+	// a frame camera deferred for its fade: the teleport has happened (we are at full black or fading in) -- cut now
+	if (PendingFrame.IsValid() && FadePhase != EFadePhase::Out)
+	{
+		FMissionAction P = *PendingFrame;
+		PendingFrame.Reset();
+		P.Blend = 0.f;
+		ApplyFrameCamera(P);
+	}
 	if (FrameSubjects.Num() == 0) { return; }
 	ACameraActor* Cam = CutsceneCam.Get();
 	if (!Cam) { FrameSubjects.Reset(); return; }
@@ -367,8 +581,10 @@ void UMissionSubsystem::TickCutsceneFrame(float Dt)
 		for (const TWeakObjectPtr<AActor>& S : FrameSubjects) { if (S.IsValid()) { Subs.Add(S.Get()); } }
 		TArray<AActor*> Ignore = Subs;
 		if (APawn* P = GetPlayerPawn()) { Ignore.AddUnique(P); }
-		const int32 Vis = SmvCountFramed(GetWorld(), CL, Cam->GetActorRotation(), FrameAction->Fov > 1.f ? FrameAction->Fov : 45.0, Subs, Ignore);
-		for (const AActor* S : Subs) { if (FVector::Dist(S->GetActorLocation(), CL) < 130.0) { Bad = FString::Printf(TEXT("%s is at the lens"), *S->GetName()); } }
+		TArray<AActor*> Bodies;
+		FrameBodies(Subs, Bodies);
+		const int32 Vis = SmvCountFramed(GetWorld(), CL, Cam->GetActorRotation(), FrameAction->Fov > 1.f ? FrameAction->Fov : 45.0, Subs, Ignore, Bodies);
+		for (const AActor* S : Bodies) { if (S && SmvTooClose(CL, { const_cast<AActor*>(S) })) { Bad = FString::Printf(TEXT("%s is at the lens"), *S->GetName()); } }
 		FrameLiveFramed = Bad.IsEmpty() ? Vis : -1;
 		if (Bad.IsEmpty() && Vis < FrameSolvedVisible) { Bad = FString::Printf(TEXT("only %d/%d heads in frame"), Vis, FrameSolvedVisible); }
 	}

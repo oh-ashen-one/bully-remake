@@ -56,7 +56,7 @@
         { "type": "teleport", "point": "1_02B_movePlayerRussell1", "yaw": 0 },
         { "type": "npc_move_to", "npc": "gary", "point": "1_02B_moveGaryRussell1" },
         { "type": "npc_face", "npc": "russell", "face": "player" },
-        { "type": "camera", "frame": ["russell", "gary", "player"], "fov": 50, "blend": 0.8 },
+        { "type": "camera", "frame": ["russell", "gary", "player"], "at_cm": [-60470, 30220, 170], "fov": 50, "blend": 0.8 },
         { "type": "money_ensure", "money": 2 },
         { "type": "speech_sequence", "id": "russell", "lines": [
           { "speaker": "GARY", "text": "That's Russell. Big guy, short fuse.", "seconds": 3 },
@@ -108,7 +108,7 @@
       "on_start": [
         { "type": "spawn_npc", "npc": "karl", "point": "1_02B_spawnKarl", "mesh": "PFH1_Seth", "ped_model_id": 52, "invulnerable": true, "untargetable": true, "face": "player" },
         { "type": "letterbox", "on": true },
-        { "type": "camera", "frame": ["karl", "gary", "player"], "fov": 48, "blend": 0.6 },
+        { "type": "camera", "frame": ["karl", "gary", "player"], "at_cm": [-60910, 32180, 170], "fov": 48, "blend": 0.6 },
         { "type": "speech_sequence", "id": "bust", "lines": [
           { "speaker": "PREFECT", "text": "You there! Lockers are off-limits between classes.", "seconds": 3 },
           { "speaker": "GARY", "text": "Run. Seriously — run.", "seconds": 2.5 }
@@ -146,8 +146,8 @@
         { "type": "spawn_npc", "npc": "eunice", "point": "1_02B_spawnEunice", "mesh": "GN_Asiangirl", "ped_model_id": 74, "mission_critical": true, "invulnerable": true, "untargetable": true },
         { "type": "npc_move_to", "npc": "gary", "point": "1_02B_GaryEunice", "run": true },
         { "type": "letterbox", "on": true },
-        { "type": "fade", "out": 0.3, "hold": 0.2, "in": 0.5, "point": "1_02B_movePlayerEunice" },
-        { "type": "camera", "frame": ["gary", "eunice", "player"], "fov": 48, "blend": 0.6 },
+        { "type": "fade", "out": 0.3, "hold": 0.2, "in": 0.5, "point": "1_02B_movePlayerEunice", "place": { "gary": "1_02B_GaryEunice" } },
+        { "type": "camera", "frame": ["gary", "eunice", "player"], "at_cm": [-66880, 31880, 170], "fov": 48, "blend": 0.6 },
         { "type": "speech_sequence", "id": "eunice", "lines": [
           { "speaker": "GARY", "text": "Eunice is having a rough morning. Go on — be nice to her.", "seconds": 3.5 }
         ] }
@@ -214,7 +214,7 @@
         { "type": "spawn_npc", "npc": "edward", "point": "1_02B_outroPrefect", "mesh": "PFH1_Seth", "ped_model_id": 51, "invulnerable": true, "untargetable": true, "face": "player" },
         { "type": "npc_move_to", "npc": "gary", "point": "1_02B_outroGaryFlee", "run": true },
         { "type": "banner", "text": "THE CAFETERIA", "sub": "Every clique has its table.", "seconds": 3 },
-        { "type": "camera", "frame": ["edward", "player"], "fov": 45, "blend": 0.6 },
+        { "type": "camera", "frame": ["edward", "player"], "at_cm": [-64010, 29520, 170], "fov": 45, "blend": 0.6 },
         { "type": "speech_sequence", "id": "outro", "lines": [
           { "speaker": "PREFECT", "text": "New kid. Classes are starting — move.", "seconds": 3 }
         ] }

@@ -237,6 +237,7 @@ namespace
 				if (O->TryGetNumberField(TEXT("in"), F))   { A.FadeIn   = FMath::Max(0.f, float(F)); }
 				// Optional teleport (resolved like the teleport action) happens at full black, so there is no visible jump.
 				A.bFadeTeleport = ReadLocation(*O, D, A.Location);
+				UMissionSubsystem::ParseFadePlace(*O, D.Points, A);   // sm-visual: npcs set down at full black
 			}
 			else if (Type == TEXT("reward"))
 			{
@@ -1325,6 +1326,7 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 				FadeOutDur = A.FadeOut; FadeHoldDur = A.FadeHold; FadeInDur = A.FadeIn;
 				bFadePendingTeleport = A.bFadeTeleport;
 				FadeTeleportLoc = A.Location; FadeTeleportYaw = A.Yaw;
+				FadePlacePending = A.FadePlace;   // sm-visual
 				FadePhase = EFadePhase::Out;
 				FadePhaseStart = W->GetTimeSeconds();
 				SetCameraFade(0.f);
@@ -1795,6 +1797,7 @@ void UMissionSubsystem::ReleaseCutsceneCamera(float Blend)
 	if (ACameraActor* Cam = CutsceneCam.Get()) { Cam->Destroy(); }
 	CutsceneCam = nullptr;
 	FrameSubjects.Reset();   // sm-visual: stop re-aiming a released frame camera
+	PendingFrame.Reset();    // sm-visual: ...and drop one still waiting for its fade
 }
 
 void UMissionSubsystem::TickFade(float /*Dt*/)
@@ -1811,6 +1814,7 @@ void UMissionSubsystem::TickFade(float /*Dt*/)
 		if (Elapsed < FadeOutDur) { SetCameraFade(FadeSmooth01(Elapsed / Dur)); break; }
 		SetCameraFade(1.f);
 		if (bFadePendingTeleport) { TeleportPlayer(FadeTeleportLoc, FadeTeleportYaw, true); bFadePendingTeleport = false; }
+		ApplyFadePlacements();   // sm-visual: the cast lands with him
 		FadePhase = EFadePhase::Hold;
 		FadePhaseStart = World->GetTimeSeconds();
 		break;

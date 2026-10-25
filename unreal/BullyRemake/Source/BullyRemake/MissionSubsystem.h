@@ -63,6 +63,11 @@
 //                                   "dist_cm": 0, "height_cm": 0, "face": true }       //   "player", "enemy" = nearest combat pawn);
 //                                   first subject = the speaker (seen 3/4-on); traced clear of walls; re-aims while live
 //                                   and re-solves if a subject jumps (fade teleport). 0 = auto for dist/height.
+//                                   "at_cm": [x,y,z] = the original NIS camera spot: kept when it frames every subject
+//                                   (no wall/body in the way, not against anyone, not behind the speaker), else solved.
+//                                   Never parks inside/against a character: falls back to a single on the speaker, then
+//                                   to no cut. Issued during a teleporting fade, it is solved after the cast has landed.
+//               fade "place": { "gary": "<point>" }                           // sm-visual: npcs set down at full black
 //               { "type": "shake", "amp": 1.0, "seconds": 0.3 }                      // kick the player's camera (impact beats)
 //               { "type": "give_weapon", "weapon": 303 | "slingshot" }               // campaign grant (numeric = original game id)
 //               { "type": "give_ammo", "weapon": 309 | "stinkbomb", "n": 5 }         // top the weapon's ammo up to n
@@ -254,6 +259,13 @@ struct FMissionAction
 	float FrameAngle = 25.f, FrameDist = 0.f, FrameHeight = 0.f;
 	int32 FrameSide = 0;
 	bool bFrameFace = true;
+	// sm-visual: "at_cm": [x,y,z] = the original NIS's hardcoded camera spot (docs/re-notes). Kept when it shows every
+	// subject clear of walls and bodies (aimed at them); otherwise the solver picks the shot.
+	FVector FrameAt = FVector::ZeroVector;
+	bool bFrameHasAt = false;
+	// sm-visual: fade "place": {"gary": "<point>"} -- scripted npcs set down at full black (the original's NIS setups
+	// teleport the cast under the fade, e.g. 1_02B's Gary to _1_02B_GARYEUNICE)
+	TArray<TPair<FName, FVector>> FadePlace;
 	// shake: Amp = shake amplitude (1.0 = a firm hit), Seconds = duration.
 	float Amp = 1.f;
 	// campaign spine: give_weapon/give_ammo (WeaponId = original numeric game id, -1 = Text holds a Weapons.json id;
@@ -712,6 +724,8 @@ private:
 public:
 	/** Parse a camera action's "frame" block (returns false if the action has none). */
 	static bool ParseFrameCamera(const FJsonObject& O, FMissionAction& A);
+	/** Parse a fade action's "place" block ({"npc": "<point>", ...}); unknown points are logged and skipped. */
+	static void ParseFadePlace(const FJsonObject& O, const TMap<FName, FVector>& Points, FMissionAction& A);
 private:
 	bool ResolveFrameSubject(FName Id, AActor*& Out) const;
 	bool SolveFrameCamera(const FMissionAction& A, const TArray<AActor*>& Subjects, FVector& OutLoc, FVector& OutLook, int32& OutVisible) const;
@@ -743,4 +757,15 @@ private:
 	int32 FrameResolves = 0;                 // re-solves for the current camera action (capped)
 	bool bFrameResolving = false;            // ApplyFrameCamera called from the live re-solve (keeps FrameResolves)
 	int32 FrameLiveFramed = -1;              // heads framed by the live camera when a re-solve was asked for (-1 = always take it)
+	/** A frame camera issued while a teleporting fade is still going to black is solved once the cast has landed
+	 *  (otherwise it frames where everybody stood before the cut). */
+	TSharedPtr<FMissionAction> PendingFrame;
+	mutable bool bFrameSoloSpeaker = false;  // the last solve fell back to a single on the speaker (re-aim at him only)
+	mutable FVector FrameSpeakerFace = FVector::ZeroVector;   // where the speaker will face once turned (flat unit; 0 = his forward)
+	/** fade "place": npcs to set down at full black (consumed by ApplyFadePlacements from TickFade). */
+	TArray<TPair<FName, FVector>> FadePlacePending;
+	void ApplyFadePlacements();
+	/** Every character near the subjects (subjects, the player, mission npcs, combat pawns): bodies a camera must not
+	 *  sit in or shoot through. */
+	void FrameBodies(const TArray<AActor*>& Subjects, TArray<AActor*>& Out) const;
 };

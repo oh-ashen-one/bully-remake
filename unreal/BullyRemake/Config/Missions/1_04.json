@@ -61,7 +61,7 @@
       "blip": false,
       "on_start": [
         { "type": "letterbox", "on": true },
-        { "type": "camera", "frame": ["gary", "player"], "fov": 45, "blend": 0.8 },
+        { "type": "camera", "frame": ["gary", "player"], "at_cm": [18148, -602, 958], "fov": 45, "blend": 0.8 },
         { "type": "speech_sequence", "id": "parking", "lines": [
           { "speaker": "GARY", "text": "See that bus? Those windows are begging for it.", "seconds": 3 },
           { "speaker": "GARY", "text": "Three good hits. Make them count.", "seconds": 3 }
@@ -107,7 +107,7 @@
       "on_start": [
         { "type": "hint", "text": "Stay on the perch. If the coach spots you, it's over.", "seconds": 5 },
         { "type": "spawn_wave", "group": "field", "points": ["jock1", "jock2", "jock3", "jock4", "jock5", "jock6"], "mesh": "GN_Bully03", "hostile": false, "hits_to_beat": 1 },
-        { "type": "spawn_npc", "npc": "burton", "point": "1_04_BurtonField", "mesh": "TO_Cop", "ped_model_id": 55, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "burton", "point": "1_04_BurtonField", "mesh": "TO_Construct01", "_mesh_note": "sm-visual: was TO_Cop, whose imported mesh sits ~1.5 m under its root (bounds centre z -49 cm vs ~+100 for every other ped) so Burton rendered buried in the field; an adult stand-in that stands on the ground until the gym-teacher model is imported", "ped_model_id": 55, "invulnerable": true, "untargetable": true },
         { "type": "spotter", "npc": "burton", "range_cm": 1500, "cone_deg": 60, "seconds": 2 },
         { "type": "say", "speaker": "BURTON", "text": "Move it, ladies! Those knees better touch the sky!", "seconds": 3 }
       ],

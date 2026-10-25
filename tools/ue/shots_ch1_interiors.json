@@ -1,0 +1,95 @@
+{
+ "_owner": "sm-visual",
+ "_note": "Ch1 interior lighting probes (sm-visual round 2): fixed vantages in the rooms the first ~20 minutes of Chapter 1 play in -- main hallway lockers, the principal's office, Constantine's bathroom, the chemistry classroom pocket (isc_chem) and the boys' dorm hall (isc_dorm). Positions come from the mission shot sidecars (shots_meta.jsonl) and the probe_scenes bounding boxes; render with tools/ue/run_shots.sh --shots tools/ue/shots_ch1_interiors.json --res 1920x1080 and score with tools/ue/shot_metrics.py.",
+ "warmup_seconds": 20,
+ "settle_seconds": 12,
+ "max_compile_wait_seconds": 1500,
+ "quit_after_seconds": 3,
+ "highres_size": [
+  1920,
+  1080
+ ],
+ "exec": [
+  "r.SetRes 1920x1080w",
+  "r.HighResScreenshotDelay 8",
+  "r.MotionBlurQuality 0",
+  "t.MaxFPS 30"
+ ],
+ "shots": [
+  {
+   "name": "hall_lockers",
+   "location_cm": [
+    -60617,
+    31410,
+    165
+   ],
+   "look_at_cm": [
+    -60685,
+    29900,
+    130
+   ],
+   "fov": 70,
+   "ground_trace": false
+  },
+  {
+   "name": "principal_office",
+   "location_cm": [
+    -63396,
+    29412,
+    700
+   ],
+   "look_at_cm": [
+    -63800,
+    28600,
+    600
+   ],
+   "fov": 70,
+   "ground_trace": false
+  },
+  {
+   "name": "bathroom_constantine",
+   "location_cm": [
+    -58613,
+    32788,
+    165
+   ],
+   "look_at_cm": [
+    -57600,
+    32800,
+    120
+   ],
+   "fov": 72,
+   "ground_trace": false
+  },
+  {
+   "name": "chem_class",
+   "location_cm": [
+    -60300,
+    -32466,
+    3530
+   ],
+   "look_at_cm": [
+    -59000,
+    -32300,
+    3450
+   ],
+   "fov": 72,
+   "ground_trace": false
+  },
+  {
+   "name": "dorm_hall",
+   "location_cm": [
+    -50747,
+    -31800,
+    3290
+   ],
+   "look_at_cm": [
+    -49300,
+    -31800,
+    3230
+   ],
+   "fov": 70,
+   "ground_trace": false
+  }
+ ]
+}

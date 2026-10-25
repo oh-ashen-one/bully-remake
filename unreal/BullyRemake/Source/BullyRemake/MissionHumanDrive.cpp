@@ -53,6 +53,7 @@
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
 #include "NavMesh/NavMeshBoundsVolume.h"
+#include "BullyCutscene.h"
 #include "PhysicsEngine/BodySetup.h"
 
 DEFINE_LOG_CATEGORY_STATIC(LogBullyHuman, Log, All);
@@ -863,8 +864,19 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 	bool bWaiting = false;    // a beat a player waits out (speech, timer, an npc walking, a fade)
 	FString Why;
 
+	// 0) an original cutscene (sm-cutscenes) is playing: watch it like a player (input is ignored meanwhile). Its clock
+	//    running is progress -- the Chapter 1 ones run 40-97 s, past the idle/stuck limits. Enter skips it with
+	//    -BRMissionSmokeHumanSkipSpeech.
+	UBullyCutsceneSubsystem* Cutscene = UBullyCutsceneSubsystem::Get(World);
+	if (Cutscene && Cutscene->IsPlaying())
+	{
+		bActed = true; Why = TEXT("cutscene");
+		Human.IdleSince = -1.0;
+		Human.ProgressAt = Smoke.Elapsed;
+		if (Human.bSkipSpeech && Smoke.Elapsed - Human.LastKeyAt > 1.5) { HumanPressKey(EKeys::Enter); }
+	}
 	// 1) dialogue choice on screen: press the key of the first option whose gate passes (greyed options are visible)
-	if (Choice.bActive)
+	else if (Choice.bActive)
 	{
 		bActed = true; Why = TEXT("dialogue choice");
 		if (Smoke.Elapsed - Human.LastKeyAt > 1.5)

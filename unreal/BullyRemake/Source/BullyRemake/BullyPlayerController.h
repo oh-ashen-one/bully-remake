@@ -40,6 +40,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Bully|Menu") void CloseTeleportMenu();
 	UFUNCTION(BlueprintCallable, Category = "Bully|Menu") bool IsTeleportMenuOpen() const { return TeleportWidget.IsValid(); }
 
+	/** Story mode: hand the mouse back to game-only look after an overlay (the title screen) closes. */
+	void RestoreGameInput() { ApplyGameInputMode(); }
+
 	/** Look settings, as sensitivity multipliers (ABullyCharacter::MinLookSens..MaxLookSens). Applied live; Save persists. */
 	float GetLookX() const;
 	float GetLookY() const;

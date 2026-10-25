@@ -15,10 +15,14 @@
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FOnClockHourChanged, int32 /*NewHour*/);
 
+class UBullyStorySubsystem;
+
 UCLASS()
 class UBullyClockSubsystem : public UGameInstanceSubsystem, public FTickableGameObject
 {
 	GENERATED_BODY()
+
+	friend class UBullyStorySubsystem;   // story-mode save/load restores the private clock state
 
 public:
 	static UBullyClockSubsystem* Get(const UObject* WorldContext);

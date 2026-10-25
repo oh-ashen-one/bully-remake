@@ -2,6 +2,7 @@
 #include "BullyPlayerController.h"
 
 #include "BullyCharacter.h"
+#include "BullyStorySubsystem.h"
 #include "BullyVehicle.h"
 #include "Containers/Ticker.h"
 #include "NPCChatSubsystem.h"
@@ -142,6 +143,25 @@ public:
 							.ContentPadding(FMargin(40.f, 8.f))
 							[
 								SNew(STextBlock).Text(FText::FromString(TEXT("Resume"))).Font(Label)
+							]
+						]
+						// story mode (-BRStory): write the save and quit. Mid-mission it keeps the last autosave.
+						+ SVerticalBox::Slot().AutoHeight().Padding(0, 12, 0, 0).HAlign(HAlign_Center)
+						[
+							SNew(SButton)
+							.Visibility_Lambda([this]()
+							{
+								const UBullyStorySubsystem* Story = PC.IsValid() ? UBullyStorySubsystem::Get(PC->GetWorld()) : nullptr;
+								return Story && Story->IsStoryMode() ? EVisibility::Visible : EVisibility::Collapsed;
+							})
+							.OnClicked_Lambda([this]()
+							{
+								if (UBullyStorySubsystem* Story = PC.IsValid() ? UBullyStorySubsystem::Get(PC->GetWorld()) : nullptr) { Story->SaveAndQuit(true); }
+								return FReply::Handled();
+							})
+							.ContentPadding(FMargin(26.f, 8.f))
+							[
+								SNew(STextBlock).Text(FText::FromString(TEXT("Save & Quit"))).Font(Label)
 							]
 						]
 						+ SVerticalBox::Slot().AutoHeight().Padding(0, 12, 0, 0).HAlign(HAlign_Center)
@@ -311,6 +331,9 @@ void ABullyPlayerController::SetupInputComponent()
 		InputComponent->BindKey(EKeys::T, IE_Pressed, this, &ABullyPlayerController::NPCChat);
 		// Teleport menu: G opens/closes the area picker (all areas unlocked). While it has focus Slate eats the key.
 		InputComponent->BindKey(EKeys::G, IE_Pressed, this, &ABullyPlayerController::ToggleTeleportMenu);
+		// gamepad: Start (Special Right) opens/closes the same pause menu as Esc
+		FInputKeyBinding& Start = InputComponent->BindKey(EKeys::Gamepad_Special_Right, IE_Pressed, this, &ABullyPlayerController::ToggleSettingsMenu);
+		Start.bExecuteWhenPaused = true;
 	}
 }
 
@@ -318,6 +341,7 @@ void ABullyPlayerController::NPCChat()
 {
 	if (UWorld* W = GetWorld())
 	{
+		if (const UBullyStorySubsystem* Story = UBullyStorySubsystem::Get(W); Story && Story->IsTitleOpen()) { return; }
 		if (UNPCChatSubsystem* Chat = W->GetSubsystem<UNPCChatSubsystem>())
 		{
 			Chat->Toggle(this);
@@ -406,6 +430,10 @@ void ABullyPlayerController::OpenSettingsMenu()
 	{
 		return;
 	}
+	if (const UBullyStorySubsystem* Story = UBullyStorySubsystem::Get(GetWorld()); Story && Story->IsTitleOpen())
+	{
+		return;   // the story title screen owns the screen (and the pause) until a choice is made
+	}
 	if (!GEngine || !GEngine->GameViewport || !FSlateApplication::IsInitialized())
 	{
 		UE_LOG(LogBullySettings, Warning, TEXT("BR_SETTINGS open refused: no game viewport / Slate (viewport=%d slate=%d)"),
@@ -470,6 +498,7 @@ void ABullyPlayerController::ToggleTeleportMenu()
 void ABullyPlayerController::OpenTeleportMenu()
 {
 	if (IsTeleportMenuOpen() || !IsLocalController()) { return; }
+	if (const UBullyStorySubsystem* Story = UBullyStorySubsystem::Get(GetWorld()); Story && Story->IsTitleOpen()) { return; }   // title screen owns the screen
 	if (!GEngine || !GEngine->GameViewport || !FSlateApplication::IsInitialized()) { return; }
 	LastToggleRealTime = FPlatformTime::Seconds();
 	TSharedRef<SBullyTeleportMenu> Menu = SNew(SBullyTeleportMenu).Controller(this);

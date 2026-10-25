@@ -1,5 +1,6 @@
 // OWNER: slice-weapons
 #include "BullyWeaponComponent.h"
+#include "BullyStorySubsystem.h"
 
 #include "BullyAnimInstance.h"
 #include "BullySfx.h"
@@ -39,7 +40,10 @@ void UBullyWeaponComponent::BeginPlay()
 	Super::BeginPlay();
 	FallbackSphere = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"), nullptr, LOAD_NoWarn | LOAD_Quiet);
 	if (!LoadDefs()) { return; }
-	for (const FBullyWeaponDef& D : Defs) { Ammo.Add(D.Id, D.AmmoStart); }   // every weapon unlocked from the start
+	// Sandbox/harness runs: every weapon unlocked from the start. Story mode (-BRStory): fists only -- weapons arrive
+	// through the campaign's give_weapon/give_ammo grants (1_03 slingshot, ...) and a Continue restores the saved ammo.
+	const bool bStory = UBullyStorySubsystem::IsStoryRunRequested();
+	for (const FBullyWeaponDef& D : Defs) { Ammo.Add(D.Id, bStory ? 0 : D.AmmoStart); }
 	Smoke.bEnabled = FParse::Param(FCommandLine::Get(), TEXT("BRWeaponSmoke"));
 }
 

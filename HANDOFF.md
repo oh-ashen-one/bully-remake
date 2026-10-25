@@ -6,6 +6,28 @@ Status: **built + headless-verified + rendered stills reviewed; owner feel-playt
 
 ---
 
+## story-mode push (2026-10-24–25, integration branch `story-mode`) — paused, Claude weekly limit
+
+Goal from Hari: launch the remake and play story mode for the first ~20 minutes of Chapter 1 (arrival → day_one →
+1_02B → 1_02C → 1_03 → 1_04). Chapters 1–2 should be genuinely playable, and the rest of Kimi K3's work goes in as-is.
+Shared agent brief (goal, ownership, build/test recipes, GPU safety, public-repo content rule): `docs/story-mode-brief.md`.
+
+| Branch (worktree `~/bully-remake-wt/<branch>`) | State |
+| --- | --- |
+| `story-mode` | Integration branch off `kimi-backend` 44b8930. `sm-playloop` merged, plus coordinator fixes (town life on in `tools/play_story.sh`; fists-only start, weapons through campaign grants). Story smoke re-PASSed after those fixes (per the Claude session). |
+| `sm-playloop` | DONE + merged: `-BRStory` title screen, USaveGame autosave/continue, Save & Quit, free-roam guidance, launcher. Headless only, no attended playtest. |
+| `sm-humandrive` | **WIP, unverified.** Real-input playthrough driver (move/punch/press only) for Ch1–2. Agent stopped while adding a path-probe flag. Tip commit `WIP sm-humandrive` saved by Devin. |
+| `sm-visual` | **WIP, unverified, may not compile.** Black-frame fixes, Ch1 interior lighting, scripted-camera solver (`MissionSubsystemVisual.cpp`, `BullySceneFixups.*`, `tools/ue/shot_metrics.py`). Its upstream used to point at `origin/kimi-backend`; it now tracks `origin/sm-visual`. |
+| `sm-cutscenes` | **WIP, unverified.** Original cutscene audio/subtitles imported at build time; opening cutscene playback in progress (was rendering 1-1-1 frames). |
+
+Not done: none of the three WIP branches has been built or smoke-tested since the agents stopped. None of them is merged
+into `story-mode`. `story-mode` is not merged to `main`. Hari has not done a feel playtest.
+Next: in each WIP worktree, build, run its smokes per the brief, finish or trim it, then merge into `story-mode`. Then run
+the regression bar (day_one, arrival, 1_02B, 1_03, campaign and story smokes) and get Hari's playtest before `main`.
+Evidence: `~/bully-remake-evidence/story-mode/` (not committed).
+
+---
+
 ## kimi-backend (2026-10-22–24, branch `kimi-backend`): campaign spine → Chapters 1–2 DONE, Chapter 3 through wave E
 
 The full story-mode campaign (design: `docs/campaign-spine.md`; goal: all six chapters per

@@ -654,28 +654,17 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 					UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human pre-start: '%s' has no start block and no star; the player begins at %s"), *D.Id, *At.ToCompactString());
 				}
 			}
-			// the go-kart race tracks (scenes iMGRaceA/B/C) are imported at their scene-local coordinates, stacked over
-			// the campus, and their collision blocks the school grounds. sm-visual's UBullySceneFixups hides them in game
-			// (no render / no collision); until that lands on this branch, do the same here so the human run walks the
-			// real campus. Idempotent: a no-op once the fix-up has already switched their collision off.
+			// the go-kart race tracks (scenes iMGRaceA/B/C) are imported at their scene-local coordinates, stacked over the
+			// campus. The GAME switches their collision off (UBullyCollisionFixups; sm-visual's UBullySceneFixups too); the
+			// human run no longer does it itself, so a pass proves what a player gets. Only report if any are still solid.
 			{
-				int32 NCull = 0;
+				int32 NSolid = 0;
 				for (TActorIterator<AActor> It(World); It; ++It)
 				{
-					AActor* A = *It;
-					if (!A->GetActorEnableCollision()) { continue; }
-					for (const FName& T : A->Tags)
-					{
-						if (T.ToString().StartsWith(TEXT("br_scene:iMGRace"), ESearchCase::IgnoreCase))
-						{
-							A->SetActorHiddenInGame(true);
-							A->SetActorEnableCollision(false);
-							++NCull;
-							break;
-						}
-					}
+					if (!It->GetActorEnableCollision()) { continue; }
+					for (const FName& T : It->Tags) { if (T.ToString().StartsWith(TEXT("br_scene:iMGRace"), ESearchCase::IgnoreCase)) { ++NSolid; break; } }
 				}
-				if (NCull > 0) { UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human pre-start: %d race-track actor(s) (br_scene:iMGRace*) still collided over the campus -- hidden + collision off for this run (sm-visual BullySceneFixups stand-in)"), NCull); }
+				if (NSolid > 0) { UE_LOG(LogBullyHuman, Warning, TEXT("BR_MISSION_SMOKE human pre-start: %d race-track actor(s) (br_scene:iMGRace*) still collide over the campus (collision fix-ups off?)"), NSolid); }
 			}
 			// the arsenal a player would own here: fists, plus the weapon/ammo grants of every mission before this one in the
 			// campaign (prereq closure of Config/Campaign.json on_pass); the mission's own give_* actions run as usual.

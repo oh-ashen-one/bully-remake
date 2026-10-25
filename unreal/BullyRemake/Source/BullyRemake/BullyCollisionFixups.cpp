@@ -1,5 +1,5 @@
 // OWNER: sm-humandrive
-#include "BullyLightCardCollision.h"
+#include "BullyCollisionFixups.h"
 
 #include "Components/StaticMeshComponent.h"
 #include "Engine/StaticMesh.h"
@@ -10,7 +10,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 
-DEFINE_LOG_CATEGORY_STATIC(LogBullyLightCard, Log, All);
+DEFINE_LOG_CATEGORY_STATIC(LogBullyCollisionFix, Log, All);
 
 namespace
 {
@@ -24,6 +24,9 @@ namespace
 		TEXT("CN00_Bloom"),      // carnival bloom
 	};
 
+	// scenes imported over the campus that the original never shows there (go-kart tracks)
+	const TCHAR* const OverlappingScenePrefix = TEXT("br_scene:iMGRace");
+
 	bool IsLightCardMaterial(const UMaterialInterface* M)
 	{
 		if (!M || M->GetBlendMode() != BLEND_Additive) { return false; }
@@ -35,13 +38,13 @@ namespace
 	}
 }
 
-bool UBullyLightCardCollision::ShouldCreateSubsystem(UObject* Outer) const
+bool UBullyCollisionFixups::ShouldCreateSubsystem(UObject* Outer) const
 {
 	const UWorld* W = Cast<UWorld>(Outer);
-	return W && W->IsGameWorld() && !FParse::Param(FCommandLine::Get(), TEXT("BRNoLightCardFix"));
+	return W && W->IsGameWorld() && !FParse::Param(FCommandLine::Get(), TEXT("BRNoCollisionFixups"));
 }
 
-bool UBullyLightCardCollision::IsLightCard(const UStaticMeshComponent* C)
+bool UBullyCollisionFixups::IsLightCard(const UStaticMeshComponent* C)
 {
 	if (!C || !C->GetStaticMesh()) { return false; }
 	const int32 N = C->GetNumMaterials();
@@ -50,25 +53,39 @@ bool UBullyLightCardCollision::IsLightCard(const UStaticMeshComponent* C)
 	return true;
 }
 
-void UBullyLightCardCollision::OnWorldBeginPlay(UWorld& InWorld)
+void UBullyCollisionFixups::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
-	int32 Count = 0;
+	int32 Cards = 0, Tracks = 0;
 	TSet<FString> Meshes;
 	for (TActorIterator<AActor> It(&InWorld); It; ++It)
 	{
+		AActor* A = *It;
+		bool bTrack = false;
+		for (const FName& T : A->Tags) { if (T.ToString().StartsWith(OverlappingScenePrefix, ESearchCase::IgnoreCase)) { bTrack = true; break; } }
+		if (bTrack)
+		{
+			if (A->GetActorEnableCollision() || !A->IsHidden())
+			{
+				A->SetActorHiddenInGame(true);
+				A->SetActorEnableCollision(false);
+				++Tracks;
+			}
+			continue;
+		}
 		TArray<UStaticMeshComponent*> Comps;
-		It->GetComponents<UStaticMeshComponent>(Comps);
+		A->GetComponents<UStaticMeshComponent>(Comps);
 		for (UStaticMeshComponent* C : Comps)
 		{
 			if (C->GetCollisionEnabled() == ECollisionEnabled::NoCollision || !IsLightCard(C)) { continue; }
 			C->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			C->SetCanEverAffectNavigation(false);
-			++Count;
+			++Cards;
 			Meshes.Add(C->GetStaticMesh()->GetName());
 		}
 	}
 	TArray<FString> Names = Meshes.Array();
 	Names.Sort();
-	UE_LOG(LogBullyLightCard, Display, TEXT("BR_LIGHTCARD collision off on %d light-card component(s), %d mesh(es): %s"), Count, Names.Num(), *FString::Join(Names, TEXT(" ")));
+	UE_LOG(LogBullyCollisionFix, Display, TEXT("BR_COLLISIONFIX race-track actor(s) hidden + collision off: %d; light-card collision off on %d component(s), %d mesh(es): %s"),
+		Tracks, Cards, Names.Num(), *FString::Join(Names, TEXT(" ")));
 }

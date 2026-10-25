@@ -33,6 +33,10 @@ public:
 	/** >0 (mission spawn_wave): scripted hit-count health — each landed hit takes MaxHealth/HitsToBeat, so exactly N
 	 *  hits drop him regardless of weapon (the original's 1_03 Davis boss model). 0 = normal damage. */
 	int32 HitsToBeat = 0;
+	/** sm-humandrive (spawn_wave hits_ranged_only): only weapon hits use the HitsToBeat count; melee blows do normal damage
+	 *  against his health (1_04: one slingshot pellet tags a jock, but punching one down takes a real fight, as in the
+	 *  original, where the tree hits count per hit and a ground kill only counts once he is actually beaten). */
+	bool bHitsRangedOnly = false;
 	/** Mission target dummy (spawn_wave hostile:false): never moves, never attacks; just takes hits. */
 	bool bStationary = false;
 	/** Arena centre for the tether (defaults to the spawn point). */

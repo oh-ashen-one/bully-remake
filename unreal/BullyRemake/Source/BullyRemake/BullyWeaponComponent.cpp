@@ -230,7 +230,17 @@ bool UBullyWeaponComponent::AimPoint(FVector& Out) const
 	FHitResult Hit;
 	FCollisionQueryParams Q(SCENE_QUERY_STAT(BullyWeaponAim), true, GetOwner());
 	const FVector End = Eye + Dir * 8000.f;
-	if (GetWorld()->LineTraceSingleByChannel(Hit, Eye, End, ECC_Visibility, Q))
+	const bool bWorld = GetWorld()->LineTraceSingleByChannel(Hit, Eye, End, ECC_Visibility, Q);
+	// sm-humandrive: people under the crosshair count too. Character capsules ignore the visibility channel, so the ray
+	// went through a jock to the grass behind him and the shot, leaving the hand right of the camera, passed beside him
+	// (1_04: every free-aimed pellet from the tree missed). Take the nearer of the world hit and a pawn hit.
+	FHitResult PawnHit;
+	if (GetWorld()->LineTraceSingleByObjectType(PawnHit, Eye, bWorld ? FVector(Hit.ImpactPoint) : End, FCollisionObjectQueryParams(ECC_Pawn), Q))
+	{
+		Out = PawnHit.ImpactPoint;
+		return true;
+	}
+	if (bWorld)
 	{
 		Out = Hit.ImpactPoint;
 		return true;
@@ -557,4 +567,13 @@ void UBullyWeaponComponent::EmptyAll()
 	for (const FBullyWeaponDef& D : Defs) { Ammo.Add(D.Id, 0); }
 	Equipped = -1;
 	UE_LOG(LogBullyWeapons, Display, TEXT("BR_WEAPON emptied all %d weapon(s) (fists only)"), Defs.Num());
+}
+
+void UBullyWeaponComponent::RestoreAmmoTable(const TMap<FName, int32>& Table)
+{
+	Ammo = Table;
+	if (const FBullyWeaponDef* E = GetEquipped(); E && GetAmmo(E->Id) <= 0) { Equipped = -1; }
+	FString Line;
+	for (const auto& P : Ammo) { if (P.Value > 0) { Line += FString::Printf(TEXT(" %s=%d"), *P.Key.ToString(), P.Value); } }
+	UE_LOG(LogBullyWeapons, Display, TEXT("BR_WEAPON ammo restored:%s"), Line.IsEmpty() ? TEXT(" none") : *Line);
 }

@@ -10,6 +10,7 @@
 #include "BullyHUD.h"
 #include "BullyProgressSubsystem.h"
 #include "BullyScriptedNPC.h"
+#include "BullyWeaponComponent.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
@@ -473,6 +474,7 @@ namespace
 				if (O->TryGetNumberField(TEXT("advance_at"), N2)) { A.AdvanceAt = int32(N2); }
 				bool b = true;
 				if (O->TryGetBoolField(TEXT("hostile"), b)) { A.bHostile = b; }
+				if (O->TryGetBoolField(TEXT("hits_ranged_only"), b)) { A.bHitsRangedOnly = b; }
 				if (O->TryGetStringField(TEXT("target"), S)) { A.Sub = S; }   // every other member fights this defender
 			}
 			else if (Type == TEXT("spotter"))
@@ -1166,6 +1168,7 @@ void UMissionSubsystem::RetryNow()
 				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION retry: npc %s back to its stage-start spot %s"), *Pair.Key.ToString(), *Pair.Value.GetLocation().ToCompactString());
 			}
 		}
+		if (ABullyCharacter* PCh = Cast<ABullyCharacter>(GetPlayerPawn()); bHasStageStartAmmo && PCh && PCh->GetWeapons()) { PCh->GetWeapons()->RestoreAmmoTable(StageStartAmmo); }
 		State = EState::Running;
 		BeginStage(StageIndex, true);
 	}
@@ -1226,6 +1229,9 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	{
 		StageStartNpcXf.Reset();
 		for (const auto& Pair : Npcs) { if (Pair.Value.IsValid()) { StageStartNpcXf.Add(Pair.Key, Pair.Value->GetActorTransform()); } }
+		ABullyCharacter* PCh = Cast<ABullyCharacter>(GetPlayerPawn());
+		bHasStageStartAmmo = PCh && PCh->GetWeapons();
+		if (bHasStageStartAmmo) { StageStartAmmo = PCh->GetWeapons()->GetAmmoTable(); }
 	}
 
 	// actors for actor_tag interact conditions
@@ -2979,6 +2985,7 @@ void UMissionSubsystem::SpawnWave(const FMissionAction& A)
 		if (!A.Mesh.IsEmpty()) { E->PedMeshPath = FString::Printf(TEXT("/Game/Imported/Characters/%s/SK_%s.SK_%s"), *A.Mesh, *A.Mesh, *A.Mesh); }
 		E->bStationary = !A.bHostile;
 		E->HitsToBeat = A.HitsToBeat;
+		E->bHitsRangedOnly = A.bHitsRangedOnly;
 		// "target": every other member fights the named defender instead of the player (the pack splits, like the original)
 		if (!A.Sub.IsEmpty() && G.Members.Num() % 2 == 0)
 		{

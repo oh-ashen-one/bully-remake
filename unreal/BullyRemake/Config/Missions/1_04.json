@@ -1,6 +1,6 @@
 {
   "_format": "bully-remake.mission/1",
-  "_note": "1_04 'Slingshot' — Gary hands over the slingshot, the player shoots out the bus windows in the parking lot, then snipes the jock workout squad from the tree while coach Burton patrols (recon: docs/re-notes/ch1/1_04-slingshot.md). v1 simplifications (see the recon's gap table): the baked 1-04 cutscene is a title card + speech beat; the bus windows are stationary one-hit target dummies near the lot (the real window breakables aren't world props we can drive yet — their coords aren't in the trigger extract either); there is no tree-climb, so the perch trigger sits at the tree base; hit attribution (slingshot projectile vs other) is not checked; getting down from the tree is a zone_timer exit countdown. The spotter is real: cone + range + line of sight. Pass grants (nerds respect -> 55) live in the campaign table's on_pass for 1_04. Wording is original. Meshes are imported stand-ins; ped_model_id records the original model ids.",
+  "_note": "1_04 'Slingshot' — Gary hands over the slingshot, the player shoots out the bus windows in the parking lot, then snipes the jock workout squad from the tree while coach Burton patrols (recon: docs/re-notes/ch1/1_04-slingshot.md). v1 simplifications (see the recon's gap table): the baked 1-04 cutscene is a title card + speech beat; the bus windows are stationary one-hit target dummies near the lot (the real window breakables aren't world props we can drive yet — their coords aren't in the trigger extract either); there is no tree-climb, so the perch trigger sits at the tree base; hit attribution: the jocks have the original's 22 hp and one weapon hit tags a jock (hits_to_beat 1 + hits_ranged_only), while punching one down takes a real beating, as in the original where only slingshot/tree hits count per hit; getting down from the tree is a zone_timer exit countdown. The spotter is real: cone + range + line of sight. Pass grants (nerds respect -> 55) live in the campaign table's on_pass for 1_04. Wording is original. Meshes are imported stand-ins; ped_model_id records the original model ids.",
   "id": "1_04",
   "title": "Slingshot",
   "retry": "stage",
@@ -103,7 +103,7 @@
       "objective": "Tag all six jocks from the tree.",
       "on_start": [
         { "type": "hint", "text": "Stay on the perch. If the coach spots you, it's over.", "seconds": 5 },
-        { "type": "spawn_wave", "group": "field", "points": ["jock1", "jock2", "jock3", "jock4", "jock5", "jock6"], "mesh": "GN_Bully03", "hostile": false, "hits_to_beat": 1 },
+        { "type": "spawn_wave", "group": "field", "points": ["jock1", "jock2", "jock3", "jock4", "jock5", "jock6"], "mesh": "GN_Bully03", "hostile": false, "health": 22, "hits_to_beat": 1, "hits_ranged_only": true },
         { "type": "spawn_npc", "npc": "burton", "point": "1_04_BurtonField", "mesh": "TO_Cop", "ped_model_id": 55, "invulnerable": true, "untargetable": true },
         { "type": "spotter", "npc": "burton", "range_cm": 1500, "cone_deg": 60, "seconds": 2 },
         { "type": "say", "speaker": "BURTON", "text": "Move it, ladies! Those knees better touch the sky!", "seconds": 3 }

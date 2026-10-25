@@ -102,6 +102,7 @@
 //                 -- hostile combat pawns at named points (hostile:false = stationary target dummies); fires
 //                    "wave:<group>" when advance_at members are down (0 = all). hits_to_beat N: scripted hit-count
 //                    health (N landed hits drop him, damage number irrelevant — the Davis boss model).
+//                    "hits_ranged_only": true -- only weapon hits use that count; melee does normal damage (1_04 jocks).
 //                    Object destruction (1_04's bus windows) is a v1 stand-in: stationary 1-hp dummies.
 //               { "type": "spotter", "npc": "burton", "range_cm": 1500, "cone_deg": 60, "seconds": 2 }
 //                 -- stealth spotter on a spawned scripted npc: player in range + view cone + line of sight for
@@ -277,6 +278,7 @@ struct FMissionAction
 	float Health = 0.f;
 	bool bHostile = true;
 	int32 HitsToBeat = 0;
+	bool bHitsRangedOnly = false;   // spawn_wave "hits_ranged_only": hits_to_beat counts weapon hits only (melee = normal damage)
 	int32 AdvanceAt = 0;
 	// npc_follow: NpcId + Dist (stop radius, default 300) + Gait — mission-scoped escort follow. countdown_start:
 	// Seconds + bResume ("resume": keep remaining time if running) + Name (expiry event, default "countdown:out") +
@@ -461,6 +463,10 @@ private:
 	// sm-humandrive: where each mission npc stood when the current stage began (a stage retry puts them back there,
 	// otherwise a chase retry starts with the runaway already at his destination)
 	TMap<FName, FTransform> StageStartNpcXf;
+	// sm-humandrive: the player's ammo when the current stage began (a stage retry gives it back, like the original's
+	// retry, which restarts with the ammo the mission handed out; otherwise a 1_04 tree retry starts with an empty slingshot)
+	TMap<FName, int32> StageStartAmmo;
+	bool bHasStageStartAmmo = false;
 	// sm-humandrive: a knocked-out player fails the stage (retry revives him) when the stage has no KO rule of its own
 	double PlayerOutSince = -1.0;
 	bool bForceFailReason = false;

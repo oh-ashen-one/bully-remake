@@ -46,10 +46,14 @@ struct FCampaignMission
 	TSharedPtr<FJsonObject> OnPass;       // kept raw; applied key-by-key in NotifyPassed
 };
 
+class UBullyStorySubsystem;
+
 UCLASS()
 class UBullyCampaignSubsystem : public UGameInstanceSubsystem
 {
 	GENERATED_BODY()
+
+	friend class UBullyStorySubsystem;   // story-mode save/load reads and restores the private state
 
 public:
 	static UBullyCampaignSubsystem* Get(const UObject* WorldContext);
@@ -65,6 +69,8 @@ public:
 	int32 GetAttempts(const FString& Id) const { return Attempts.FindRef(Id); }
 	bool IsLoaded() const { return bLoaded; }
 	const TMap<FString, FCampaignMission>& GetMissions() const { return Missions; }
+	bool HasCollectible(FName Name) const { return Collectibles.Contains(Name); }
+	const TSet<FName>& GetGrantedWeapons() const { return GrantedWeapons; }
 
 	/** The pass side (SMissPass equivalent): applies the row's on_pass block (force_complete recurses through this
 	 *  same path), then bumps the completion count and broadcasts OnChanged so stars/HUD refresh. */
@@ -96,6 +102,7 @@ private:
 	TMap<FString, int32> Attempts;        // id -> StartMission count
 	TMap<FName, int32> Respect;           // faction -> value (set semantics)
 	TSet<FName> Collectibles;             // unlock_collectible flags
+	TSet<FName> GrantedWeapons;           // weapons granted by give_weapon / on_pass (story save: weapon unlocks)
 	int32 Chapter = 1;
 	TSet<FString> Passing;                // force_complete recursion guard
 	bool bLoaded = false;

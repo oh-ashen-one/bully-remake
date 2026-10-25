@@ -13,6 +13,7 @@
 
 class UBoxComponent;
 class UStaticMeshComponent;
+class UPointLightComponent;
 
 UCLASS()
 class AMissionStar : public AActor
@@ -32,7 +33,10 @@ public:
 
 private:
 	TObjectPtr<UBoxComponent> Box;
-	TObjectPtr<UStaticMeshComponent> Beacon;
+	TObjectPtr<UStaticMeshComponent> Beacon;   // tall light beam (readable from across the grounds)
+	TObjectPtr<UStaticMeshComponent> Core;     // the spinning, bobbing "star" gem at the foot of the beam
+	TObjectPtr<UPointLightComponent> Glow;     // warm pool of light on the ground around the marker
+	double SpawnedAt = 0.0;
 	bool bPlayerInside = false;
 	double NextStartLogAt = 0.0;   // throttle the "start refused" log while standing in a star
 };

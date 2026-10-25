@@ -412,6 +412,14 @@ public:
 	int32 GetAttempt() const { return Attempt; }
 	FBullyHUD* GetHUD() const { return Hud.Get(); }
 
+	// --- story mode (BullyStorySubsystem) ---
+	/** A start_mission chain / auto-start is queued (the player is mid-sequence, e.g. arrival -> day_one). */
+	bool HasPendingStart() const { return !PendingAutoStart.IsEmpty(); }
+	/** Make sure the HUD overlay exists and is shown, and return it (free-roam guidance draws on the mission HUD). */
+	FBullyHUD* AcquireHud() { EnsureHud(); return Hud.Get(); }
+	/** Set by story mode while free-roam guidance owns the HUD: the end-of-mission clear/hide is skipped. */
+	bool bKeepHud = false;
+
 	// --- triggers ---
 	void RegisterTrigger(AMissionTrigger* T);
 	void UnregisterTrigger(AMissionTrigger* T);

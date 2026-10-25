@@ -40,10 +40,14 @@ struct FBullyWeaponDef
 	FName SfxFire;
 };
 
+class UBullyStorySubsystem;
+
 UCLASS(ClassGroup = (Bully), meta = (BlueprintSpawnableComponent))
 class UBullyWeaponComponent : public UActorComponent
 {
 	GENERATED_BODY()
+
+	friend class UBullyStorySubsystem;   // story-mode save/load reads and restores the ammo table
 
 public:
 	UBullyWeaponComponent();

@@ -2691,7 +2691,14 @@ void UMissionSubsystem::TickSmoke(float Dt)
 	if (Interacts.Num() > 0 && InteractInRange(*Interacts[0]))
 	{
 		if (Smoke.InsideSince < 0.0) { Smoke.InsideSince = Smoke.Elapsed; }
-		if (Smoke.Elapsed - Smoke.InsideSince > 0.4) { UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE pressing interact (stage %d, prompt shown: '%s')"), StageIndex + 1, Hud.IsValid() ? *Hud->GetState().PromptText : TEXT("-")); DoInteract(); }
+		if (Smoke.Elapsed - Smoke.InsideSince > 0.4)
+		{
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE pressing interact (stage %d, prompt shown: '%s')"), StageIndex + 1, Hud.IsValid() ? *Hud->GetState().PromptText : TEXT("-"));
+			DoInteract();
+			// sm-humandrive: press again 0.4 s later, not every frame. An interact stage that also waits on something
+			// else (1_02B hide_bin: heat decay) used to log + fire thousands of presses and took 5+ min wall time.
+			Smoke.InsideSince = Smoke.Elapsed;
+		}
 		return;
 	}
 	if (St.Complete.Type == FMissionCondition::EType::Event && !SystemEvent(St.Complete.Name)) { Smoke.LastDrive = Smoke.Elapsed; FireEvent(St.Complete.Name); return; }

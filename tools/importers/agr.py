@@ -64,12 +64,12 @@ def _u32(b, p):
     return struct.unpack_from("<I", b, p)[0]
 
 
-def is_header(b, p: int, end: int) -> bool:
+def is_header(b, p: int, end: int, max_keys: int = 20000) -> bool:
     if p + 20 > end:
         return False
     magic, kt, n, zero = struct.unpack_from("<IIII", b, p)
     d = struct.unpack_from("<f", b, p + 16)[0]
-    return (magic == HEADER_MAGIC and kt in KEY_SIZE and zero == 0 and 0 < n < 20000
+    return (magic == HEADER_MAGIC and kt in KEY_SIZE and zero == 0 and 0 < n < max_keys
             and 0 < d < 1000)
 
 
@@ -199,7 +199,10 @@ def parse_agr(data, sizes: list | None = None) -> list:
         data_end -= 1
     clips = []
     p = 0
-    while p + 20 <= data_end and is_header(data, p, data_end):
+    # with HXD sizes the clip starts are known, so the key-count sanity cap can be loose: long cutscene facial clips
+    # (sm-cutscenes: 96 s, 26k keys) exceed the scan heuristic's 20000
+    max_keys = 1 << 20 if sizes is not None else 20000
+    while p + 20 <= data_end and is_header(data, p, data_end, max_keys):
         size = sizes[len(clips)] if sizes is not None and len(clips) < len(sizes) else None
         c = _decode_clip(data, p, end, data_end, size)
         clips.append(c)

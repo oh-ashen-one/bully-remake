@@ -15,9 +15,11 @@
         { "type": "banner", "text": "THE SETUP", "sub": "Davis has a slingshot.", "seconds": 3 },
         { "type": "spawn_npc", "npc": "davis", "point": "1_03_DAVISStart", "mesh": "GN_Bully02", "ped_model_id": 99, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
         { "type": "spawn_npc", "npc": "peter", "point": "1_03_Peter", "mesh": "GN_Boy01", "ped_model_id": 134, "untargetable": true },
-        { "type": "speech_sequence", "id": "intro", "lines": [
-          { "speaker": "DAVIS", "text": "Watch this, new kid. See what a real marksman looks like.", "seconds": 3 },
-          { "speaker": "DAVIS", "text": "You want it? Catch me first!", "seconds": 2.5 }
+        { "type": "cutscene", "id": "1-03", "event": "speech:intro", "else": [
+          { "type": "speech_sequence", "id": "intro", "lines": [
+            { "speaker": "DAVIS", "text": "Watch this, new kid. See what a real marksman looks like.", "seconds": 3 },
+            { "speaker": "DAVIS", "text": "You want it? Catch me first!", "seconds": 2.5 }
+          ] }
         ] }
       ],
       "complete": { "type": "event", "name": "speech:intro", "latched": true },

@@ -41,6 +41,11 @@ Set one of these. The path is never hard-coded.
     python3 -m tools.importers audio list FeetAll         # wave names, durations, rates
     python3 -m tools.importers audio extract FeetAll Wind # MS-ADPCM -> 16-bit WAV in imported/audio/<bank>/ + manifest.json
     python3 -m tools.importers audio extract Ambs --names 'NewSchoolOutdoor_F|Birds01'   # streamed banks (audio/PLAYLIST), on request
+    python3 -m tools.importers cutscene list              # every baked cutscene in Cuts.img (audio / subtitle / HXD presence)
+    python3 -m tools.importers cutscene build             # Chapter 1 opening set -> imported/cutscenes/<id>/cutscene.json + <id>.wav
+    python3 -m tools.importers cutscene build 1-05 1-06   # any other ids (as Cuts.img names them); --no-audio, --language
+    python3 -m tools.importers cutscene actors            # every character actor of those cutscenes -> imported/models/CS_*.gltf + cutscenes/actors.json
+    python3 -m tools.importers ped CS_PLAY_BODY --head CS_PLAY --cutscene 1-1-1,1-03 --root-motion raw   # one actor by hand
 
 Tests: `python3 -m pytest tools/tests` (synthetic fixtures). Set `BULLY_INSTALL` to also
 run the integration tests against the real install.
@@ -119,6 +124,25 @@ Formats and confidence: `docs/re-notes/anim-formats.md`. `ped <MODEL>` writes `m
 the movement code), `raw` (as stored), `dummy` (travel on the root joint, for root-motion extraction).
 Forward in every clip is game +y = glTF -Z; the bind pose itself faces the other way (see the notes).
 `--sheet` renders a CPU contact sheet (bind pose + frames of every clip) as evidence.
+
+## Baked cutscenes (`cutscene`)
+
+Formats and confidence: `docs/re-notes/cutscenes-format.md`. Nothing derived from the game is committed; everything
+lands in `imported/` (git-ignored) and the game falls back to the missions' own text beats without it.
+
+- `cutscene build [ids]` writes `cutscenes/<id>/cutscene.json` (format `bully-remake.cutscene/1`): duration, the
+  audio stream (`<id>.wav`, decoded from `audio/PLAYLIST/Cuts.bin`), the subtitle cues (timing from `<id>.SUB`, text
+  from `Config/Text/<Language>.img`, matched by key hash or, for tables keyed under another prefix, by sequence), the
+  camera track baked to 30 Hz in UE cm (`pos_cm`, `target_cm`, `fov_deg`, `roll_deg`, `cuts`), and the actors (HXD
+  clip, world origin, facial clip, World.img model, the UE asset paths the player looks for).
+- `cutscene actors [ids]` runs `ped` for every character actor (props are skipped): body + head merged for the
+  player (`CS_PLAY_BODY` + `CS_PLAY`), one `CUT_<id>` clip per cutscene the actor is in, the `F_<actor>` facial clip
+  merged onto the face bones, raw root motion, Offset_Node keys made relative to the actor origin. It also writes
+  `cutscenes/actors.json`, the list `tools/ue/run_import_cutscene_actors.sh` imports into
+  `/Game/Imported/Characters/<ACTOR>/` (SK_<ACTOR>, Anims/CUT_<id>).
+- In game: mission action `{"type": "cutscene", "id": "1-03", "event": "...", "else": [...]}` (see
+  `MissionSubsystem.h`); console `Cutscene.Play <id> [audio]`, `Cutscene.Skip`, `Cutscene.Status`; offscreen check
+  `tools/ue/run_cutscene_shots.sh <id> --times 3,10,25`.
 
 ## Town life (`townlife`)
 

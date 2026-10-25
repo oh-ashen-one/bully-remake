@@ -149,6 +149,16 @@
 //               { "type": "boss_bar", "group": "boss", "label": "RUSSELL", "half_line": "Russell is furious!" }
 //                 -- boss health bar (drives the HUD progress bar off the named one-member wave) + a one-time bark
 //                    when he drops under half (the original's 50% anger flag, as a readout instead of a phase).
+//   sm-cutscenes (original baked cutscenes, UBullyCutsceneSubsystem / BullyCutscene.h):
+//               { "type": "cutscene", "id": "1-03", "event": "speech:intro", "else": [<action>, ...] }
+//                 -- plays the imported original (tools.importers `cutscene build`): Full tier = decoded camera + actors
+//                    + original audio + subtitles; Audio tier (no actor assets) = original audio + subtitles over the
+//                    `else` beats' staging (camera/letterbox/fade/teleport/npc actions run, their say/speech/hint/banner
+//                    text does not). Skippable (Enter / pad B). Fires `event` (default "cutscene:<id>") when it ends and
+//                    latches the mission flag "cutscene:<id>". Content absent: runs `else` (and fires nothing), or with no
+//                    `else` fires the event at once -- a dedicated cutscene stage then just passes through.
+//   stage extra: "skip_if": <condition> -- checked when the stage begins; true skips the stage outright (no actions), e.g.
+//                    { "type": "flag", "name": "cutscene:1-1-1" } on the text beats an original cutscene replaces.
 //
 // Campaign spine: StartMission consults UBullyCampaignSubsystem::IsAvailable (ids outside the campaign table are
 // always available) unless the start came from -BRMission=, the Mission.Start console exec, or a smoke/shots
@@ -211,7 +221,8 @@ struct FMissionAction
 {
 	enum class EType : uint8 { Hint, Banner, Event, SetFlag, ClearFlag, Teleport, Log, StartMission, SpawnEnemy, Fade, Reward, Letterbox, Say, Camera, Shake, GiveWeapon, GiveAmmo, SetRespect, Clock, ChapterSet, ForceComplete,
 		SpawnNpc, NpcMove, NpcLead, NpcFace, NpcDespawn, PairAnim, SpeechSequence, MinigameLaunch, GiveItem, TakeItem, MoneyEnsure, MoneyTake, HeatSet, Hide,
-		SpawnWave, Spotter, NpcFollow, CountdownStart, CountdownCancel, LessonStart, SpawnDefender, NpcDrain, DialogueChoice, BossBar, RaceStart, ClockFailAt };
+		SpawnWave, Spotter, NpcFollow, CountdownStart, CountdownCancel, LessonStart, SpawnDefender, NpcDrain, DialogueChoice, BossBar, RaceStart, ClockFailAt,
+		Cutscene /* sm-cutscenes */ };
 	EType Type = EType::Log;
 	FString Text, Sub;
 	FName Name;
@@ -287,6 +298,9 @@ struct FMissionAction
 	// Amount = laps (default 1), Radius = checkpoint radius (default 900). clock_fail_at: Text = "h:mm" (world-clock
 	// fail edge, fires "clock:fail" once; mission-long, not stage-scoped).
 	TArray<FChoiceOption> Options;
+	// sm-cutscenes: cutscene -- Name = cutscene id (Cuts.img naming, e.g. "1-03"), Sub = done event (default
+	// "cutscene:<id>"), Else = the fallback beats run when the imported original is absent.
+	TArray<FMissionAction> Else;
 };
 
 struct FMissionStage
@@ -302,6 +316,7 @@ struct FMissionStage
 	FVector CheckpointLocation = FVector::ZeroVector;
 	float CheckpointYaw = 0.f;
 	TArray<FMissionAction> OnStart, OnComplete;
+	FMissionCondition SkipIf;                 // sm-cutscenes: evaluated at stage begin; true = skip the stage (no actions)
 };
 
 struct FMissionTriggerDef
@@ -566,6 +581,13 @@ private:
 		float TargetHour = 0.f, ArmedHour = 0.f;
 	} ClockFail;
 	void TickClockFail();
+
+	// sm-cutscenes: the cutscene action (original baked cutscenes via UBullyCutsceneSubsystem)
+	void RunCutsceneAction(const FMissionAction& A);
+	void StopCutscene();
+	/** sm-cutscenes: original cutscenes already shown during this mission run; a retry plays the fallback beats instead
+	 *  (the original skips its intro cutscene after the first attempt). Reset by StartMission, kept across retries. */
+	TSet<FString> CutscenesSeen;
 
 	// wave-D runtime: mission defenders (combat-pawn escortees on the player's team) and the dialogue choice
 	struct FDefenderState

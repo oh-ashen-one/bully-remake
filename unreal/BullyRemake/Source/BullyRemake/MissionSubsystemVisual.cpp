@@ -125,19 +125,24 @@ namespace
 		return N;
 	}
 
-	/** Nearest geometry across the lens (traces fanned over the frame from the camera, 1.6 m): a pillar edge or locker
-	 *  corner a few cm from the lens fills half the frame with blur. */
-	double SmvLensClearance(const UWorld* W, const FVector& L, const FRotator& R, double FovH, const TArray<AActor*>& Ignore)
+	/** Share of the frame blocked by foreground geometry: rays on a 3x3 grid over the (letterboxed) frame that hit a wall,
+	 *  pillar or locker corner before Reach (a fraction of the way to the subjects). A pillar edge a metre from the lens
+	 *  fills half the frame with depth-of-field blur. */
+	double SmvForegroundBlock(const UWorld* W, const FVector& L, const FRotator& R, double FovH, const TArray<AActor*>& Ignore, double Reach)
 	{
-		double Best = 160.0;
-		const double H = FovH * 0.5 * 0.85, V = FovH * 0.5 * 9.0 / 16.0 * 0.8;
-		for (const FVector2D& O : { FVector2D(0, 0), FVector2D(H, 0), FVector2D(-H, 0), FVector2D(H * 0.5, 0), FVector2D(-H * 0.5, 0), FVector2D(0, V), FVector2D(0, -V) })
+		const double H = FovH * 0.5 * 0.8, V = FovH * 0.5 * 9.0 / 16.0 * 0.7;
+		int32 Hits = 0, N = 0;
+		for (double Y : { -H, 0.0, H })
 		{
-			const FVector Dir = (R + FRotator(O.Y, O.X, 0.0)).Vector();
-			FHitResult Hit;
-			if (SmvTraceStatic(W, L, L + Dir * 160.0, Hit, Ignore)) { Best = FMath::Min(Best, double(Hit.Distance)); }
+			for (double P : { -V, 0.0, V })
+			{
+				++N;
+				const FVector Dir = (R + FRotator(P, Y, 0.0)).Vector();
+				FHitResult Hit;
+				if (SmvTraceStatic(W, L, L + Dir * Reach, Hit, Ignore)) { ++Hits; }
+			}
 		}
-		return Best;
+		return double(Hits) / double(N);
 	}
 
 	/** Distance from the lens to the nearest character body (horizontal, to the capsule surface). */
@@ -306,7 +311,8 @@ bool UMissionSubsystem::SolveFrameCamera(const FMissionAction& A, const TArray<A
 	TArray<AActor*> Bodies;
 	FrameBodies(Subjects, Bodies);
 	const TArray<AActor*> Speaker = { Subjects[0] };
-	const FVector LookMid = M - FVector(0, 0, 15.0);   // heads in the upper third
+	// two-shots: heads in the upper third; a single is closer, so aim at his face or the top of his head leaves the frame
+	const FVector LookMid = M - FVector(0, 0, bSingle ? -5.0 : 15.0);
 
 	// the speaker alone, in front of him -- the fallback whenever the group shot would not show him
 	auto SpeakerAlone = [&](const TCHAR* Why) -> bool
@@ -330,7 +336,7 @@ bool UMissionSubsystem::SolveFrameCamera(const FMissionAction& A, const TArray<A
 		const int32 Vis = SmvCountFramed(W, L, R, FovH, Subjects, Ignore, Bodies);
 		const bool bClose = SmvTooClose(L, Bodies), bInside = SmvInsideGeometry(W, L);
 		const double Fc = Facing(L);
-		const bool bLens = SmvLensClearance(W, L, R, FovH, Ignore) < 60.0;
+		const bool bLens = SmvForegroundBlock(W, L, R, FovH, Ignore, FVector::Dist(L, LookMid) * 0.6) > 0.15;
 		if (Vis == Subjects.Num() && !bClose && !bInside && !bLens && Fc > -0.25 && FVector::Dist(L, M) < 2500.0)
 		{
 			OutLoc = L; OutLook = LookMid; OutVisible = Vis;
@@ -339,7 +345,7 @@ bool UMissionSubsystem::SolveFrameCamera(const FMissionAction& A, const TArray<A
 		}
 		UE_LOG(LogBullyMissionVisual, Display, TEXT("BR_MISSION camera frame: the original camera spot frames %d/%d%s%s%s%s -- solving instead"),
 			Vis, Subjects.Num(), bClose ? TEXT(", against a character") : TEXT(""), bInside ? TEXT(", inside geometry") : TEXT(""), Fc <= -0.25 ? TEXT(", behind the speaker") : TEXT(""),
-			bLens ? TEXT(", a wall at the lens") : TEXT(""));
+			bLens ? TEXT(", foreground geometry in the frame") : TEXT(""));
 	}
 
 	// 1) subjects too far apart for a readable two-shot (an npc calling across a hall): over the last subject's shoulder
@@ -410,7 +416,7 @@ bool UMissionSubsystem::SolveFrameCamera(const FMissionAction& A, const TArray<A
 				+ Facing(Loc) * 4000.0;   // see the speaker's face, not the back of his head
 			// a foreground back filling half the frame, or a wall edge smeared across the lens, reads as a bad shot
 			Score -= FMath::Max(0.0, 230.0 - SmvNearestBody(Loc, Bodies)) * 25.0;
-			Score -= FMath::Max(0.0, 90.0 - SmvLensClearance(W, Loc, Rot, FovH, Ignore)) * 80.0;
+			Score -= SmvForegroundBlock(W, Loc, Rot, FovH, Ignore, FVector::Dist(Loc, LookMid) * 0.6) * 9000.0;
 			if (Got < 160.0) { Score -= 5000.0; }   // tight: a lens in someone's face reads as a clipping error
 			if (Score > Best.Score) { Best.Loc = Loc; Best.Visible = Vis; Best.Spk = Spk; Best.Score = Score; Best.Got = Got; }
 		}
@@ -606,7 +612,7 @@ void UMissionSubsystem::TickCutsceneFrame(float Dt)
 	if (N == 0) { return; }
 	M /= double(N);
 	// far-apart subjects were framed over the last one's shoulder: keep aiming at the speaker, not the midpoint
-	FVector Aim = M - FVector(0, 0, 15.0);
+	FVector Aim = M - FVector(0, 0, N == 1 ? -5.0 : 15.0);   // same aim as the solve (a single aims at his face)
 	if (FrameSubjects.Num() >= 2 && FrameSubjects[0].IsValid() && FrameSubjects.Last().IsValid()
 		&& FVector::Dist2D(FrameSubjects[0]->GetActorLocation(), FrameSubjects.Last()->GetActorLocation()) > 650.0 && !(FrameAction.IsValid() && FrameAction->FrameDist > 0.f))
 	{

@@ -125,9 +125,18 @@ Same container as the other streamed banks (`audio-formats.md`): entry *i* is li
 `audio/PLAYLIST/Speech.bin` / `Speech.lst` (40,400 entries) name scripted mission lines `<Speaker>_<mission>_<NNN>_v<k>.rsm`
 with the mission in cutscene-style form (`1-03`) and `NNN` the id the mission script passes to
 `SoundPlayScriptedSpeechEvent("M_1_03", NNN)`; `_v<k>` are alternate takes. **INFERRED** (ids in the ch1 recon notes
-appear as file numbers). The matching subtitle strings sit in the mission's own table (`Config/Text/<Language>.img/1_03.bin`),
-but their key format is **OPEN** (none of the obvious id/speaker/file-name spellings hash to a table entry), so the
-missions keep their own text lines for now.
+appear as file numbers). The matching subtitle strings sit in the mission's own table (`Config/Text/<Language>.img/1_03.bin`).
+
+**Table keys are 31-bit (VERIFIED 2026-10-25).** Every text table stores `BKDR131(key) & 0x7FFFFFFF`, not the full
+32-bit value. With the mask, the script's own keys resolve: `TextPrint("1_03_D13")`, `TutorialShowMessage("1_03_T01")`,
+`MissionObjectiveAdd("1_03_INSTRUC02")`. They match 8 of the 27 entries in `1_03.bin`, 13 of 63 in `1_04.bin` and 16
+of 79 in `1_02B.bin`. This mask is why the 1-02B/1-02D/1-02E cutscene tables needed the sequence fallback.
+
+The remaining entries are the scripted speech lines, and their key spelling is still **OPEN**. None of
+speaker/mission/number in any order, case or separator (with or without `_v1`) hashes to them. `Bully.exe` (Steam,
+SHA-256 `36ff3168…`) cannot settle it statically: its `.text` section is encrypted by the Steam DRM wrapper (`.bind`
+section, entropy 8.0), so Ghidra sees no code at the Lua binding addresses. Planned route: align each speech file to its
+line by transcription instead of by key.
 
 Open items: the `e0/e1` camera columns; the unknown subtitle key prefix; prop actors (car, tea set, slingshot, stone,
 board game) are not imported yet; whether the in-game cutscene camera should also apply the Offset_Node yaw to props.

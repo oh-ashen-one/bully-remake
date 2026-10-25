@@ -42,12 +42,14 @@ CHAPTER1_OPENING = ("1-1-1", "1-1-2", "1-02B", "1-02E", "1-02D", "1-03", "1-04")
 # string tables (Config/Text/<Language>.img)
 
 def string_hash(key: str) -> int:
-    """BKDR-style hash, seed 131, over the key's bytes (case as given). VERIFIED: every SUB key of every Chapter-1
-    cutscene resolves in its table."""
+    """BKDR-style hash, seed 131, over the key's bytes (case as given), top bit cleared. VERIFIED: every SUB key of
+    every Chapter-1 cutscene resolves in its table. The tables store the hash masked to 31 bits: mission tables
+    (e.g. Text/1_03.bin) hold "1_03_D11" as 0x1d97c382, whose unmasked BKDR value is 0x9d97c382 (verified
+    2026-10-25 against the script keys of 1_02B, 1_03, 1_04)."""
     h = 0
     for c in key.encode("latin-1"):
         h = (h * 131 + c) & 0xFFFFFFFF
-    return h
+    return h & 0x7FFFFFFF
 
 
 _CODE = re.compile(r"~([A-Za-z0-9_$]{1,24})~")

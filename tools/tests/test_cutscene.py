@@ -17,12 +17,13 @@ def test_string_hash_definition():
     assert cs.string_hash("") == 0
     assert cs.string_hash("A") == 65
     assert cs.string_hash("AB") == 65 * 131 + 66
-    # wraps at 32 bits
+    # wraps at 32 bits, then the top bit is cleared (tables store 31-bit keys)
     long = "Z" * 40
     x = 0
     for c in long:
         x = (x * 131 + ord(c)) % (1 << 32)
-    assert cs.string_hash(long) == x
+    assert cs.string_hash(long) == x & 0x7FFFFFFF
+    assert cs.string_hash("1_03_D11") == 0x1D97C382
 
 
 def make_table(entries: dict) -> bytes:

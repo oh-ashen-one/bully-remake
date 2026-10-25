@@ -60,6 +60,8 @@ public:
 	enum class ETier : uint8 { None, Audio, Full };
 
 	static UBullyCutsceneSubsystem* Get(UWorld* World);
+	/** 16-bit PCM RIFF/WAVE -> rate, channels, raw PCM (shared with UBullyVoiceSubsystem). */
+	static bool ParseWavBytes(const TArray<uint8>& Bytes, int32& OutRate, int32& OutChannels, TArray<uint8>& OutPcm);
 
 	virtual bool ShouldCreateSubsystem(UObject* Outer) const override;
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;

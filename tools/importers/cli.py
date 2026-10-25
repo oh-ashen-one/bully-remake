@@ -252,6 +252,19 @@ def cmd_audio(a) -> int:
     return 0
 
 
+def cmd_speech(a) -> int:
+    """Scripted mission speech (PLAYLIST/Speech.bin) -> <out>/speech/<line>/v<take>.wav + speech/manifest.json."""
+    from . import speech
+    install = resolve_install(a.install)
+    man = speech.build(install, a.out, missions=tuple(a.missions or speech.CHAPTER1_OPENING), language=a.language,
+                       transcribe=a.transcribe, model=a.model, log=lambda m: print(m, file=sys.stderr))
+    lines = man["lines"].values()
+    print(json.dumps({"out": os.path.join(a.out, "speech"), "lines": len(man["lines"]),
+                      "takes": sum(len(e["takes"]) for e in lines),
+                      "text": {s: sum(1 for e in lines if e["text_source"] == s) for s in ("table", "transcript", None)}}))
+    return 0
+
+
 def cmd_cutscene(a) -> int:
     """Baked cutscenes (Cuts.img + PLAYLIST/Cuts.bin + Config/Text): manifests + audio into <out>/cutscenes/<id>/."""
     from . import cutscene as cs
@@ -588,6 +601,13 @@ def main(argv=None) -> int:
     p.add_argument("--language", default="American", help="Config/Text/<language>.img for subtitle text (default American)")
     p.add_argument("--no-audio", action="store_true", help="skip decoding the Cuts.bin stream")
     p.set_defaults(fn=cmd_cutscene)
+
+    p = sub.add_parser("speech", help="scripted mission speech: per-line WAV takes + speech/manifest.json (original subtitle text with --transcribe)")
+    p.add_argument("missions", nargs="*", help="missions as Speech.lst spells them (1-01 1-02 1-03 1-04 = default Chapter 1 opening)")
+    p.add_argument("--language", default="American", help="Config/Text/<language>.img for subtitle text (default American)")
+    p.add_argument("--transcribe", action="store_true", help="match each line to its original subtitle via local faster-whisper (optional dependency)")
+    p.add_argument("--model", default="small", help="faster-whisper model for --transcribe (default small; must be cached locally)")
+    p.set_defaults(fn=cmd_speech)
 
     p = sub.add_parser("nft", help="decode .nft texture dictionaries to PNG")
     p.add_argument("names", nargs="+", help="World.img .nft names or paths to loose .nft/.txd files")

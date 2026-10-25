@@ -54,6 +54,9 @@
 //               { "type": "reward", "money": 75, "respect": 15, "text": "..." }     // pay the persistent wallet + toast
 //               { "type": "letterbox", "on": true }                                 // slide cinematic bars in (true) / out (false)
 //               { "type": "say", "speaker": "PREFECT", "text": "...", "seconds": 4 } // one cutscene dialogue line at the bottom
+//                 sm-voice: both "say" and speech_sequence lines take "voice": "Davis_1-03_002" (Speech.lst stem
+//                 without the take) -> the original recording plays and its matched original subtitle replaces
+//                 "text" (kept as the clean-clone fallback); the line then lasts as long as the take.
 //               { "type": "camera", "point": "name" | "location_cm": [..],           // cut/blend to a scripted cutscene camera
 //                                   "look": "player" | "<point>" | "look_cm": [..],  //   aimed at the player, a point, or a spot
 //                                   "fov": 50, "blend": 1.2 }                         //   (blend 0 = hard cut)
@@ -207,6 +210,7 @@ struct FSpeechLine
 {
 	FString Speaker, Text;
 	float Seconds = 4.f;
+	FString Voice;   // sm-voice: original recorded line (Speech.lst stem without take), played via UBullyVoiceSubsystem
 };
 
 /** One option of a dialogue_choice action. */
@@ -225,6 +229,7 @@ struct FMissionAction
 		Cutscene /* sm-cutscenes */ };
 	EType Type = EType::Log;
 	FString Text, Sub;
+	FString Voice;               // sm-voice: say -- original recorded line (Speech.lst stem without take)
 	FName Name;
 	float Seconds = 5.f;
 	FVector Location = FVector::ZeroVector;

@@ -3,6 +3,7 @@
 
 #include "BullyCampaignSubsystem.h"
 #include "BullyCutscene.h"
+#include "BullyVoice.h"
 #include "BullyCharacter.h"
 #include "BullyClockSubsystem.h"
 #include "BullyCombatComponent.h"
@@ -257,6 +258,7 @@ namespace
 				O->TryGetStringField(TEXT("speaker"), A.Sub);   // Sub = speaker label; Text (line) already read above
 				if (A.Text.IsEmpty()) { O->TryGetStringField(TEXT("line"), A.Text); }   // "line" accepted as an alias for "text"
 				if (!O->HasField(TEXT("seconds"))) { A.Seconds = 4.f; }
+				O->TryGetStringField(TEXT("voice"), A.Voice);   // sm-voice
 			}
 			else if (Type == TEXT("camera"))
 			{
@@ -409,6 +411,7 @@ namespace
 					if (!LO->TryGetStringField(TEXT("text"), L.Text)) { LO->TryGetStringField(TEXT("line"), L.Text); }
 					double Sec2 = 0.0;
 					if (LO->TryGetNumberField(TEXT("seconds"), Sec2)) { L.Seconds = float(Sec2); }
+					LO->TryGetStringField(TEXT("voice"), L.Voice);   // sm-voice
 					A.Lines.Add(MoveTemp(L));
 				}
 			}
@@ -1368,9 +1371,21 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION letterbox %s"), A.bOn ? TEXT("on") : TEXT("off"));
 			break;
 		case FMissionAction::EType::Say:
-			if (Hud.IsValid()) { Hud->Say(A.Sub, A.Text, A.Seconds); }
-			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION say %s: %s"), A.Sub.IsEmpty() ? TEXT("-") : *A.Sub, *A.Text);
+		{
+			FString Text = A.Text;
+			float Seconds = A.Seconds;
+			FString VoiceText;
+			float VoiceSeconds = 0.f;
+			UBullyVoiceSubsystem* V = A.Voice.IsEmpty() ? nullptr : UBullyVoiceSubsystem::Get(this);   // sm-voice
+			if (V && V->Play(A.Voice, VoiceText, VoiceSeconds))
+			{
+				if (!VoiceText.IsEmpty()) { Text = VoiceText; }
+				Seconds = VoiceSeconds + 0.35f;
+			}
+			if (Hud.IsValid()) { Hud->Say(A.Sub, Text, Seconds); }
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION say %s: %s"), A.Sub.IsEmpty() ? TEXT("-") : *A.Sub, *Text);
 			break;
+		}
 		case FMissionAction::EType::Camera:
 			ApplyCamera(A);
 			break;
@@ -2858,13 +2873,28 @@ void UMissionSubsystem::TickSpeech(float /*Dt*/)
 		return;
 	}
 	const FSpeechLine& L = Speech.Lines[Speech.Index++];
-	if (Hud.IsValid()) { Hud->Say(L.Speaker, L.Text, L.Seconds); }
-	Speech.LineEndsAt = World->GetTimeSeconds() + L.Seconds;
+	// sm-voice: the original recorded line when imported; its matched original subtitle replaces the mission's text,
+	// and the line lasts as long as the take (plus a short gap) instead of the authored estimate.
+	FString Text = L.Text;
+	float Seconds = L.Seconds;
+	if (!L.Voice.IsEmpty())
+	{
+		FString VoiceText;
+		float VoiceSeconds = 0.f;
+		if (UBullyVoiceSubsystem* V = UBullyVoiceSubsystem::Get(this); V && V->Play(L.Voice, VoiceText, VoiceSeconds))
+		{
+			if (!VoiceText.IsEmpty()) { Text = VoiceText; }
+			Seconds = VoiceSeconds + 0.35f;
+		}
+	}
+	if (Hud.IsValid()) { Hud->Say(L.Speaker, Text, Seconds); }
+	Speech.LineEndsAt = World->GetTimeSeconds() + Seconds;
 }
 
 void UMissionSubsystem::SkipSpeechSequence()
 {
 	if (!Speech.bActive) { return; }
+	if (UBullyVoiceSubsystem* V = UBullyVoiceSubsystem::Get(this)) { V->Stop(); }   // sm-voice
 	Speech.bActive = false;
 	if (Hud.IsValid()) { Hud->Say(TEXT(""), TEXT(""), 0.f); }
 	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION speech_sequence skipped -> event %s"), *Speech.DoneEvent.ToString());

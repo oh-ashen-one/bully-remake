@@ -98,6 +98,11 @@ namespace
 	}
 }
 
+bool UBullyCutsceneSubsystem::ParseWavBytes(const TArray<uint8>& Bytes, int32& OutRate, int32& OutChannels, TArray<uint8>& OutPcm)
+{
+	return ParseWav(Bytes, OutRate, OutChannels, OutPcm);
+}
+
 UBullyCutsceneSubsystem* UBullyCutsceneSubsystem::Get(UWorld* World)
 {
 	return World ? World->GetSubsystem<UBullyCutsceneSubsystem>() : nullptr;

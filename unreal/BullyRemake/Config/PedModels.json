@@ -1,0 +1,29 @@
+{
+  "_format": "bully-remake.ped-models/1",
+  "_note": "Original ped model per numeric ped id (the `ped_model_id` the mission JSONs record), for the Chapter 1 opening cast (arrival, day_one, 1_02B, 1_02C, 1_03, 1_04). Ids and model names only: the ids are the first column of the install's Objects/default.ide `peds` block (resolved by tools/ue/ped_cast.py; docs/re-notes/ch1/cast-models.md is the readable table). `import`: tools/ue/run_import_npc.sh --cast imports every row with import=true into /Game/Imported/Characters/<model>/SK_<model> (git-ignored). `stand_in`: the generic ped ABullyCharacter loads instead when SK_<model> is not imported (a clean clone, or an import that has not run), so missions keep a skinned, animated body. Empty stand_in = the model was already a stand-in-free original or has no fallback.",
+  "peds": [
+    { "id": 59,  "model": "TE_Secretary",    "who": "Mrs. McRae (secretary)",      "missions": ["arrival", "day_one"], "import": true, "stand_in": "PFH1_Seth" },
+    { "id": 74,  "model": "GN_Fatgirl",      "who": "Eunice",                      "missions": ["day_one", "1_02B"],   "import": true, "stand_in": "GN_Asiangirl" },
+    { "id": 130, "model": "Nemesis_Gary",    "who": "Gary",                        "missions": ["1_02B", "1_04"],      "import": true, "stand_in": "GN_Boy01" },
+    { "id": 75,  "model": "DOlead_Russell",  "who": "Russell",                     "missions": ["1_02B"],              "import": true, "stand_in": "GN_Bully05" },
+    { "id": 4,   "model": "NDH1a_Algernon",  "who": "Algie",                       "missions": ["1_02B"],              "import": true, "stand_in": "GN_Boy02" },
+    { "id": 70,  "model": "GN_Greekboy",     "who": "Constantine",                 "missions": ["1_02B"],              "import": true, "stand_in": "" },
+    { "id": 52,  "model": "PFlead_Karl",     "who": "Karl (prefect)",              "missions": ["1_02B"],              "import": true, "stand_in": "PFH1_Seth" },
+    { "id": 51,  "model": "PFH2_Edward",     "who": "Edward (prefect)",            "missions": ["1_02B"],              "import": true, "stand_in": "PFH1_Seth" },
+    { "id": 99,  "model": "GN_Bully02",      "who": "Davis",                       "missions": ["day_one", "1_03"],    "import": true, "stand_in": "" },
+    { "id": 134, "model": "Peter",           "who": "Peter",                       "missions": ["1_03"],               "import": true, "stand_in": "GN_Boy01" },
+    { "id": 102, "model": "GN_Bully01",      "who": "bully",                       "missions": ["day_one"],            "import": true, "stand_in": "" },
+    { "id": 85,  "model": "GN_Bully03",      "who": "bully",                       "missions": ["day_one", "1_03"],    "import": true, "stand_in": "" },
+    { "id": 145, "model": "GN_Bully04",      "who": "bully",                       "missions": ["day_one"],            "import": true, "stand_in": "" },
+    { "id": 146, "model": "GN_Bully05",      "who": "bully (sparring partner)",    "missions": ["day_one", "1_03"],    "import": true, "stand_in": "" },
+    { "id": 73,  "model": "GN_Boy02",        "who": "student (fight crowd)",       "missions": ["day_one"],            "import": true, "stand_in": "" },
+    { "id": 69,  "model": "GN_Hispanicboy",  "who": "student (fight crowd)",       "missions": ["day_one"],            "import": true, "stand_in": "GN_Boy02" },
+    { "id": 55,  "model": "TE_GymTeacher",   "who": "Coach Burton",                "missions": ["1_04"],               "import": true, "stand_in": "TO_Cop" },
+    { "id": 109, "model": "JKKirby_FB",      "who": "jock (football kit)",         "missions": ["1_04"],               "import": true, "stand_in": "GN_Bully03" },
+    { "id": 111, "model": "JKDan_FB",        "who": "jock (football kit)",         "missions": ["1_04"],               "import": true, "stand_in": "GN_Bully03" },
+    { "id": 112, "model": "JKDamon_FB",      "who": "jock (football kit)",         "missions": ["1_04"],               "import": true, "stand_in": "GN_Bully03" },
+    { "id": 231, "model": "JK_Bo_FB",        "who": "jock (football kit)",         "missions": ["1_04"],               "import": true, "stand_in": "GN_Bully03" },
+    { "id": 232, "model": "JK_Casey_FB",     "who": "jock (football kit)",         "missions": ["1_04"],               "import": true, "stand_in": "GN_Bully03" },
+    { "id": 110, "model": "JKTed_FB",        "who": "Ted (jock, football kit)",    "missions": ["1_04"],               "import": true, "stand_in": "GN_Bully03" }
+  ]
+}

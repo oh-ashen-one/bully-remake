@@ -111,6 +111,26 @@
           "type": "hint",
           "text": "You have been given a room in the boys' dorm. Go and find it.",
           "seconds": 7
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "secretary",
+          "_note": "1_02 B0-B2: Mrs. McRae (ped 59) and Eunice (ped 74) are in the outer office when the briefing ends; 1_01 creates the secretary at 1_01_SecretaryInOffice",
+          "location_cm": [-63270.3, 28625.8, 550.0],
+          "mesh": "TE_Secretary",
+          "ped_model_id": 59,
+          "invulnerable": true,
+          "untargetable": true,
+          "face": "player"
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "eunice",
+          "location_cm": [-63000.0, 28450.0, 552.5],
+          "mesh": "GN_Fatgirl",
+          "ped_model_id": 74,
+          "invulnerable": true,
+          "untargetable": true
         }
       ]
     },
@@ -137,7 +157,17 @@
             "z_tolerance_cm": 600
           }
         ]
-      }
+      },
+      "on_complete": [
+        {
+          "type": "npc_despawn",
+          "npc": "secretary"
+        },
+        {
+          "type": "npc_despawn",
+          "npc": "eunice"
+        }
+      ]
     },
     {
       "id": "exit_building",

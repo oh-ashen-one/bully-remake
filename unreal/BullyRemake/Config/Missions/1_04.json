@@ -31,7 +31,7 @@
         { "type": "banner", "text": "SLINGSHOT", "sub": "Gary's latest acquisition", "seconds": 3 },
         { "type": "give_weapon", "weapon": "slingshot" },
         { "type": "give_ammo", "weapon": "slingshot", "n": 30 },
-        { "type": "spawn_npc", "npc": "gary", "point": "1_04_NemesisStart", "mesh": "GN_Boy01", "ped_model_id": 130, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "spawn_npc", "npc": "gary", "point": "1_04_NemesisStart", "mesh": "Nemesis_Gary", "ped_model_id": 130, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
         { "type": "speech_sequence", "id": "intro", "lines": [
           { "speaker": "GARY", "text": "Found this beauty in the shop. Try not to put an eye out.", "seconds": 3 }
         ] }
@@ -103,8 +103,8 @@
       "objective": "Tag all six jocks from the tree.",
       "on_start": [
         { "type": "hint", "text": "Stay on the perch. If the coach spots you, it's over.", "seconds": 5 },
-        { "type": "spawn_wave", "group": "field", "points": ["jock1", "jock2", "jock3", "jock4", "jock5", "jock6"], "mesh": "GN_Bully03", "hostile": false, "hits_to_beat": 1 },
-        { "type": "spawn_npc", "npc": "burton", "point": "1_04_BurtonField", "mesh": "TO_Cop", "ped_model_id": 55, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_wave", "group": "field", "points": ["jock1", "jock2", "jock3", "jock4", "jock5", "jock6"], "mesh": "GN_Bully03", "meshes": ["JKKirby_FB", "JKDan_FB", "JKDamon_FB", "JK_Bo_FB", "JK_Casey_FB", "JKTed_FB"], "ped_model_ids": [109, 111, 112, 231, 232, 110], "hostile": false, "hits_to_beat": 1 },
+        { "type": "spawn_npc", "npc": "burton", "point": "1_04_BurtonField", "mesh": "TE_GymTeacher", "ped_model_id": 55, "invulnerable": true, "untargetable": true },
         { "type": "spotter", "npc": "burton", "range_cm": 1500, "cone_deg": 60, "seconds": 2 },
         { "type": "say", "speaker": "BURTON", "text": "Move it, ladies! Those knees better touch the sky!", "seconds": 3 }
       ],

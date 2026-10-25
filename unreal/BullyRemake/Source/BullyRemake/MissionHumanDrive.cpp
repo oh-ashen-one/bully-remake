@@ -696,6 +696,8 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 						if (Before.Contains(Id)) { continue; }
 						Before.Add(Id);
 						if (const FCampaignMission* R = Camp->FindMission(Id)) { Todo.Append(R->Prereq); }
+						// the chapter transitions have no campaign row: ChaptNTrans follows the chapter's finale N_B
+						else if (Id.StartsWith(TEXT("Chapt")) && Id.EndsWith(TEXT("Trans")) && Id.Len() > 5) { Todo.Add(FString::Printf(TEXT("%c_B"), Id[5])); }
 					}
 					FString Granted;
 					for (const FString& Id : Before)

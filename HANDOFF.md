@@ -19,6 +19,7 @@ Shared agent brief (goal, ownership, build/test recipes, GPU safety, public-repo
 | `sm-humandrive` | **WIP, unverified.** Real-input playthrough driver (move/punch/press only) for Ch1–2. Agent stopped while adding a path-probe flag. Tip commit `WIP sm-humandrive` saved by Devin. |
 | `sm-visual` | **WIP, unverified, may not compile.** Black-frame fixes, Ch1 interior lighting, scripted-camera solver (`MissionSubsystemVisual.cpp`, `BullySceneFixups.*`, `tools/ue/shot_metrics.py`). Its upstream used to point at `origin/kimi-backend`; it now tracks `origin/sm-visual`. |
 | `sm-cutscenes` | **WIP, unverified.** Original cutscene audio/subtitles imported at build time; opening cutscene playback in progress (was rendering 1-1-1 frames). |
+| `sm-models` (Devin, 2026-10-25) | Original Ch1 cast instead of stand-ins: Gary, Russell, Algie, Eunice, Karl, Edward, Peter, Coach Burton, Mrs. McRae (arrival greeter + day_one office), the 1_04 football jocks, the 1_03 wave bullies, a day_one crowd student. Table `Config/PedModels.json` / `docs/re-notes/ch1/cast-models.md`; import `tools/ue/run_import_npc.sh --cast` (one engine run); missing SK_ falls back to the old stand-in. Also fixes `ped.py` skin placement (Edward/Karl sank 1 m, Russell 8 m off) and ped bone-translation retargeting. |
 
 Not done: none of the three WIP branches has been built or smoke-tested since the agents stopped. None of them is merged
 into `story-mode`. `story-mode` is not merged to `main`. Hari has not done a feel playtest.

@@ -48,13 +48,21 @@ Fixes:
 - A stage retry restores the ammo the player had when the stage began (`StageStartAmmo`).
 - `spawn_wave` `hits_ranged_only`: 1_04 jocks have the original's 22 hp. One pellet tags a jock. Punching one down
   takes a real beating.
+- `origin/story-mode` merged again after sm-cutscenes landed (one conflict in `RetryNow`; both sides kept). The human
+  driver now watches the original cutscenes (input is ignored meanwhile) instead of failing "STUCK idle" after 60 s.
+  Enter skips them with `--skip-speech`. To test that path headlessly, the importer
+  (`python3 -m tools.importers cutscene build`) wrote this worktree's git-ignored `imported/cutscenes`.
+- The regular smoke driver presses interact every 0.4 s instead of every frame. The 1_02B `hide_bin` stage (interact,
+  then wait for heat to decay) used to take 5+ min of wall time, and runs that queued for a GPU slot hit the wrapper's
+  limit. It now takes 8 s.
 
 **Known gaps a player of the original would notice (Ch1 opening slice):**
-- All: stand-in meshes and voices (Burton is TO_Cop, the jocks are GN_Bully03 and so on). Baked cutscenes are title
-  cards plus speech beats. Wording is original, not the game's lines. Retries restart the stage, not the mission (the
+- All: stand-in meshes and voices (Burton is TO_Cop, the jocks are GN_Bully03 and so on). Baked cutscenes play from
+  the owner's install when imported (sm-cutscenes: audio tier = camera + subtitles + voice; full tier also needs the
+  actor import). Otherwise they fall back to title cards plus speech beats. Wording is original, not the game's lines. Retries restart the stage, not the mission (the
   original has no checkpoints). Some light effects with a solid part (a neon tube plus its beam) still collide.
-- arrival: in-engine framing stand-in for the opening cutscene, with a faculty stand-in instead of the real
-  characters.
+- arrival: the original 1-1-1 cutscene plays first when it has been imported. The in-engine beats after it still use
+  a faculty stand-in instead of the real characters.
 - day_one: the 1_01 and 1_02 recon simplifications apply. The dorm door is a fade-teleport, not a door transition.
   The tutorial fight is guided by events.
 - 1_02B: the lockpick is a timed hold bar, not the dial. Heat is "punishment-lite". pair_anim is a generic clip. The

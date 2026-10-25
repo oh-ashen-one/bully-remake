@@ -315,6 +315,22 @@
       ]
     },
     {
+      "id": "office_cutscene",
+      "objective": "",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "cutscene",
+          "id": "1-1-2"
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "cutscene:1-1-2",
+        "latched": true
+      }
+    },
+    {
       "id": "briefing",
       "objective": "Listen to your first instructions for the day.",
       "blip": false,
@@ -799,6 +815,38 @@
           "yaw": 0
         }
       ]
+    },
+    {
+      "id": "dorm_arrival_cutscene",
+      "objective": "",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "cutscene",
+          "id": "1-02B"
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "cutscene:1-02B",
+        "latched": true
+      }
+    },
+    {
+      "id": "dorm_room_cutscene",
+      "objective": "",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "cutscene",
+          "id": "1-02E"
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "cutscene:1-02E",
+        "latched": true
+      }
     },
     {
       "id": "end_card",

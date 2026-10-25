@@ -78,8 +78,16 @@ Fixes:
   back to work" reaction. Burton is a stationary cone spotter (15 m, 60°) with no patrol path and no "busted" camera
   scene. No interactive music, no Gary pointing anim, and no radar-zoom clamp.
 
-**Verified (headless `-nullrhi`, evidence `~/bully-remake-evidence/story-mode/sm-humandrive/r2/batch.txt`):** see the
-report; all lines PASS.
+**Verified (headless `-nullrhi`, evidence `~/bully-remake-evidence/story-mode/sm-humandrive/r2/`):**
+- `pre_merge2/batch.txt` was run before the second story-mode merge, with every 1_04 fix in. Human drive PASS 6/6:
+  arrival 6/6, day_one 26/26, 1_02B 14/14, 1_02C 3/3, 1_03 7/7 (the bot is KO'd twice by the yard crew, then passes),
+  and 1_04 8/8 (fails 0, 6 shots for 6 tags). Regular smokes: arrival, day_one and 1_02C PASS.
+- After the merge: `batch.txt` has human arrival PASS 7/7 (it watches the original 1-1-1 cutscene).
+  `check_smoke_1_02B` is a regular smoke PASS 15/15.
+- **Not yet re-run after the merge:** human day_one through 1_04, the regular smokes, the campaign smoke and the
+  story smoke. A macOS system dialog that is not ours (UserNotificationCenter, up since 16:50 local) blocks every
+  launch through the wrappers' preflight. `r2/batch2.sh` waits up to 3 h for it to clear, then runs the rest into
+  `r2/batch.txt`.
 
 ---
 

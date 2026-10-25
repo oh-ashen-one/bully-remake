@@ -405,6 +405,24 @@ def build_rig(eas, variant_name=None):
     _set(kc, "light_source_angle", float(icfg.get("key_source_angle_deg", 10.0)), misses, "key.")
     _set(kc, "cast_shadows", bool(icfg.get("key_cast_shadows", True)), misses, "key.")
 
+    # ---- interior fill (sm-visual; channel 1 only, shadowless): the key comes steeply from one side, so every wall
+    # facing away from it read near-black and rooms looked like a single amber shaft. A soft opposite-side fill at a
+    # lower angle opens the vertical surfaces and faces the way overhead fluorescents + bounce do in a school corridor.
+    for fi, fcfg in enumerate(icfg.get("fills", [])):
+        fill = _spawn(eas, unreal.DirectionalLight, unreal.Vector(0, 0, 11500 + 100 * fi),
+                      unreal.Rotator(roll=0.0, pitch=float(fcfg["pitch_deg"]), yaw=float(fcfg["yaw_deg"])),
+                      "BR_InteriorFill_%d_%s" % (fi, fcfg.get("name", "fill")))
+        flc = fill.get_component_by_class(unreal.DirectionalLightComponent)
+        _set(flc, "mobility", unreal.ComponentMobility.MOVABLE, misses, "fill.")
+        _set(flc, "intensity", float(fcfg["lux"]), misses, "fill.")
+        _set(flc, "atmosphere_sun_light", False, misses, "fill.")
+        _set(flc, "use_temperature", True, misses, "fill.")
+        _set(flc, "temperature", float(fcfg.get("temperature_k", 5600)), misses, "fill.")
+        _set(flc, "lighting_channels", _lighting_channels(False, True), misses, "fill.")
+        _set(flc, "light_source_angle", float(fcfg.get("source_angle_deg", 10.0)), misses, "fill.")
+        _set(flc, "cast_shadows", False, misses, "fill.")
+        _set(flc, "specular_scale", float(fcfg.get("specular_scale", 0.3)), misses, "fill.")
+
     # ---- sky light + atmosphere
     sky = _spawn(eas, unreal.SkyLight, unreal.Vector(0, 0, 12000), None, "BR_SkyLight")
     skc = sky.get_component_by_class(unreal.SkyLightComponent)

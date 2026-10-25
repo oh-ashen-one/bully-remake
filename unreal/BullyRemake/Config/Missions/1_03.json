@@ -15,12 +15,15 @@
         { "type": "banner", "text": "THE SETUP", "sub": "Davis has a slingshot.", "seconds": 3 },
         { "type": "spawn_npc", "npc": "davis", "point": "1_03_DAVISStart", "mesh": "GN_Bully02", "ped_model_id": 99, "mission_critical": true, "invulnerable": true, "untargetable": true, "face": "player" },
         { "type": "spawn_npc", "npc": "peter", "point": "1_03_Peter", "mesh": "GN_Boy01", "ped_model_id": 134, "untargetable": true },
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "frame": ["davis", "player"], "fov": 45, "blend": 0.8 },
         { "type": "speech_sequence", "id": "intro", "lines": [
           { "speaker": "DAVIS", "text": "Watch this, new kid. See what a real marksman looks like.", "seconds": 3 },
           { "speaker": "DAVIS", "text": "You want it? Catch me first!", "seconds": 2.5 }
         ] }
       ],
       "complete": { "type": "event", "name": "speech:intro", "latched": true },
+      "on_complete": [ { "type": "camera", "release": true, "blend": 0.6 }, { "type": "letterbox", "on": false } ],
       "fail": { "type": "any", "conditions": [
         { "type": "event", "name": "npc_ko:davis" },
         { "type": "event", "name": "smoke_fail" }
@@ -89,7 +92,9 @@
       "blip": false,
       "on_start": [
         { "type": "letterbox", "on": true },
-        { "type": "camera", "point": "1_03_PlayerCS2", "look": "1_03_LookAt", "fov": 45, "blend": 0.6 },
+        { "type": "fade", "out": 0.25, "hold": 0.2, "in": 0.5, "point": "1_03_PlayerCS2", "yaw": -114 },
+        { "type": "spawn_npc", "npc": "davis", "point": "1_03_LookAt", "mesh": "GN_Bully02", "ped_model_id": 99, "invulnerable": true, "untargetable": true, "face": "player" },
+        { "type": "camera", "frame": ["davis", "player"], "fov": 45, "blend": 0.6 },
         { "type": "shake", "amp": 0.4, "seconds": 0.3 },
         { "type": "speech_sequence", "id": "outro", "lines": [
           { "speaker": "DAVIS", "text": "Okay, okay! Take it — just don't hit me again.", "seconds": 3 }

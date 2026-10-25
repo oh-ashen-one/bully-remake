@@ -10,9 +10,14 @@
   "key_lux": 14000,
   "key_pitch_deg": -62,
   "key_yaw_deg": 215,
-  "key_temperature_k": 4300,
+  "key_temperature_k": 5000,
   "key_source_angle_deg": 5.0,
   "key_cast_shadows": false,
+  "_fills_note": "sm-visual: shadowless channel-1 fills so walls facing away from the key read (corridors were one amber shaft + black walls). Key 4300K -> 5000K (school fluorescents, not sunset). Characters indoors are moved to channel 1 at runtime (UBullySceneFixups), so they take this light, not the sun.",
+  "fills": [
+   {"name": "opposite", "lux": 6500, "pitch_deg": -28, "yaw_deg": 35, "temperature_k": 5800},
+   {"name": "side", "lux": 3500, "pitch_deg": -35, "yaw_deg": 125, "temperature_k": 5400}
+  ],
   "hide_night_regex": "win.*night",
   "window_glow": {
    "texture_regex": "window_0\\d_d$",

@@ -244,6 +244,8 @@ public:
 									SNew(STextBlock).Font(Small).ColorAndOpacity(Gold)
 									.Text_Lambda([S]()
 									{
+										// StageCount 0 = free-roam guidance (story mode): just the header, no "n / N"
+										if (S->StageCount <= 0) { return FText::FromString(S->MissionTitle.ToUpper()); }
 										return FText::FromString(FString::Printf(TEXT("%s   %d / %d"), *S->MissionTitle.ToUpper(), S->StageNumber, S->StageCount));
 									})
 								]

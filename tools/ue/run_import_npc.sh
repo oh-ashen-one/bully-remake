@@ -46,10 +46,16 @@ echo "clips: $CLIPS"
 [ "$DRY" = 1 ] && exit 0
 cd "$REPO" || exit 2
 RC=0
+OK_PEDS=""
 for M in $PEDS; do
   echo "== $M: glTF with locomotion + gesture clips"
   # shellcheck disable=SC2086
   python3 -m tools.importers ped "$M" --anims $CLIPS --root-motion inplace > "$REPO/imported/ped_$M.json" || { echo "ped export failed for $M" >&2; RC=3; continue; }
-  BR_GPU_LABEL=bully-npc "$HERE/run_import_character.sh" --model "$M" --name "$M" --anims all || { echo "UE import failed for $M" >&2; RC=3; }
+  OK_PEDS="$OK_PEDS,$M"
 done
+OK_PEDS="${OK_PEDS#,}"
+[ -n "$OK_PEDS" ] || exit $RC
+# one engine run for all of them (each ped still lands in its own /Game/Imported/Characters/<Ped>)
+echo "== UE import (one engine run): $OK_PEDS"
+BR_GPU_LABEL=bully-npc "$HERE/run_import_character.sh" --batch "$OK_PEDS" --anims all || { echo "UE import failed (see BR_CHAR_IMPORT_MODEL lines)" >&2; RC=3; }
 exit $RC

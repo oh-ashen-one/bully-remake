@@ -11,6 +11,8 @@ applies the GPU-slot wrapper and the headless flags. Configuration through envir
   BR_CHAR_ANIMS_ONLY  1 = keep the existing SK_<Name> / skeleton and only add the source's clips (extra
                  animation groups exported with `ped PLAYER --group V_Bike,Go_Cart,... --out <dir>`)  [0]
   BR_REPORT      JSON report path                         [<project>/Saved/BullyImport/character_report.json]
+  BR_CHAR_BATCH  comma list of ped models imported one after another in this one engine run, each under its own
+                 name (overrides BR_CHAR_MODEL/BR_CHAR_NAME; per-model report <BR_REPORT stem>_<model>.json)  [unset]
 
 Two Interchange passes, both through an override InterchangeGenericAssetsPipeline:
   1. mesh: skinned glTF (animations stripped) -> SkeletalMesh + Skeleton + PhysicsAsset, slots bound to material
@@ -44,6 +46,7 @@ ANIM_VERSION = "3"            # bump to force animation re-import
 ANIM_RATE = 60                # Hz; Bully runs at 30, the 1/511 key quantisation wants finer sampling
 T0 = time.time()
 REPORT = {"format": "bully-remake.ue-character-report/1", "errors": [], "warnings": []}
+BATCH = [m.strip() for m in os.environ.get("BR_CHAR_BATCH", "").split(",") if m.strip()]
 
 
 def log(msg):
@@ -337,13 +340,18 @@ def check_clip(anim, gl, clip):
 
 # --------------------------------------------------------------------------------------------
 
-def main():
+def default_report_path():
+    proj_saved = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir())
+    return os.environ.get("BR_REPORT") or os.path.join(proj_saved, "BullyImport", "character_report.json")
+
+
+def main(model=None, cname=None, report_path=None):
     imported = os.environ.get("BR_IMPORTED")
-    model = os.environ.get("BR_CHAR_MODEL", "PLAYER")
-    cname = os.environ.get("BR_CHAR_NAME", "Jimmy")
+    model = model or os.environ.get("BR_CHAR_MODEL", "PLAYER")
+    cname = cname or os.environ.get("BR_CHAR_NAME", "Jimmy")
     want = os.environ.get("BR_CHAR_ANIMS", "all")
     proj_saved = unreal.Paths.convert_relative_path_to_full(unreal.Paths.project_saved_dir())
-    report_path = os.environ.get("BR_REPORT") or os.path.join(proj_saved, "BullyImport", "character_report.json")
+    report_path = report_path or default_report_path()
     stage_dir = os.path.join(proj_saved, "BullyImport", "stage_char")
     src = os.path.join(imported or "", "models", model + ".gltf")
     if not os.path.isfile(src):
@@ -497,11 +505,30 @@ def finish(report_path):
     with open(report_path, "w") as f:
         json.dump(REPORT, f, indent=1)
     log("report -> %s (errors=%d warnings=%d)" % (report_path, len(REPORT["errors"]), len(REPORT["warnings"])))
-    log("BR_CHAR_IMPORT_DONE %s" % ("OK" if not REPORT["errors"] else "WITH_ERRORS"))
+    if BATCH:
+        log("BR_CHAR_IMPORT_MODEL %s %s" % (REPORT.get("character"), "OK" if not REPORT["errors"] else "WITH_ERRORS"))
+    else:
+        log("BR_CHAR_IMPORT_DONE %s" % ("OK" if not REPORT["errors"] else "WITH_ERRORS"))
 
 
-try:
-    main()
-except Exception as e:  # noqa: BLE001
-    err("fatal: %s\n%s" % (e, traceback.format_exc()))
-    finish(os.environ.get("BR_REPORT") or "/tmp/br_char_report.json")
+if BATCH:
+    failed = []
+    stem = os.path.splitext(default_report_path())[0]
+    for bm in BATCH:
+        REPORT.clear()
+        REPORT.update({"format": "bully-remake.ue-character-report/1", "errors": [], "warnings": [], "character": bm})
+        bpath = "%s_%s.json" % (stem, bm)
+        try:
+            main(bm, bm, bpath)
+        except Exception as e:  # noqa: BLE001
+            err("fatal: %s\n%s" % (e, traceback.format_exc()))
+            finish(bpath)
+        if REPORT["errors"]:
+            failed.append(bm)
+    log("BR_CHAR_IMPORT_DONE %s" % ("OK (%d models)" % len(BATCH) if not failed else "WITH_ERRORS " + ",".join(failed)))
+else:
+    try:
+        main()
+    except Exception as e:  # noqa: BLE001
+        err("fatal: %s\n%s" % (e, traceback.format_exc()))
+        finish(os.environ.get("BR_REPORT") or "/tmp/br_char_report.json")

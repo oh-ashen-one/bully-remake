@@ -122,6 +122,35 @@
     "radius_cm": 1500,
     "shadows": true,
     "_note": "sm-visual: the boys' dorm ground-floor hall (isc_dorm; day_one end card) -- dark panelling read ~47 luma; one warm ceiling-height fill down the hall"
+   },
+   {
+    "name": "autoshop_garage_a",
+    "type": "point",
+    "exterior": true,
+    "loc_cm": [
+     12150,
+     -750,
+     1050
+    ],
+    "lumens": 5000000,
+    "temperature_k": 4600,
+    "radius_cm": 1500,
+    "shadows": true,
+    "_note": "Devin r3: the auto-shop garage (1_03 garage_wave; trigger points 1_03_Garage02/03, floor z ~613) is part of the exterior world (channel 0) and read luma ~5 inside under the locked exterior exposure; two shadowed ceiling fills so the yard-crew fight is visible, as in the original's lit shop"
+   },
+   {
+    "name": "autoshop_garage_b",
+    "type": "point",
+    "exterior": true,
+    "loc_cm": [
+     11950,
+     0,
+     1050
+    ],
+    "lumens": 5000000,
+    "temperature_k": 4600,
+    "radius_cm": 1500,
+    "shadows": true
    }
   ],
   "backdrop_glow": {

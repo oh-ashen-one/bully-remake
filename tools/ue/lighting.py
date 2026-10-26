@@ -351,7 +351,10 @@ def build_interior_lights(eas, lights, misses):
         _set(c, "use_temperature", True, misses, "ilight.")
         _set(c, "temperature", float(L.get("temperature_k", 4800)), misses, "ilight.")
         _set(c, "attenuation_radius", float(L.get("radius_cm", 4000)), misses, "ilight.")
-        _set(c, "lighting_channels", _lighting_channels(False, True), misses, "ilight.")
+        # "exterior": true = a room inside an exterior (channel-0) building, e.g. the auto-shop garage: lit on the sun's
+        # channel instead, since its walls and the characters in it are not on the interior channel
+        ext = bool(L.get("exterior", False))
+        _set(c, "lighting_channels", _lighting_channels(ext, not ext), misses, "ilight.")
         _set(c, "cast_shadows", bool(L.get("shadows", True)), misses, "ilight.")
         if kind == "rect":
             _set(c, "source_width", float(L.get("width_cm", 300)), misses, "ilight.")

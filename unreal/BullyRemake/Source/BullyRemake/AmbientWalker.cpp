@@ -495,7 +495,23 @@ bool AAmbientWalker::TickCampus(float Dt, double Now, const FVector& Pos)
 			else { CampusResume(); }
 			return true;
 		}
-		AddMovementInput(To.GetSafeNormal(), 1.f);
+		FVector Dir = To.GetSafeNormal();
+		// Jimmy standing in the way: veer round him instead of pushing into him
+		const UWorld* Wd = GetWorld();
+		const APawn* Pl = Wd && Wd->GetFirstPlayerController() ? Wd->GetFirstPlayerController()->GetPawn() : nullptr;
+		bool bPlayerNear = false;
+		if (Pl && Pl != this)
+		{
+			FVector ToP = Pl->GetActorLocation() - Pos;
+			ToP.Z = 0.f;
+			bPlayerNear = ToP.Size() < 1500.f;
+			if (ToP.Size() < 220.f && FVector::DotProduct(Dir, ToP.GetSafeNormal()) > 0.4f)
+			{
+				const float Side = FVector::CrossProduct(Dir, ToP).Z > 0.f ? -1.f : 1.f;
+				Dir = Dir.RotateAngleAxis(70.f * Side, FVector::UpVector);
+			}
+		}
+		AddMovementInput(Dir, 1.f);
 		if (Now - ErrandRefTime >= StuckSeconds)
 		{
 			const float Moved = FVector::Dist2D(Pos, ErrandRefPos);
@@ -504,7 +520,12 @@ bool AAmbientWalker::TickCampus(float Dt, double Now, const FVector& Pos)
 			{
 				++ErrandStucks;
 				UE_LOG(LogAmbient, Display, TEXT("BR_CAMPUS errand STUCK %s at %s -> %s (%d)"), *GetName(), *Pos.ToString(), *ErrandDest.ToString(), ErrandStucks);
-				if (ErrandStucks >= 2)
+				if (ErrandStucks >= 2 && bPlayerNear && bErrandEnter && ErrandStucks < 4)
+				{
+					// in view of Jimmy: no vanishing on the spot, try once more from a step to the side
+					AddMovementInput(Dir.RotateAngleAxis(90.f, FVector::UpVector), 1.f);
+				}
+				else if (ErrandStucks >= 2)
 				{
 					// a wall between the walker and its door: it goes in anyway (out of sight, or the student slips
 					// through a side door); a non-entering errand just picks the home loop back up

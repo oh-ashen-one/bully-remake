@@ -256,8 +256,9 @@ def cmd_speech(a) -> int:
     """Scripted mission speech (PLAYLIST/Speech.bin) -> <out>/speech/<line>/v<take>.wav + speech/manifest.json."""
     from . import speech
     install = resolve_install(a.install)
-    man = speech.build(install, a.out, missions=tuple(a.missions or speech.CHAPTER1_OPENING), language=a.language,
-                       transcribe=a.transcribe, model=a.model, log=lambda m: print(m, file=sys.stderr))
+    missions = () if a.extra_only else tuple(a.missions or speech.CHAPTER1_OPENING)
+    man = speech.build(install, a.out, missions=missions, language=a.language, transcribe=a.transcribe, model=a.model,
+                       log=lambda m: print(m, file=sys.stderr), merge=a.merge or a.extra_only)
     lines = man["lines"].values()
     print(json.dumps({"out": os.path.join(a.out, "speech"), "lines": len(man["lines"]),
                       "takes": sum(len(e["takes"]) for e in lines),
@@ -607,6 +608,8 @@ def main(argv=None) -> int:
     p.add_argument("--language", default="American", help="Config/Text/<language>.img for subtitle text (default American)")
     p.add_argument("--transcribe", action="store_true", help="match each line to its original subtitle via local faster-whisper (optional dependency)")
     p.add_argument("--model", default="small", help="faster-whisper model for --transcribe (default small; must be cached locally)")
+    p.add_argument("--merge", action="store_true", help="keep the lines of an existing manifest that this run does not redo")
+    p.add_argument("--extra-only", action="store_true", help="only the extra cross-bank lines the opening plays (narration, 1-11), merged")
     p.set_defaults(fn=cmd_speech)
 
     p = sub.add_parser("nft", help="decode .nft texture dictionaries to PNG")

@@ -1,6 +1,6 @@
 {
   "_format": "bully-remake.mission/1",
-  "_note": "1_02B 'This Is Your School' — full campaign-spine port of the school-systems tour (recon: docs/re-notes/ch1/1_02B-this-is-your-school.md). Structure follows the original beats: Gary lead-in, Russell apology + gift, lockpick, prefect bust + bin hide, Eunice/chocolates, cafeteria outro into 1_02C. v1 stubs (marked in MissionSubsystem.h): social = approach+E (+money gate), lockpick = timed hold bar (not the dial), heat = punishment-lite (decays while hidden), pair_anim = face + generic clip, bust NIS = scripted speech beat + fade walk. The original's baked 1-02D cafeteria cutscene is a title-card beat. Chocolates route is pay-only in v1 (the humiliate/beat-up routes from recon §S9 are noted, not built). Wording is original. Points: imported/triggers/1_02B.json (Trigger.img extract); ped_model_id records the original model id for the future import pass, mesh is the imported stand-in.",
+  "_note": "1_02B 'This Is Your School' — full campaign-spine port of the school-systems tour (recon: docs/re-notes/ch1/1_02B-this-is-your-school.md). Structure follows the original beats: Gary lead-in, Russell apology + gift, lockpick, prefect bust + bin hide, Eunice/chocolates, cafeteria outro into 1_02C. v1 stubs (marked in MissionSubsystem.h): social = approach+E (+money gate), lockpick = timed hold bar (not the dial), heat = punishment-lite (decays while hidden), pair_anim = face + generic clip, bust NIS = scripted speech beat + fade walk. The original's baked 1-02D cafeteria cutscene is a title-card beat. Chocolates route is pay-only in v1 (the humiliate/beat-up routes from recon §S9 are noted, not built). Wording is original. sm-voice: lines name their original recordings (`voice`, picked by content and order; 1_02B.lua's M_1_02B ids 95-126 match their files, 35 = Gary_1-02_032 and 76 = Algie_1-02_073 by content, the locker-success line is M_1_11 21 = Gary_1-11_021); `text` is our paraphrase fallback. Gary 37 (picking), Gary 81 (bin), Karl 83 and Edward 169 have no recording in the import, so those beats stay text-only (Gary 37 is not staged). Invented lines with no original counterpart (Russell's demand, Gary's quips after the payoff and the bust) are gone. Points: imported/triggers/1_02B.json (Trigger.img extract); ped_model_id records the original model id for the future import pass, mesh is the imported stand-in.",
   "id": "1_02B",
   "title": "This Is Your School",
   "retry": "stage",
@@ -21,7 +21,8 @@
         { "type": "spawn_npc", "npc": "russell", "point": "1_02B_spawnBully01", "mesh": "DOlead_Russell", "ped_model_id": 75, "mission_critical": true, "invulnerable": true, "untargetable": true },
         { "type": "spawn_npc", "npc": "algie", "point": "1_02B_spawnGaryVictim", "mesh": "NDH1a_Algernon", "ped_model_id": 4, "untargetable": true },
         { "type": "speech_sequence", "id": "meet", "lines": [
-          { "speaker": "GARY", "text": "There you are. Stick with me — I'll show you how this place works.", "seconds": 3.5 }
+          { "speaker": "ALGIE", "voice": "Algie_1-02_073", "text": "Not again...", "seconds": 1.5 },
+          { "speaker": "GARY", "voice": "Gary_1-02_117", "text": "There you are. Stick with me — I'll show you how this place works.", "seconds": 3.5 }
         ] }
       ],
       "complete": { "type": "all", "conditions": [
@@ -59,8 +60,7 @@
         { "type": "camera", "frame": ["russell", "gary", "player"], "at_cm": [-60470, 30220, 170], "fov": 50, "blend": 0.8 },
         { "type": "money_ensure", "money": 2 },
         { "type": "speech_sequence", "id": "russell", "lines": [
-          { "speaker": "GARY", "text": "That's Russell. Big guy, short fuse.", "seconds": 3 },
-          { "speaker": "RUSSELL", "text": "New meat. You're standing in my hallway.", "seconds": 3.5 }
+          { "speaker": "GARY", "voice": "Gary_1-02_118", "text": "That locker's Russell's. Big guy, short fuse.", "seconds": 4 }
         ] }
       ],
       "complete": { "type": "event", "name": "speech:russell", "latched": true },
@@ -76,13 +76,11 @@
       "id": "russell_gift",
       "objective": "Russell wants a gift. Pay him off.",
       "on_start": [
-        { "type": "say", "speaker": "RUSSELL", "text": "Words are cheap, new kid. Show me you're sorry.", "seconds": 3 },
         { "type": "money_ensure", "money": 2 }
       ],
       "complete": { "type": "social", "actor_tag": "br_npc_russell", "radius_cm": 250, "prompt": "Pay Russell ($2)", "money": 2 },
       "on_complete": [
         { "type": "pair_anim", "npc": "russell", "seconds": 1.5, "clips": "G_PUNCH_FINISH_GV,VICTORY01" },
-        { "type": "say", "speaker": "GARY", "text": "See? Everyone's friendly once you pay up.", "seconds": 3 },
         { "type": "npc_move_to", "npc": "russell", "point": "1_02B_garyFleeLocker", "run": true }
       ]
     },
@@ -92,7 +90,7 @@
       "blip": "1_02B_objLocker",
       "on_start": [
         { "type": "npc_despawn", "npc": "russell" },
-        { "type": "say", "speaker": "GARY", "text": "Your locker's stuck. Pop it — easy does it.", "seconds": 3 },
+        { "type": "say", "speaker": "GARY", "voice": "Gary_1-02_119", "text": "Now let's crack his locker and help ourselves. That'll show him.", "seconds": 4, "queue": true },
         { "type": "minigame_launch", "id": "lockpick", "point": "1_02B_objLocker", "radius_cm": 250, "seconds": 4, "text": "Picking the lock..." }
       ],
       "complete": { "type": "event", "name": "minigame:lockpick_ok", "latched": true },
@@ -110,8 +108,8 @@
         { "type": "letterbox", "on": true },
         { "type": "camera", "frame": ["karl", "gary", "player"], "at_cm": [-60910, 32180, 170], "fov": 48, "blend": 0.6 },
         { "type": "speech_sequence", "id": "bust", "lines": [
-          { "speaker": "PREFECT", "text": "You there! Lockers are off-limits between classes.", "seconds": 3 },
-          { "speaker": "GARY", "text": "Run. Seriously — run.", "seconds": 2.5 }
+          { "speaker": "GARY", "voice": "Gary_1-11_021", "text": "Nice one.", "seconds": 1.5 },
+          { "speaker": "PREFECT", "text": "You there! Lockers are off-limits between classes.", "seconds": 3 }
         ] }
       ],
       "complete": { "type": "event", "name": "speech:bust", "latched": true },
@@ -149,7 +147,8 @@
         { "type": "fade", "out": 0.3, "hold": 0.2, "in": 0.5, "point": "1_02B_movePlayerEunice", "place": { "gary": "1_02B_GaryEunice" } },
         { "type": "camera", "frame": ["gary", "eunice", "player"], "at_cm": [-66880, 31880, 170], "fov": 48, "blend": 0.6 },
         { "type": "speech_sequence", "id": "eunice", "lines": [
-          { "speaker": "GARY", "text": "Eunice is having a rough morning. Go on — be nice to her.", "seconds": 3.5 }
+          { "speaker": "GARY", "voice": "Gary_1-02_120", "text": "Look, it's Eunice. This could be fun.", "seconds": 3.5 },
+          { "speaker": "GARY", "voice": "Gary_1-02_121", "text": "Go on, find out what's wrong with her.", "seconds": 2 }
         ] }
       ],
       "complete": { "type": "event", "name": "speech:eunice", "latched": true },
@@ -163,9 +162,8 @@
       "on_start": [ { "type": "hint", "text": "Say something nice to Eunice (E).", "seconds": 5 } ],
       "complete": { "type": "social", "actor_tag": "br_npc_eunice", "radius_cm": 250, "prompt": "Say something nice" },
       "on_complete": [
-        { "type": "say", "speaker": "EUNICE", "text": "...Thanks, I guess.", "seconds": 2.5 },
+        { "type": "say", "speaker": "EUNICE", "voice": "Eunice_1-02_095", "text": "Someone took my chocolates... will you get them back?", "seconds": 4 },
         { "type": "npc_face", "npc": "eunice", "face": "player" },
-        { "type": "say", "speaker": "GARY", "text": "She wants chocolates. Constantine's got some — he's in the bathroom, naturally.", "seconds": 4 },
         { "type": "spawn_npc", "npc": "constantine", "point": "1_02B_spawnConstantine", "mesh": "GN_Greekboy", "ped_model_id": 70, "untargetable": true },
         { "type": "money_ensure", "money": 1 }
       ]
@@ -173,12 +171,20 @@
     {
       "id": "get_chocolates",
       "objective": "Get the chocolates from Constantine.",
-      "on_start": [ { "type": "say", "speaker": "CONSTANTINE", "text": "Chocolates? Sure. For a dollar.", "seconds": 3 } ],
+      "on_start": [
+        { "type": "say", "speaker": "GARY", "voice": "Gary_1-02_124", "text": "That's him. Show him what you've got.", "seconds": 2.5, "queue": true }
+      ],
+      "_reactions_note": "1_02B.lua F_ConstantineGreeting: Constantine names his price once the player walks up to him.",
+      "reactions": [
+        { "every": 0.5, "max": 1, "if": { "type": "reach_location", "point": "1_02B_spawnConstantine", "radius_cm": 450 },
+          "actions": [ { "type": "say", "speaker": "CONSTANTINE", "voice": "Constant_1-02_097", "text": "Chocolates? Sure. For a dollar.", "seconds": 3, "queue": true } ] }
+      ],
       "complete": { "type": "social", "actor_tag": "br_npc_constantine", "radius_cm": 250, "prompt": "Buy the chocolates ($1)", "money": 1 },
       "on_complete": [
         { "type": "give_item", "item": "chocolates", "n": 1 },
         { "type": "pair_anim", "npc": "constantine", "seconds": 1.5, "clips": "GIVE,VICTORY01" },
-        { "type": "say", "speaker": "CONSTANTINE", "text": "Pleasure doing business.", "seconds": 2.5 }
+        { "type": "say", "speaker": "CONSTANTINE", "voice": "Constant_1-02_099", "text": "Whatever. Didn't want them.", "seconds": 2 },
+        { "type": "say", "speaker": "GARY", "voice": "Gary_1-02_126", "text": "Wow, Jimmy. Pathetic.", "seconds": 2.5, "queue": true }
       ]
     },
     {
@@ -191,14 +197,17 @@
       "on_complete": [
         { "type": "take_item", "item": "chocolates", "n": 1 },
         { "type": "pair_anim", "npc": "eunice", "seconds": 1.5, "clips": "GIVE,CHEER" },
-        { "type": "say", "speaker": "EUNICE", "text": "For me? ...Okay, you're cute.", "seconds": 3 },
-        { "type": "say", "speaker": "GARY", "text": "Smooth. Real smooth.", "seconds": 2.5 }
+        { "type": "say", "speaker": "EUNICE", "voice": "Eunice_1-02_100", "text": "For me? ...Okay, you're cute.", "seconds": 3 },
+        { "type": "say", "speaker": "GARY", "voice": "Gary_1-02_125", "text": "Did you seriously just kiss her?", "seconds": 2, "queue": true }
       ]
     },
     {
       "id": "follow_cafe",
       "objective": "Follow Gary to the cafeteria.",
-      "on_start": [ { "type": "npc_lead", "npc": "gary", "point": "1_02B_objCafe", "run": true, "radius_cm": 600 } ],
+      "on_start": [
+        { "type": "say", "speaker": "GARY", "voice": "Gary_1-02_032", "text": "Cafeteria next. Time to meet the locals.", "seconds": 3, "queue": true },
+        { "type": "npc_lead", "npc": "gary", "point": "1_02B_objCafe", "run": true, "radius_cm": 600 }
+      ],
       "complete": { "type": "all", "conditions": [
         { "type": "event", "name": "npc_arrived:gary", "latched": true },
         { "type": "reach_location", "point": "1_02B_objCafe", "radius_cm": 600 }

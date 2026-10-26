@@ -20,3 +20,8 @@ def test_parse_stem_rejects_non_speech_names():
 def test_best_text_match_ignores_case_and_punctuation():
     score, text = speech.best_text_match("hello there new kid", ["Goodbye.", "Hello there, new kid!"])
     assert text == "Hello there, new kid!" and score > 0.95
+
+
+def test_parse_stem_narration_and_cross_bank_lines():
+    assert speech.parse_stem("Jimmy_NARR1_02_101")["line"] == "Jimmy_NARR1_02_101"
+    assert speech.parse_stem("Gary_1-11_021_v1")["line"] == "Gary_1-11_021"

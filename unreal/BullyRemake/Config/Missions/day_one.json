@@ -69,6 +69,41 @@
         7330,
         950
       ]
+    },
+    "nis_player": {
+      "location_cm": [
+        27119.7,
+        11241.0,
+        640.3
+      ]
+    },
+    "nis_teacher": {
+      "location_cm": [
+        27151.3,
+        9735.35,
+        634.3
+      ]
+    },
+    "nis_russell": {
+      "location_cm": [
+        27118.4,
+        11298.3,
+        640.3
+      ]
+    },
+    "nis_teacher_walk": {
+      "location_cm": [
+        27239.1,
+        10914.4,
+        632.39
+      ]
+    },
+    "nis_bullies_flee": {
+      "location_cm": [
+        27232.8,
+        3126.09,
+        629.68
+      ]
     }
   },
   "triggers": [
@@ -331,24 +366,14 @@
       }
     },
     {
-      "id": "briefing",
-      "objective": "Listen to your first instructions for the day.",
+      "id": "narration_1",
+      "_note": "1_02 B1 (1_02.lua F_DoIntroNIS): the in-engine intro tour after the 1-1-2 cutscene -- four NARRATION lines (ids 101-104 = Speech.lst Jimmy_NARR1_01_100/101, Jimmy_NARR1_02_100/101, in order) over the 1_02_1CAM_LOGO / 2CAM_CAF / 3CAM_HALL camera paths (held at each path's first node, aimed at its LOOKAT node) and the scripted shot on the secretary; then the chapter card (briefing). Text = our paraphrase fallback.",
+      "objective": "",
       "blip": false,
-      "complete": {
-        "type": "timer",
-        "seconds": 8
-      },
       "on_start": [
         {
-          "type": "banner",
-          "text": "DAY ONE",
-          "sub": "Your first morning at the academy",
-          "seconds": 5
-        },
-        {
-          "type": "hint",
-          "text": "You have been given a room in the boys' dorm. Go and find it.",
-          "seconds": 7
+          "type": "letterbox",
+          "on": true
         },
         {
           "type": "spawn_npc",
@@ -377,6 +402,203 @@
           "ped_model_id": 74,
           "invulnerable": true,
           "untargetable": true
+        },
+        {
+          "type": "camera",
+          "location_cm": [
+            -62660.8,
+            31825.0,
+            192.5
+          ],
+          "look_cm": [
+            -63086.0,
+            30598.9,
+            64.0
+          ],
+          "fov": 70,
+          "blend": 0.0
+        },
+        {
+          "type": "speech_sequence",
+          "id": "narration_1",
+          "lines": [
+            {
+              "speaker": "JIMMY",
+              "voice": "Jimmy_NARR1_01_100",
+              "text": "Great. The lousiest school in the whole country, and I'm stuck in it.",
+              "seconds": 3.5
+            }
+          ]
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "speech:narration_1",
+        "latched": true
+      }
+    },
+    {
+      "id": "narration_2",
+      "objective": "",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "camera",
+          "location_cm": [
+            -63590.6,
+            27499.8,
+            -10.5
+          ],
+          "look_cm": [
+            -63302.2,
+            28227.6,
+            -25.23
+          ],
+          "fov": 70,
+          "blend": 0.0
+        },
+        {
+          "type": "speech_sequence",
+          "id": "narration_2",
+          "lines": [
+            {
+              "speaker": "JIMMY",
+              "voice": "Jimmy_NARR1_01_101",
+              "text": "Its old boys went on to sell guns, hurt people, or practise law.",
+              "seconds": 5.5
+            }
+          ]
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "speech:narration_2",
+        "latched": true
+      }
+    },
+    {
+      "id": "narration_3",
+      "objective": "",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "camera",
+          "location_cm": [
+            -62468.3,
+            30034.4,
+            741.59
+          ],
+          "look_cm": [
+            -63404.9,
+            29572.3,
+            550.01
+          ],
+          "fov": 70,
+          "blend": 0.0
+        },
+        {
+          "type": "speech_sequence",
+          "id": "narration_3",
+          "lines": [
+            {
+              "speaker": "JIMMY",
+              "voice": "Jimmy_NARR1_02_100",
+              "text": "A pack of lowlifes, and the old fossil reckons he can straighten me out?",
+              "seconds": 4
+            }
+          ]
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "speech:narration_3",
+        "latched": true
+      }
+    },
+    {
+      "id": "narration_4",
+      "objective": "",
+      "blip": false,
+      "on_start": [
+        {
+          "type": "camera",
+          "location_cm": [
+            -62955.3,
+            28577.8,
+            645.9
+          ],
+          "look_cm": [
+            -62980.8,
+            28484.9,
+            672.8
+          ],
+          "fov": 55,
+          "blend": 0.0
+        },
+        {
+          "type": "speech_sequence",
+          "id": "narration_4",
+          "lines": [
+            {
+              "speaker": "JIMMY",
+              "voice": "Jimmy_NARR1_02_101",
+              "text": "Let him try. Everybody gets what's coming to them.",
+              "seconds": 4.8
+            }
+          ]
+        }
+      ],
+      "complete": {
+        "type": "event",
+        "name": "speech:narration_4",
+        "latched": true
+      }
+    },
+    {
+      "id": "briefing",
+      "objective": "Listen to your first instructions for the day.",
+      "blip": false,
+      "complete": {
+        "type": "timer",
+        "seconds": 8
+      },
+      "on_start": [
+        {
+          "type": "camera",
+          "location_cm": [
+            -63000.2,
+            28362.6,
+            697.8
+          ],
+          "look_cm": [
+            -63028.6,
+            28457.7,
+            685.2
+          ],
+          "fov": 55,
+          "blend": 0.0
+        },
+        {
+          "type": "banner",
+          "text": "DAY ONE",
+          "sub": "Your first morning at the academy",
+          "seconds": 5
+        },
+        {
+          "type": "hint",
+          "text": "You have been given a room in the boys' dorm. Go and find it.",
+          "seconds": 7
+        }
+      ],
+      "on_complete": [
+        {
+          "type": "camera",
+          "release": true,
+          "blend": 0.6
+        },
+        {
+          "type": "letterbox",
+          "on": false
         }
       ]
     },
@@ -811,17 +1033,103 @@
     },
     {
       "id": "staff_coming",
-      "objective": "Someone with authority is heading this way.",
+      "_note": "1_02 B8 (1_02.lua MeetRussell NIS): Russell and a teacher (TE_MathTeacher, ped 61 -- not imported yet, TO_Business1 stands in) at 1_02_NISLocations; the teacher shouts (M_1_02 131 = Hattrick_1-02_132), Russell runs off (1_02_NIS_BulliesFlee), the teacher turns on the player (132 = Hattrick_1-02_133). Event 134, Jimmy's 85/90 and Russell's M_6_03 9 have no recording in the import, so they are not staged.",
+      "objective": "A teacher is breaking it up.",
       "blip": false,
       "complete": {
-        "type": "timer",
-        "seconds": 6
+        "type": "event",
+        "name": "speech:prefect",
+        "latched": true
       },
       "on_start": [
         {
-          "type": "hint",
-          "text": "Time to leave before you are caught in the middle of this.",
-          "seconds": 6
+          "type": "fade",
+          "out": 0.5,
+          "hold": 0.4,
+          "in": 0.5,
+          "point": "nis_player",
+          "yaw": -90
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "russell",
+          "point": "nis_russell",
+          "mesh": "DOlead_Russell",
+          "ped_model_id": 75,
+          "invulnerable": true,
+          "untargetable": true,
+          "face": "player"
+        },
+        {
+          "type": "spawn_npc",
+          "npc": "hattrick",
+          "point": "nis_teacher",
+          "mesh": "TO_Business1",
+          "ped_model_id": 61,
+          "invulnerable": true,
+          "untargetable": true,
+          "face": "player"
+        },
+        {
+          "type": "letterbox",
+          "on": true
+        },
+        {
+          "type": "camera",
+          "frame": [
+            "hattrick",
+            "player"
+          ],
+          "fov": 40,
+          "blend": 0.8
+        },
+        {
+          "type": "speech_sequence",
+          "id": "prefect",
+          "lines": [
+            {
+              "speaker": "MR. HATTRICK",
+              "voice": "Hattrick_1-02_132",
+              "text": "Oi! You two, pack it in!",
+              "seconds": 2
+            },
+            {
+              "speaker": "MR. HATTRICK",
+              "voice": "Hattrick_1-02_133",
+              "text": "And you, boy, go and put your uniform on!",
+              "seconds": 3
+            }
+          ]
+        },
+        {
+          "type": "npc_move_to",
+          "npc": "russell",
+          "point": "nis_bullies_flee",
+          "run": true
+        },
+        {
+          "type": "npc_move_to",
+          "npc": "hattrick",
+          "point": "nis_teacher_walk"
+        }
+      ],
+      "on_complete": [
+        {
+          "type": "camera",
+          "release": true,
+          "blend": 0.6
+        },
+        {
+          "type": "letterbox",
+          "on": false
+        },
+        {
+          "type": "npc_despawn",
+          "npc": "russell"
+        },
+        {
+          "type": "npc_despawn",
+          "npc": "hattrick"
         }
       ]
     },

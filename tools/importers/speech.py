@@ -28,9 +28,13 @@ from .img import ImgArchive
 
 # Missions of the Chapter 1 opening, as Speech.lst spells them, and the text tables that can hold their lines.
 CHAPTER1_OPENING = ("1-01", "1-02", "1-03", "1-04")
+# Lines the opening's scripts play from outside those sets: 1_02's intro-tour narration (`NARRATION` 101-104 on the
+# player, Speech.lst `Jimmy_NARR1_0x_10y`) and 1_02B's locker-success line, borrowed from the 1-11 bank (`M_1_11` 21).
+CHAPTER1_OPENING_EXTRA = ("Jimmy_NARR1_01_100", "Jimmy_NARR1_01_101", "Jimmy_NARR1_02_100", "Jimmy_NARR1_02_101",
+                          "Gary_1-11_021")
 TEXT_TABLES = ("1_01.bin", "1_02.bin", "1_02A.bin", "1_02B.bin", "1_02C.bin", "1_03.bin", "1_04.bin")
 
-_STEM = re.compile(r"^(?P<speaker>.+?)_(?P<mission>\d+-\d+[A-Z]?)_(?P<num>\d+)(?:_v(?P<take>\d+))?$")
+_STEM = re.compile(r"^(?P<speaker>.+?)_(?P<mission>\d+-\d+[A-Z]?|NARR\d+_\d+)_(?P<num>\d+)(?:_v(?P<take>\d+))?$")
 MATCH_MIN = 0.80   # transcript vs table similarity needed to adopt the table's original text
 
 
@@ -72,10 +76,13 @@ def table_texts(install, language: str = "American") -> list:
 
 
 def build(install, out_dir, missions=CHAPTER1_OPENING, language: str = "American", transcribe: bool = False,
-          model: str = "small", log=print) -> dict:
+          model: str = "small", log=print, extra=CHAPTER1_OPENING_EXTRA, merge: bool = False) -> dict:
     """Extract the missions' speech takes to <out>/speech/<line>/<take>.wav and write <out>/speech/manifest.json:
-    {"version": 1, "lines": {line: {speaker, mission, num, takes: [{wav, seconds}], text, text_source}}}."""
-    rx = "|".join(re.escape(f"_{m}_") for m in missions)
+    {"version": 1, "lines": {line: {speaker, mission, num, takes: [{wav, seconds}], text, text_source}}}.
+    `extra` adds single lines by stem; `merge` keeps the lines of an existing manifest that this run does not redo."""
+    rx = "|".join([re.escape(f"_{m}_") for m in missions] + [f"^{re.escape(s)}(?:_v\\d+)?$" for s in extra])
+    if not rx:
+        raise ValueError("nothing selected (no missions and no extra lines)")
     tmp = Path(out_dir) / "speech" / "_raw"
     rows = audio.extract_stream_bank(install, "Speech", tmp, names=rx)
     lines = {}
@@ -109,7 +116,12 @@ def build(install, out_dir, missions=CHAPTER1_OPENING, language: str = "American
         os.rmdir(tmp)
     except OSError:
         pass
-    man = {"version": 1, "language": language, "missions": list(missions), "lines": lines}
     mp = Path(out_dir) / "speech" / "manifest.json"
+    done = list(missions) + [s for s in extra if s not in missions]
+    if merge and mp.exists():
+        old = json.loads(mp.read_text())
+        lines = {**old.get("lines", {}), **lines}
+        done = list(dict.fromkeys(old.get("missions", []) + done))
+    man = {"version": 1, "language": language, "missions": done, "lines": lines}
     mp.write_text(json.dumps(man, indent=1))
     return man

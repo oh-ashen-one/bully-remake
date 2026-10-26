@@ -6,17 +6,19 @@ Status: **built + headless-verified + rendered stills reviewed; owner feel-playt
 
 ---
 
-## story-mode: first ~20 minutes of Chapter 1 (Devin, 2026-10-25) — integrated, owner playtest next
+## story-mode: first ~20 minutes of Chapter 1 (Devin, 2026-10-25/26) — merged to `main`, owner playtest in progress
 
 Goal (Hari): play the first ~20 minutes of Chapter 1 exactly like the original, i.e. arrival → day_one → 1_02B → 1_02C
 → Chemistry class (C_Chem_1) → 1_03 → 1_04. Kimi K3's other campaign work rides along unchanged. Agent brief:
 `docs/story-mode-brief.md` (plus `~/bully-remake-evidence/story-mode/devin-brief-2026-10-25.md`, local).
 
-**Play it:** double-click `Play Bully Story Mode.command` in `~/bully-remake-wt/story-mode` (or `tools/play_story.sh`).
+**Play it:** double-click `Play Bully Story Mode.command` in `~/bully-remake` (branch `main`), or run `tools/play_story.sh`.
 It builds if needed and opens the game windowed on the title screen (New Story / Continue). Campus life is on in story play.
-The main checkout `~/bully-remake` is still on `kimi-backend`; play from the story-mode worktree.
+2026-10-26, on the owner's instruction: `story-mode` was fast-forwarded into `main`, every merged branch (sm-*, story-mode,
+kimi-backend, ai-npc, phase0*) was deleted locally and on GitHub, and every worktree was removed. The Studio checkout
+`~/bully-remake` holds all the imported content.
 
-**Merged into `story-mode`** (each branch is pushed; details in its section below):
+**Merged into `story-mode`, now `main`** (branches since deleted; details in each section below):
 | Branch | What it adds |
 | --- | --- |
 | `sm-playloop` | title screen, autosave/continue, Save & Quit, free-roam guidance, launcher |
@@ -33,7 +35,7 @@ The main checkout `~/bully-remake` is still on `kimi-backend`; play from the sto
 `python3 -m tools.importers cutscene build --chapter1`, `cutscene actors --chapter1` + `tools/ue/run_import_cutscene_actors.sh`,
 `speech --transcribe` + `speech --extra-only --transcribe` (local faster-whisper), `campus`, `minigame`,
 `tools/ue/run_import_npc.sh --cast` (plus the campus/class peds), then `tools/ue/run_lighting.sh`.
-The story-mode worktree already has all of it.
+The Studio checkout `~/bully-remake` already has all of it.
 
 **Final regression (2026-10-26 00:15–01:30, story-mode with every branch merged, headless `-nullrhi`,
 evidence `~/bully-remake-evidence/story-mode/integration/r4/summary.txt`):**
@@ -58,7 +60,7 @@ evidence `~/bully-remake-evidence/story-mode/integration/r4/summary.txt`):**
 - Imported `TO_Cop` sits 1.5 m underground (not used in Ch1 now). Floating chrome props in halls are importer artifacts.
 - Gamepad untested on real hardware.
 
-Evidence (local, not committed): `~/bully-remake-evidence/story-mode/` (`integration/r3*`, `integration/r4`, per-branch dirs).
+Run evidence (`~/bully-remake-evidence/story-mode/`) was deleted in the 2026-10-26 cleanup; rerun the wrappers to reproduce.
 
 ### sm-voice r3 (Devin, 2026-10-25)
 

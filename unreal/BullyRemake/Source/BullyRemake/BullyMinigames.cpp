@@ -53,9 +53,9 @@ namespace
 		case 2: return EKeys::Gamepad_FaceButton_Left;
 		case 3: return EKeys::Gamepad_FaceButton_Top;
 		case 4: return EKeys::Gamepad_LeftShoulder;
-		case 5: return EKeys::Gamepad_LeftTriggerAxis;
+		case 5: return EKeys::Gamepad_LeftTrigger;
 		case 7: return EKeys::Gamepad_RightShoulder;
-		case 8: return EKeys::Gamepad_RightTriggerAxis;
+		case 8: return EKeys::Gamepad_RightTrigger;
 		default: return EKeys::Invalid;
 		}
 	}
@@ -749,8 +749,9 @@ void UBullyMinigameSubsystem::TickChem(float Dt, APlayerController* PC)
 			const FChemPrompt& P = Chem.Prompts[Chem.Next];
 			if (!P.bEnd && Now() >= P.DueAt - 0.05)
 			{
-				const bool bBotch = !bSmokeBotched && Chem.Run == 0 && Chem.Next == 2;
-				if (bBotch) { bSmokeBotched = true; UE_LOG(LogBullyMinigame, Display, TEXT("BR_MINIGAME smoke botches prompt 3 of run 1 on purpose (retry rule)")); }
+				// -BRMinigameFailAll: botch every run (the three-strikes fail path: explosion, failed grade, MissionFail)
+				const bool bBotch = Chem.Next == 2 && (FParse::Param(FCommandLine::Get(), TEXT("BRMinigameFailAll")) || (!bSmokeBotched && Chem.Run == 0));
+				if (bBotch) { bSmokeBotched = true; UE_LOG(LogBullyMinigame, Display, TEXT("BR_MINIGAME smoke botches prompt 3 of run %d on purpose (retry rule)"), Chem.Run + 1); }
 				ChemPress(bBotch ? (P.Act + 1) % 4 : P.Act);
 				if (Phase != EPhase::Play) { return; }
 			}

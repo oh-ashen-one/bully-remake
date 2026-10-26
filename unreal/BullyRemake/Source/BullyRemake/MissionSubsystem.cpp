@@ -10,6 +10,7 @@
 #include "BullyCombatPawn.h"
 #include "BullyCombatTest.h"
 #include "BullyHUD.h"
+#include "BullyMinigames.h"   // sm-minigames
 #include "BullyProgressSubsystem.h"
 #include "BullyScriptedNPC.h"
 #include "BullyWeaponComponent.h"
@@ -438,6 +439,43 @@ namespace
 				double R = 0.0;
 				if (O->TryGetNumberField(TEXT("radius_cm"), R)) { A.Radius = float(R); }
 				if (!O->HasField(TEXT("seconds"))) { A.Seconds = 4.f; }
+				// sm-minigames: the original minigames (BullyMinigames.h); absent = the v1 hold bar
+				O->TryGetStringField(TEXT("kind"), A.MinigameKind);
+				O->TryGetStringField(TEXT("config"), A.MinigameConfig);
+				O->TryGetBoolField(TEXT("auto"), A.bMinigameAuto);
+				if (!A.MinigameKind.IsEmpty() && A.MinigameKind != TEXT("hold") && A.MinigameKind != TEXT("lockpick") && A.MinigameKind != TEXT("chem"))
+				{
+					Err = FString::Printf(TEXT("minigame_launch: unknown kind \"%s\" (hold | lockpick | chem)"), *A.MinigameKind); return false;
+				}
+			}
+			else if (Type == TEXT("climb_spot"))   // sm-minigames
+			{
+				A.Type = FMissionAction::EType::ClimbSpot;
+				if (!O->TryGetStringField(TEXT("id"), S)) { Err = TEXT("climb_spot: missing \"id\""); return false; }
+				A.NpcId = FName(*S);
+				FString Base;
+				if (O->TryGetStringField(TEXT("base"), Base))
+				{
+					const FVector* P = D.Points.Find(FName(*Base));
+					if (!P) { Err = FString::Printf(TEXT("climb_spot: unknown base point \"%s\""), *Base); return false; }
+					A.Location = *P;
+				}
+				else if (!ReadVec3(*O, TEXT("base_cm"), A.Location)) { Err = TEXT("climb_spot: needs \"base\" or \"base_cm\""); return false; }
+				if (!ReadVec3(*O, TEXT("top_cm"), A.FrameAt)) { Err = TEXT("climb_spot: needs \"top_cm\""); return false; }
+				if (!ReadVec3(*O, TEXT("trunk_cm"), A.Look)) { A.Look = FVector(A.Location.X, A.Location.Y, A.FrameAt.Z); }
+				double N2 = 0.0;
+				if (O->TryGetNumberField(TEXT("yaw"), N2)) { A.Yaw = float(N2); }
+				A.Radius = O->TryGetNumberField(TEXT("radius_cm"), N2) ? float(N2) : 170.f;
+				if (!O->TryGetStringField(TEXT("prompt"), A.Text)) { A.Text = TEXT("Climb"); }
+				if (!O->TryGetStringField(TEXT("down_prompt"), A.Sub)) { A.Sub = TEXT("Climb down"); }
+			}
+			else if (Type == TEXT("player_anim"))   // sm-minigames
+			{
+				A.Type = FMissionAction::EType::PlayerAnim;
+				if (!O->TryGetStringField(TEXT("clips"), A.Text) && !O->TryGetStringField(TEXT("clip"), A.Text)) { Err = TEXT("player_anim: needs \"clips\""); return false; }
+				if (!O->HasField(TEXT("seconds"))) { A.Seconds = 0.f; }
+				A.bOn = true;
+				O->TryGetBoolField(TEXT("hold"), A.bOn);
 			}
 			else if (Type == TEXT("give_item") || Type == TEXT("take_item"))
 			{
@@ -1114,6 +1152,7 @@ void UMissionSubsystem::StopMission(const FString& Reason)
 	if (Hud.IsValid()) { Hud->ClearChoice(); }
 	Speech.bActive = false;
 	Minigame = FMinigameState();
+	if (UBullyMinigameSubsystem* MG = UBullyMinigameSubsystem::Get(GetWorld())) { MG->Abort(TEXT("mission stopped")); MG->DisarmClimbs(); }   // sm-minigames
 	HeatPoints = 0.f;
 	if (Hud.IsValid()) { Hud->SetCountdown(-1.f); Hud->SetProgress(-1.f); }
 	if (Hud.IsValid()) { Hud->ClearObjective(); Hud->Hide(); }
@@ -1258,6 +1297,7 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	StageEvents.Reset();
 	// chapter-1 primitives are stage-scoped: a new stage disarms a leftover minigame/speech beat (its own on_start re-arms)
 	Minigame = FMinigameState();
+	if (UBullyMinigameSubsystem* MG = UBullyMinigameSubsystem::Get(GetWorld())) { MG->Abort(TEXT("stage change")); }   // sm-minigames
 	Speech.bActive = false;
 	Lesson.bActive = false;   // the lesson is stage-scoped (a retry re-arms it from on_start)
 	Choice.bActive = false;   // a dialogue choice is stage-scoped too
@@ -1351,6 +1391,7 @@ void UMissionSubsystem::CompleteMission()
 	if (Hud.IsValid()) { Hud->ClearChoice(); }
 	Speech.bActive = false;
 	Minigame = FMinigameState();
+	if (UBullyMinigameSubsystem* MG = UBullyMinigameSubsystem::Get(GetWorld())) { MG->Abort(TEXT("mission complete")); MG->DisarmClimbs(); }   // sm-minigames
 	HeatPoints = 0.f;
 	OnMissionFinished.Broadcast(*Mission, true);
 }
@@ -1604,8 +1645,36 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			Minigame.Success = A.SuccessEvent;
 			Minigame.Fail = A.FailEvent;
 			Minigame.Label = A.Text;
-			if (Hud.IsValid()) { Hud->SetProgress(0.f, Minigame.Label); }
-			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION minigame_launch '%s' at %s (%.1fs hold)"), *A.Name.ToString(), *A.Location.ToCompactString(), Minigame.Seconds);
+			// sm-minigames: original minigames run in UBullyMinigameSubsystem (no hold bar)
+			Minigame.Kind = A.MinigameKind == TEXT("hold") ? FString() : A.MinigameKind;
+			Minigame.Config = A.MinigameConfig;
+			Minigame.bAuto = A.bMinigameAuto;
+			Minigame.Id = A.Name;
+			if (Hud.IsValid() && Minigame.Kind.IsEmpty()) { Hud->SetProgress(0.f, Minigame.Label); }
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION minigame_launch '%s' kind=%s at %s (%.1fs hold)"), *A.Name.ToString(), Minigame.Kind.IsEmpty() ? TEXT("hold") : *Minigame.Kind, *A.Location.ToCompactString(), Minigame.Seconds);
+			break;
+		case FMissionAction::EType::ClimbSpot:   // sm-minigames
+			if (UBullyMinigameSubsystem* MG = UBullyMinigameSubsystem::Get(GetWorld()))
+			{
+				UBullyMinigameSubsystem::FClimbSpot Spot;
+				Spot.Id = A.NpcId;
+				Spot.Base = A.Location;
+				Spot.Trunk = A.Look;
+				Spot.Top = A.FrameAt;
+				Spot.TopYaw = A.Yaw;
+				Spot.Radius = A.Radius;
+				Spot.UpPrompt = A.Text;
+				Spot.DownPrompt = A.Sub;
+				MG->ArmClimb(Spot);
+			}
+			break;
+		case FMissionAction::EType::PlayerAnim:   // sm-minigames
+			if (UBullyMinigameSubsystem* MG = UBullyMinigameSubsystem::Get(GetWorld()))
+			{
+				TArray<FString> Clips;
+				A.Text.ParseIntoArray(Clips, TEXT(","), true);
+				MG->PlayPlayerClip(Clips, A.Seconds, A.bOn);
+			}
 			break;
 		case FMissionAction::EType::GiveItem:
 		case FMissionAction::EType::TakeItem:
@@ -2686,6 +2755,25 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		bSmokeDriveMinigame = true;   // the driver's hold-E
 		return;
 	}
+	// sm-minigames: a climb the stage waits on (1_04's tree): stand at the trunk and climb through the same request the
+	// action key makes (the climb itself runs its legs + clips and fires climb:<id>_top)
+	if (UBullyMinigameSubsystem* MG = UBullyMinigameSubsystem::Get(World))
+	{
+		FName ClimbId;
+		bool bUp = true;
+		if (MG->IsClimbing()) { Smoke.LastDrive = Smoke.Elapsed; return; }
+		if (StageClimbGoal(St, ClimbId, bUp) && MG->IsClimbArmed(ClimbId) && MG->IsPerched(ClimbId) != bUp)
+		{
+			Smoke.LastDrive = Smoke.Elapsed;
+			if (const UBullyMinigameSubsystem::FClimbSpot* Spot = bUp ? MG->FindClimb(ClimbId) : nullptr)
+			{
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE climb '%s': to the trunk %s, climbing up"), *ClimbId.ToString(), *Spot->Base.ToCompactString());
+				TeleportPlayer(Spot->Base + FVector(0, 0, 100), 0.f, false);
+			}
+			MG->RequestClimb(ClimbId, bUp);
+			return;
+		}
+	}
 
 	// dialogue-choice drive: pick the first option whose item gate passes (the gate check runs for real)
 	if (Choice.bActive)
@@ -3013,6 +3101,55 @@ void UMissionSubsystem::SkipSpeechSequence()
 	FireEvent(Speech.DoneEvent);
 }
 
+bool UMissionSubsystem::StageClimbGoal(const FMissionStage& St, FName& OutId, bool& bOutUp) const
+{
+	// sm-minigames: a climb event the stage completes on
+	TFunction<bool(const FMissionCondition&)> Scan = [&](const FMissionCondition& C) -> bool
+	{
+		if (C.Type == FMissionCondition::EType::Event && UBullyMinigameSubsystem::ParseClimbEvent(C.Name, OutId, bOutUp)) { return true; }
+		for (const FMissionCondition& K : C.Children) { if (Scan(K)) { return true; } }
+		return false;
+	};
+	if (Scan(St.Complete)) { return true; }
+	// a perch the stage must stay on (zone_timer fail) while a climb spot is armed: be up there
+	const UBullyMinigameSubsystem* MG = UBullyMinigameSubsystem::Get(GetWorld());
+	TFunction<bool(const FMissionCondition&)> HasZone = [&](const FMissionCondition& C) -> bool
+	{
+		if (C.Type == FMissionCondition::EType::ZoneTimer) { return true; }
+		for (const FMissionCondition& K : C.Children) { if (HasZone(K)) { return true; } }
+		return false;
+	};
+	if (MG && HasZone(St.Fail))
+	{
+		const TWeakObjectPtr<AMissionTrigger>* T = nullptr;
+		TFunction<void(const FMissionCondition&)> FindZone = [&](const FMissionCondition& C)
+		{
+			if (C.Type == FMissionCondition::EType::ZoneTimer && !T) { T = Triggers.Find(C.Name); }
+			for (const FMissionCondition& K : C.Children) { FindZone(K); }
+		};
+		FindZone(St.Fail);
+		// the zone's trigger sits on an armed climb spot's perch -> that spot
+		if (T && T->IsValid())
+		{
+			const FVector Z = (*T)->GetActorLocation();
+			FName Best;
+			float BestD = 600.f;
+			auto Visit = [&](const TArray<FMissionAction>& As)
+			{
+				for (const FMissionAction& A : As)
+				{
+					if (A.Type != FMissionAction::EType::ClimbSpot || !MG->IsClimbArmed(A.NpcId)) { continue; }
+					const float D = FVector::Dist(A.FrameAt, Z);
+					if (D < BestD) { BestD = D; Best = A.NpcId; }
+				}
+			};
+			for (const FMissionStage& S2 : Mission->Stages) { Visit(S2.OnStart); Visit(S2.OnComplete); }
+			if (!Best.IsNone()) { OutId = Best; bOutUp = true; return true; }
+		}
+	}
+	return false;
+}
+
 void UMissionSubsystem::TickMinigame(float Dt)
 {
 	if (!Minigame.bArmed) { return; }
@@ -3021,6 +3158,50 @@ void UMissionSubsystem::TickMinigame(float Dt)
 	if (!World || !P) { return; }
 	const bool bInRange = FVector::Dist2D(P->GetActorLocation(), Minigame.At) <= Minigame.Radius
 		&& FMath::Abs(P->GetActorLocation().Z - Minigame.At.Z) <= 400.f;
+	// sm-minigames: the original minigames run in their own subsystem; it fires the success / fail events itself
+	if (!Minigame.Kind.IsEmpty())
+	{
+		UBullyMinigameSubsystem* MG = UBullyMinigameSubsystem::Get(World);
+		if (!MG) { return; }
+		if (Minigame.bRunning)
+		{
+			if (MG->IsRunning()) { MG->SmokeAssist = bSmokeDriveMinigame ? 1 : MG->SmokeAssist; return; }
+			Minigame.bRunning = false;
+			if (MG->LastSucceeded()) { Minigame.bArmed = false; }   // a failed / abandoned lockpick re-arms (press E again)
+			if (Hud.IsValid()) { Hud->SetPrompt(TEXT("")); }
+			return;
+		}
+		bool bStart = Minigame.bAuto || bSmokeDriveMinigame;
+		if (!bStart && bInRange)
+		{
+			if (APlayerController* PC = World->GetFirstPlayerController()) { bStart = PC->WasInputKeyJustPressed(EKeys::E) || PC->WasInputKeyJustPressed(EKeys::Gamepad_FaceButton_Top); }
+			if (!bStart && Hud.IsValid() && Hud->GetState().PromptText.IsEmpty()) { Hud->SetPrompt(Minigame.Label.IsEmpty() ? MG->Text(TEXT("BUT_PICK_LOCK")) : Minigame.Label); }
+		}
+		if (bStart && (bInRange || Minigame.bAuto))
+		{
+			UBullyMinigameSubsystem::FStart S;
+			S.Kind = Minigame.Kind == TEXT("chem") ? UBullyMinigameSubsystem::EKind::Chem : UBullyMinigameSubsystem::EKind::Lock;
+			S.Id = Minigame.Id;
+			S.Config = Minigame.Config;
+			S.SuccessEvent = Minigame.Success;
+			S.FailEvent = Minigame.Fail;
+			S.At = Minigame.At;
+			MG->SmokeAssist = bSmokeDriveMinigame ? 1 : 0;
+			if (MG->Begin(S))
+			{
+				Minigame.bRunning = true;
+				if (Hud.IsValid()) { Hud->SetPrompt(TEXT("")); }
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION minigame '%s' (%s) started"), *Minigame.Id.ToString(), *Minigame.Kind);
+			}
+			else
+			{
+				// no class data: don't strand the stage -- report the fail event (the data is in the repo, so this is a bug)
+				Minigame.bArmed = false;
+				FireEvent(Minigame.Fail);
+			}
+		}
+		return;
+	}
 	if (!Minigame.bRunning)
 	{
 		bool bStart = false;

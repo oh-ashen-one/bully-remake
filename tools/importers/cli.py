@@ -265,6 +265,15 @@ def cmd_speech(a) -> int:
     return 0
 
 
+def cmd_minigame(a) -> int:
+    """sm-minigames: HUD glyphs + strings for the chemistry class and the lockpick dial -> <out>/minigames/."""
+    from . import minigame
+    install = resolve_install(a.install)
+    rep = minigame.build(install, a.out, language=a.language, log=lambda m: print(m, file=sys.stderr))
+    print(json.dumps(rep))
+    return 0 if rep["glyphs"] and not rep["missing_texts"] else 1
+
+
 def cmd_cutscene(a) -> int:
     """Baked cutscenes (Cuts.img + PLAYLIST/Cuts.bin + Config/Text): manifests + audio into <out>/cutscenes/<id>/."""
     from . import cutscene as cs
@@ -608,6 +617,10 @@ def main(argv=None) -> int:
     p.add_argument("--transcribe", action="store_true", help="match each line to its original subtitle via local faster-whisper (optional dependency)")
     p.add_argument("--model", default="small", help="faster-whisper model for --transcribe (default small; must be cached locally)")
     p.set_defaults(fn=cmd_speech)
+
+    p = sub.add_parser("minigame", help="sm-minigames: original button glyphs + class/lockpick HUD strings -> <out>/minigames/")
+    p.add_argument("--language", default="American", help="Config/Text/<language>.img (default American)")
+    p.set_defaults(fn=cmd_minigame)
 
     p = sub.add_parser("nft", help="decode .nft texture dictionaries to PNG")
     p.add_argument("names", nargs="+", help="World.img .nft names or paths to loose .nft/.txd files")

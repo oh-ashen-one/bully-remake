@@ -1,0 +1,33 @@
+{
+  "_format": "bully-remake.class-chem/1",
+  "_note": "sm-minigames: the Chemistry class sequences (UBullyMinigameSubsystem, kind 'chem'). Read from scripts/secnd/ClassChem.lua: per class the step list (each step's waitTime is shortWait 0.2 s or longWait 0.8 s, the first step gets +2 s), the per-prompt answer window (Win1 = 0.6 s for class 1), allowedActions (how many of gActions {0,1,2,3,4,7,5,8} the randomizer may pick on the first run; class 1 = 4 = cross/circle/square/triangle) and three runs per class (the main loop's L7_2 < 3). The last step is the end marker (act 34). Our timing model (the scroll/hit rules are in Bully.exe, not read): a prompt reaches the ring waitTime after the previous prompt's window closes and can be answered within +-window/2 of that moment; a wrong button or a miss ends the run. 'clip' = the imported Jimmy clip for the script's action-tree node (Right/Tube/GrabTube -> MINIC_GRABTUBER, PourTube -> MINIC_POURTUBERLOOP, PutDownTube -> MINIC_DROPTUBER, BothMisc/Burner/AdjustBurner -> MINIC_TURNUPBURNER, Beaker/EyeDrop likewise; the node->clip mapping is INFERRED from the MINICHEM clip names, Act/Conv/C4.act is not decoded). Rewards / flags / the exit live in Config/Missions/C_Chem_1.json.",
+  "classes": {
+    "1": {
+      "title_key": "CLASS_CHEMISTRY_1",
+      "title": "Chemistry 1",
+      "allowed_actions": 4,
+      "runs": 3,
+      "window_s": 0.6,
+      "short_s": 0.2,
+      "long_s": 0.8,
+      "first_extra_s": 2.0,
+      "steps": [
+        ["long", "MINIC_GRABTUBER"],
+        ["short", "MINIC_POURTUBERLOOP"],
+        ["short", "MINIC_DROPTUBER"],
+        ["long", "MINIC_TURNUPBURNER"],
+        ["long", "MINIC_GRABBEAKERR"],
+        ["short", "MINIC_POURBEAKERRLOOP"],
+        ["short", "MINIC_DROPBEAKERR"],
+        ["long", "MINIC_GRABEYEDROPL"],
+        ["short", "MINIC_DROPEYEDROPLLOOP"],
+        ["short", "MINIC_DROPEYEDROPL"],
+        ["long", "MINIC_TURNUPBURNER"],
+        ["long", "MINIC_GRABBEAKERR"],
+        ["short", "MINIC_POURBEAKERRLOOP"],
+        ["short", "MINIC_DROPBEAKERR"],
+        ["short", "end"]
+      ]
+    }
+  }
+}

@@ -44,6 +44,15 @@ Set one of these. The path is never hard-coded.
     python3 -m tools.importers cutscene list              # every baked cutscene in Cuts.img (audio / subtitle / HXD presence)
     python3 -m tools.importers cutscene build             # Chapter 1 opening set -> imported/cutscenes/<id>/cutscene.json + <id>.wav
     python3 -m tools.importers cutscene build 1-05 1-06   # any other ids (as Cuts.img names them); --no-audio, --language
+    python3 -m tools.importers minigame                   # sm-minigames: original button glyphs + class/lockpick HUD strings -> imported/minigames/
+    # sm-minigames: Jimmy's tree / lockpick / chemistry / pickup clips (then tools/ue/run_import_character.sh --imported "$PWD/imported/minigame_anims" --anims-only)
+    python3 -m tools.importers --out imported/minigame_anims ped PLAYER --head B_Buzz --no-textures --root-motion inplace \
+      --group "Px_Tree,1_03The Setup,MINI_Lock,MINICHEM,MINI_React,WeaponUnlock" --anims TREE_ON_BOT TREE_UP_CYCLE TREE_IDLE_A \
+      TREE_IDLE_B TREE_DOWN TREE_OFF_BOT BRNCH_UP2 BRNCH_IDLE BRNCH_DISMOUNT PICKUP_SLINGSHOT IDLE2PICK PICK2IDLE PICKLOOP PICKLOCK_L \
+      PICKLOCK_R OPEN_LOCKER MINIC_GRABTUBER MINIC_POURTUBERLOOP MINIC_DROPTUBER MINIC_TURNUPBURNER MINIC_GRABBEAKERR MINIC_POURBEAKERRLOOP \
+      MINIC_DROPBEAKERR MINIC_GRABEYEDROPL MINIC_DROPEYEDROPLLOOP MINIC_DROPEYEDROPL MINIC_REACT_SMOKE MINIC_REACT_EXPLODE MG_CELEB_HI_2 \
+      MG_FAIL_MED_1 EARN_WEAPON_A
+    # the class cast: tools/ue/run_import_npc.sh --peds TE_Chemistry,NDGirl_Beatrice,GN_Littleblkboy
     python3 -m tools.importers cutscene actors            # every character actor of those cutscenes -> imported/models/CS_*.gltf + cutscenes/actors.json
     python3 -m tools.importers ped CS_PLAY_BODY --head CS_PLAY --cutscene 1-1-1,1-03 --root-motion raw   # one actor by hand
 

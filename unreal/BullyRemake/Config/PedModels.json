@@ -24,6 +24,9 @@
     { "id": 112, "model": "JKDamon_FB",      "who": "jock (football kit)",         "missions": ["1_04"],               "import": true, "stand_in": "GN_Bully03" },
     { "id": 231, "model": "JK_Bo_FB",        "who": "jock (football kit)",         "missions": ["1_04"],               "import": true, "stand_in": "GN_Bully03" },
     { "id": 232, "model": "JK_Casey_FB",     "who": "jock (football kit)",         "missions": ["1_04"],               "import": true, "stand_in": "GN_Bully03" },
-    { "id": 110, "model": "JKTed_FB",        "who": "Ted (jock, football kit)",    "missions": ["1_04"],               "import": true, "stand_in": "GN_Bully03" }
+    { "id": 110, "model": "JKTed_FB",        "who": "Ted (jock, football kit)",    "missions": ["1_04"],               "import": true, "stand_in": "GN_Bully03" },
+    { "id": 106, "model": "TE_Chemistry",    "who": "Dr. Watts (chemistry teacher)", "missions": ["C_Chem_1"],         "import": true, "stand_in": "TO_Business1" },
+    { "id": 3,   "model": "NDGirl_Beatrice", "who": "Beatrice (chemistry class)",  "missions": ["C_Chem_1"],           "import": true, "stand_in": "GN_Fatgirl" },
+    { "id": 66,  "model": "GN_Littleblkboy", "who": "student (chemistry class)",   "missions": ["C_Chem_1"],           "import": true, "stand_in": "GN_Boy01" }
   ]
 }

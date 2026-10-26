@@ -3192,6 +3192,15 @@ void UMissionSubsystem::TickMinigame(float Dt)
 				Minigame.bRunning = true;
 				if (Hud.IsValid()) { Hud->SetPrompt(TEXT("")); }
 				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION minigame '%s' (%s) started"), *Minigame.Id.ToString(), *Minigame.Kind);
+				// shots pass: one extra still of the minigame on screen (the class once its prompts scroll in)
+				const bool bRetarget = Shots.PendingAt >= 0.0 && Shots.PendingStage == StageIndex;   // the stage's own still: take it later
+				if (Shots.bEnabled && Shots.Count < Shots.TotalStages && (bRetarget || Shots.PendingAt < 0.0))
+				{
+					if (!bRetarget) { ++Shots.TotalStages; }
+					Shots.PendingStage = StageIndex;
+					Shots.PendingAt = World->GetTimeSeconds() + (S.Kind == UBullyMinigameSubsystem::EKind::Chem ? 6.8 : 1.5);
+					Shots.PendingName = FString::Printf(TEXT("%02d_%s_minigame"), StageIndex, *Minigame.Id.ToString());
+				}
 			}
 			else
 			{

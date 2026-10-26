@@ -195,6 +195,44 @@ public:
 				]
 			]
 
+			// sm-campus: school clock + period, and the trouble meter, bottom left
+			+ SOverlay::Slot().HAlign(HAlign_Left).VAlign(VAlign_Bottom).Padding(FMargin(28.f, 0.f, 0.f, 28.f))
+			[
+				SNew(SBox).WidthOverride(240.f)
+				.Visibility_Lambda([S]() { return (S->CampusText.IsEmpty() && S->TroubleFrac < 0.f) ? EVisibility::Collapsed : EVisibility::HitTestInvisible; })
+				[
+					SNew(SBorder).BorderImage(White).BorderBackgroundColor(Panel).Padding(FMargin(12.f, 7.f, 12.f, 9.f))
+					[
+						SNew(SVerticalBox)
+						+ SVerticalBox::Slot().AutoHeight()
+						[
+							SNew(STextBlock).Font(Small).ColorAndOpacity(Cream)
+							.Visibility_Lambda([S]() { return S->CampusText.IsEmpty() ? EVisibility::Collapsed : EVisibility::HitTestInvisible; })
+							.Text_Lambda([S]() { return FText::FromString(S->CampusText); })
+						]
+						+ SVerticalBox::Slot().AutoHeight().Padding(0, 5, 0, 0)
+						[
+							SNew(SVerticalBox)
+							.Visibility_Lambda([S]() { return S->TroubleFrac >= 0.f ? EVisibility::HitTestInvisible : EVisibility::Collapsed; })
+							+ SVerticalBox::Slot().AutoHeight()
+							[
+								SNew(STextBlock).Font(Small)
+								.ColorAndOpacity_Lambda([S]() { return S->bTroubleChase ? Red : Gold; })
+								.Text_Lambda([S]() { return FText::FromString(S->bTroubleChase ? TEXT("TROUBLE  -  PREFECT CHASING") : TEXT("TROUBLE")); })
+							]
+							+ SVerticalBox::Slot().AutoHeight().Padding(0, 3, 0, 0)
+							[
+								SNew(SBorder).BorderImage(White).BorderBackgroundColor(FLinearColor(0.02f, 0.02f, 0.04f, 0.85f)).Padding(FMargin(2.f))
+								[
+									SNew(SBox).WidthOverride_Lambda([S]() { return 212.f * FMath::Clamp(S->TroubleFrac, 0.f, 1.f); }).HeightOverride(8.f).HAlign(HAlign_Left)
+									[ SNew(SBorder).BorderImage(White).BorderBackgroundColor_Lambda([S]() { return S->TroubleFrac >= S->TroubleChaseFrac ? Red : Gold; }) ]
+								]
+							]
+						]
+					]
+				]
+			]
+
 			// wallet readout (reward loop), top right
 			+ SOverlay::Slot().HAlign(HAlign_Right).VAlign(VAlign_Top).Padding(FMargin(28.f, 24.f))
 			[
@@ -507,6 +545,15 @@ void FBullyHUD::SetWallet(int32 Money, int32 Respect, bool bFlash)
 		? FString::Printf(TEXT("$%d   %d REP"), Money, Respect)
 		: FString::Printf(TEXT("$%d"), Money);
 	if (bFlash) { S.WalletFlash = 1.4f; }
+}
+
+void FBullyHUD::SetCampus(const FString& ClockLine, float TroubleFrac, bool bChase, float ChaseFrac)
+{
+	FBullyHUDState& S = State.Get();
+	S.CampusText = ClockLine;
+	S.TroubleFrac = TroubleFrac;
+	S.bTroubleChase = bChase;
+	S.TroubleChaseFrac = ChaseFrac;
 }
 
 void FBullyHUD::ClearObjective()

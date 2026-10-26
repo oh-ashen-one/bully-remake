@@ -1,6 +1,6 @@
 {
  "format": "bully-remake.ambient/1",
- "_note": "Milestone 4 signs of life: fixed waypoint loops only (no schedules, no AI). UE cm (game metres x 100, y mirrored). Edited by hand; validated at runtime (BR_AMBIENT lines). Audio entries name decoded game sounds (python3 -m tools.importers audio extract); the repo ships no audio.",
+ "_note": "Milestone 4 signs of life: fixed waypoint loops only (no schedules, no AI). UE cm (game metres x 100, y mirrored). Edited by hand; validated at runtime (BR_AMBIENT lines). Audio entries name decoded game sounds (python3 -m tools.importers audio extract); the repo ships no audio. sm-campus: every student appears once (the original keeps named students unique: SGlFunc.lua F_SetCharacterModelsUnique); the school-day schedule, factions and speech on top of these loops are UBullyCampusSubsystem's (Config/Campus.json).",
  "students": [
   {
    "id": "boy01",
@@ -30,6 +30,21 @@
   {
    "id": "prefect_seth",
    "model": "PFH1_Seth",
+   "footsteps": "shoe"
+  },
+  {
+   "id": "christy",
+   "model": "GN_SexyGirl",
+   "footsteps": "female"
+  },
+  {
+   "id": "pedro",
+   "model": "GN_Hispanicboy",
+   "footsteps": "shoe"
+  },
+  {
+   "id": "gordon",
+   "model": "GN_WhiteBoy",
    "footsteps": "shoe"
   }
  ],
@@ -263,7 +278,7 @@
    ],
    "walkers": [
     {
-     "student": "asiangirl",
+     "student": "christy",
      "start_index": 0
     }
    ]
@@ -298,11 +313,11 @@
    ],
    "walkers": [
     {
-     "student": "boy02",
+     "student": "gordon",
      "start_index": 0
     },
     {
-     "student": "greekboy",
+     "student": "pedro",
      "start_index": 2
     }
    ]

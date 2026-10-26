@@ -59,6 +59,46 @@ public:
 	/** ai-npc (UNPCChatSubsystem): mid-conversation hold — stop walking and face the player until released. */
 	bool bChatHold = false;
 
+	// --- sm-campus: schedule / authority hooks, driven by UBullyCampusSubsystem ---------------------------------
+	// Loop = the home loop above (default). Errand = walk/run straight to a point (a class door at the bell, a hangout
+	// after class), optionally vanishing into it on arrival (Inside: hidden, no collision, no tick until Emerge).
+	// Chase = a prefect running at the player. Flee = a non-fighter running away after being hit. Hold = stand and
+	// face someone (a bark or a two-person conversation).
+	enum class ECampusMode : uint8 { Loop, Errand, Inside, Chase, Flee, Hold };
+	void CampusGoTo(const FVector& Dest, bool bRun, bool bEnterOnArrive);
+	void CampusEnter();
+	void CampusEmerge(const FVector& At);
+	void CampusChase(AActor* Target);
+	void CampusFlee(const FVector& From, float Seconds);
+	void CampusHold(float Seconds, const AActor* FaceTo);
+	/** Back to the home loop (the waypoints the walker was spawned with), from the nearest home waypoint. */
+	void CampusResume();
+	/** Missions: pass-through to every pawn and out of the combat registry (not a lock-on / swing target). */
+	void SetBystander(bool bOn);
+	bool IsBystander() const { return bBystander; }
+	/** Mission uniqueness (F_SetCharacterModelsUnique): the running mission uses this model, so the ambient double is
+	 *  hidden (no collision, no tick) until the mission ends. */
+	void SetCampusSuppressed(bool bOn);
+	bool IsCampusSuppressed() const { return bSuppressed; }
+	/** Far from the player: frozen and hidden (performance); woken again when the player comes back in range. */
+	void SetDormant(bool bOn);
+	bool IsDormant() const { return bDormant; }
+	ECampusMode GetCampusMode() const { return CampusMode; }
+	bool IsInside() const { return CampusMode == ECampusMode::Inside; }
+	bool IsBrawling() const { return bBrawling; }
+	bool IsIdling() const { return bIdling && CampusMode == ECampusMode::Loop; }
+	bool HasErrandArrived() const { return bErrandArrived; }
+	FVector GetErrandDest() const { return ErrandDest; }
+	/** A non-fighter (pedstats aggression ~0: generic students, girls) runs from the player instead of fighting back. */
+	bool bFleeWhenHit = false;
+	/** Run speed of an errand (late for class) or a chase (prefects run at the ped.dat run speed, 6 m/s). */
+	float CampusRunSpeed = 560.f;
+	/** Fired once when the walker's first health loss turns it into a brawler (or a fleer). */
+	DECLARE_MULTICAST_DELEGATE_TwoParams(FOnWalkerHit, AAmbientWalker* /*Walker*/, bool /*bFled*/);
+	FOnWalkerHit OnFirstHit;
+	/** The walker joins a fight against the player (faction ally, or an Abhor-attitude student picking one). */
+	void JoinFightAgainstPlayer() { if (!bBrawling) { StartBrawl(); } }
+
 protected:
 	/**
 	 * ai-npc "fight anybody": every walker's combat component joins the Enemy team (BeginPlay), so the player's
@@ -102,4 +142,23 @@ private:
 	FVector YieldDir = FVector::ZeroVector;
 	int32 YieldCount = 0;
 	float MinPlayerDist = 1e9f;
+
+	// sm-campus state
+	bool TickCampus(float Dt, double Now, const FVector& Pos);
+	void SetHiddenAndInert(bool bHide);
+	ECampusMode CampusMode = ECampusMode::Loop;
+	TArray<FVector> HomeWaypoints;
+	FVector ErrandDest = FVector::ZeroVector;
+	bool bErrandRun = false, bErrandEnter = false, bErrandArrived = false;
+	int32 ErrandStucks = 0;
+	FVector ErrandRefPos = FVector::ZeroVector;
+	double ErrandRefTime = 0.0;
+	TWeakObjectPtr<AActor> ChaseTarget;
+	FVector FleeFrom = FVector::ZeroVector;
+	double ModeUntil = 0.0;
+	TWeakObjectPtr<const AActor> HoldFace;
+	ECampusMode ModeBeforeHold = ECampusMode::Loop;
+	double HoldResumeErrandUntil = 0.0;
+	bool bBystander = false, bSuppressed = false, bDormant = false;
+	float SavedRunSpeed = -1.f;
 };

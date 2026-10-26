@@ -1,5 +1,6 @@
 // OWNER: mission-fw
 #include "MissionSubsystem.h"
+#include "BullyCampusSubsystem.h"   // sm-campus: trouble meter behind heat_set / hide
 
 #include "BullyCampaignSubsystem.h"
 #include "BullyCutscene.h"
@@ -1626,10 +1627,13 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			HeatPoints = float(A.Amount);
 			HeatDecay = A.Amp > 0.f ? A.Amp : 25.f;
 			SetFlag(TEXT("player_hidden"), false);
+			// sm-campus: the trouble meter owns the points (HUD meter, prefects); same contract as the stub below
+			if (UBullyCampusSubsystem* Campus = UBullyCampusSubsystem::Get(GetWorld())) { Campus->MissionHeatSet(HeatPoints, HeatDecay); }
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION heat_set %d (decay %.0f/s while hidden)"), A.Amount, HeatDecay);
 			break;
 		case FMissionAction::EType::Hide:
 			SetFlag(TEXT("player_hidden"), A.bOn);
+			if (UBullyCampusSubsystem* Campus = UBullyCampusSubsystem::Get(GetWorld())) { Campus->SetPlayerHidden(A.bOn); }   // sm-campus
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION hide %s"), A.bOn ? TEXT("on") : TEXT("off"));
 			break;
 		case FMissionAction::EType::SpawnWave:
@@ -3061,6 +3065,18 @@ void UMissionSubsystem::TickMinigame(float Dt)
 void UMissionSubsystem::TickHeat(float Dt)
 {
 	if (HeatPoints <= 0.f) { return; }
+	if (UBullyCampusSubsystem* Campus = UBullyCampusSubsystem::Get(GetWorld()))
+	{
+		// sm-campus: the trouble meter drains it (only while hidden, as before); heat:zero when it reaches 0
+		Campus->SetPlayerHidden(Flags.Contains(TEXT("player_hidden")));
+		HeatPoints = Campus->GetTroublePoints();
+		if (HeatPoints <= 0.f)
+		{
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION heat decayed -> event heat:zero"));
+			FireEvent(TEXT("heat:zero"));
+		}
+		return;
+	}
 	if (!Flags.Contains(TEXT("player_hidden"))) { return; }   // heat only drains from a hiding spot
 	HeatPoints -= HeatDecay * Dt;
 	if (HeatPoints <= 0.f)

@@ -23,6 +23,19 @@
       "on_pass": {},
       "_on_pass_src": "original pass side effects (clock unpause, crate pickups, extra KO points) are mission/world-system beats, not SMissPass grants; the clock beats live in Config/Missions/1_02C.json"
     },
+    "C_Chem_1": {
+      "title": "Chemistry 1",
+      "chapter": 1,
+      "star": "class",
+      "star_location": {"area": 0, "location_cm": [-60408.4, 29279.8, 103.0]},
+      "_star_src": "sm-minigames: the Chemistry door (1_02C's class_door, the original's _CLASS_CHEM / BUT_CLASS_CHE prompt); only shows when the class is still open (a failed first class)",
+      "window": [9, 11.5],
+      "_window_src": "sm-minigames: the morning class period (1_02C rings the 9:00 bell); a retake is offered in class hours like the original's repeatable class slot (the original waits for the next scheduled period -- approximated)",
+      "prereq": ["1_02C"],
+      "_prereq_src": "SchoolHallways.lua force-starts C_Chem_1 once shared.passed1_02C and the class was never attempted; 1_02C chains into it here",
+      "on_pass": {"unlock_collectible": "chemset_firecrackers"},
+      "_on_pass_src": "ClassChem.lua F_EndPresentation class 1: PlayerSetWeapon(301, 3) (mission JSON), unlock C4_unlock01 = the dorm chem set makes firecrackers (this flag; the chem-set system itself is not built), PlayerSetGrade(1, 1) (mission flag grade_chemistry_1). 1_B's on_pass force-completes it too (SMissPass)."
+    },
     "1_03": {
       "title": "The Setup",
       "chapter": 1,

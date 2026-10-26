@@ -102,6 +102,20 @@
 //                 "success": "minigame:lockpick_ok", "fail": "minigame:lockpick_fail", "text": "Picking lock..." }
 //                 -- v1 STUB: press E in range to start a timed progress bar; stay in range until it fills (success),
 //                    step out early (fail). NOT the original's dial minigame.
+//                 sm-minigames (BullyMinigames.h): "kind": "lockpick" = the original's combination dial (press E in range;
+//                    3 numbers 0..39, turn the way the arrow points until the click; Backspace / pad B walks away = the
+//                    fail event, the same locker keeps its combo) | "chem" + "config": "1" = the Chemistry class
+//                    (Config/Minigames/ClassChem.json; "auto": true starts it without E; three runs, then pass = grade +
+//                    unlock screens -> success event, three failed runs -> fail event). "kind" absent = the v1 bar.
+//               { "type": "climb_spot", "id": "tree", "base": "<point>" | "base_cm": [..], "trunk_cm": [..], "top_cm": [..],
+//                 "yaw": 0, "radius_cm": 170, "prompt": "Climb the tree", "down_prompt": "Climb down",
+//                 "clear_meshes": ["pxTree6M"] }   // the climbable's own meshes let pellets + the camera through
+//                 -- sm-minigames: an interact-to-climb spot (1_04's tree, /Global/TreeClimb): E at the base climbs
+//                    base -> trunk_cm -> top_cm (feet heights) with the original tree clips; perched = pinned there with the
+//                    weapon usable; E again climbs down. Fires "climb:<id>_top" / "climb:<id>_bottom". Mission-scoped.
+//               { "type": "player_anim", "clips": "PICKUP_SLINGSHOT,PICKUP", "seconds": 0, "hold": true }
+//                 -- sm-minigames: a full-body one-shot on Jimmy (first imported candidate; 0 s = its length); hold = no
+//                    walking meanwhile. A missing clip is skipped (clean clone).
 //               { "type": "give_item", "item": "chocolates", "n": 1 } | { "type": "take_item", ... }  // session inventory
 //               { "type": "money_ensure", "money": 2 } | { "type": "money_take", "money": 2 }          // wallet floor / take
 //               { "type": "heat_set", "points": 200, "decay": 25 }   // punishment-lite STUB: heat points, decaying
@@ -253,7 +267,7 @@ struct FMissionAction
 	enum class EType : uint8 { Hint, Banner, Event, SetFlag, ClearFlag, Teleport, Log, StartMission, SpawnEnemy, Fade, Reward, Letterbox, Say, Camera, Shake, GiveWeapon, GiveAmmo, SetRespect, Clock, ChapterSet, ForceComplete,
 		SpawnNpc, NpcMove, NpcLead, NpcFace, NpcDespawn, PairAnim, SpeechSequence, MinigameLaunch, GiveItem, TakeItem, MoneyEnsure, MoneyTake, HeatSet, Hide,
 		SpawnWave, Spotter, NpcFollow, CountdownStart, CountdownCancel, LessonStart, SpawnDefender, NpcDrain, DialogueChoice, BossBar, RaceStart, ClockFailAt,
-		Cutscene /* sm-cutscenes */ };
+		Cutscene /* sm-cutscenes */, ClimbSpot, PlayerAnim /* sm-minigames */ };
 	EType Type = EType::Log;
 	FString Text, Sub;
 	FString Voice;               // sm-voice: say -- original recorded line (Speech.lst stem without take)
@@ -351,6 +365,12 @@ struct FMissionAction
 	// sm-cutscenes: cutscene -- Name = cutscene id (Cuts.img naming, e.g. "1-03"), Sub = done event (default
 	// "cutscene:<id>"), Else = the fallback beats run when the imported original is absent.
 	TArray<FMissionAction> Else;
+	// sm-minigames: minigame_launch "kind" ("hold" = the v1 bar, "lockpick", "chem"), "config" (chem class), "auto" (starts
+	// without the E press: the class begins on its own). climb_spot: NpcId = spot id, Location = base, Look = trunk top,
+	// FrameAt = perch, Yaw = perch yaw, Radius, Text / Sub = up / down prompts. player_anim: Text = clip candidates,
+	// Seconds (<= 0 = clip length), bOn = hold movement while it plays.
+	FString MinigameKind, MinigameConfig;
+	bool bMinigameAuto = false;
 	// sm-voice: say "bark" = drop the line while another one is still being spoken; "queue" = hold it until that one ends
 	bool bBark = false, bQueue = false;
 };
@@ -576,8 +596,15 @@ private:
 		float Radius = 250.f, Seconds = 4.f, Progress = 0.f;
 		FName Success, Fail;
 		FString Label;
+		FString Kind, Config;   // sm-minigames: "" / "hold" = the bar below; "lockpick" / "chem" run in UBullyMinigameSubsystem
+		bool bAuto = false;
+		FName Id;
 	} Minigame;
 	bool bSmokeDriveMinigame = false;   // set by TickSmoke while a minigame is armed (the driver's hold-E)
+	/** sm-minigames: the climb a stage waits on (a "climb:<id>_top|_bottom" event in its complete condition), or -- a
+	 *  zone_timer fail with a climb spot armed (1_04's perch) -- getting back up there. Drivers only. */
+	bool StageClimbGoal(const FMissionStage& St, FName& OutId, bool& bOutUp) const;
+	FKey HumanHeldKey;   // sm-minigames: the lock dial key the human driver is holding down (EKeys::Invalid = none)
 	float HeatPoints = 0.f, HeatDecay = 25.f;   // punishment-lite stub: decays only while the player is hidden
 
 	// wave-B runtime: waves (spawn_wave) and stealth spotters, both stage-scoped

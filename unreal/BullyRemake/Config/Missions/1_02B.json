@@ -91,7 +91,7 @@
       "on_start": [
         { "type": "npc_despawn", "npc": "russell" },
         { "type": "say", "speaker": "GARY", "voice": "Gary_1-02_119", "text": "Now let's crack his locker and help ourselves. That'll show him.", "seconds": 4, "queue": true },
-        { "type": "minigame_launch", "id": "lockpick", "point": "1_02B_objLocker", "radius_cm": 250, "seconds": 4, "text": "Picking the lock..." }
+        { "type": "minigame_launch", "id": "lockpick", "kind": "lockpick", "point": "1_02B_objLocker", "radius_cm": 250 }
       ],
       "complete": { "type": "event", "name": "minigame:lockpick_ok", "latched": true },
       "on_complete": [

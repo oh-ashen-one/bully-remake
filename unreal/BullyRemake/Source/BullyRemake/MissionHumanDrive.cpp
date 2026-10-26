@@ -24,6 +24,7 @@
 // player could act on, logs `BR_MISSION_SMOKE human STUCK ...` with position/goal and the run FAILS. Real mission fails at
 // human pace are counted (fail -> the mission's own retry); more than 4 on one stage FAILS the run.
 #include "MissionSubsystem.h"
+#include "BullyMinigames.h"   // sm-minigames
 #include "BullyCampaignSubsystem.h"
 #include "BullyCharacter.h"
 #include "BullyCombatComponent.h"
@@ -863,6 +864,20 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 	bool bActed = false;      // something a player does this tick
 	bool bWaiting = false;    // a beat a player waits out (speech, timer, an npc walking, a fade)
 	FString Why;
+	// sm-minigames: let go of the lock dial key once the dial is no longer up (else he'd walk off holding D)
+	if (HumanHeldKey.IsValid())
+	{
+		const UBullyMinigameSubsystem* MG0 = UBullyMinigameSubsystem::Get(World);
+		if (!MG0 || MG0->GetKind() != UBullyMinigameSubsystem::EKind::Lock)
+		{
+			if (APlayerController* PC0 = World->GetFirstPlayerController())
+			{
+				const FInputDeviceId Dev0 = IPlatformInputDeviceMapper::Get().GetPrimaryInputDeviceForUser(PC0->GetPlatformUserId());
+				PC0->InputKey(FInputKeyEventArgs(nullptr, Dev0, HumanHeldKey, IE_Released, 0.f, false, FPlatformTime::Cycles64()));
+			}
+			HumanHeldKey = EKeys::Invalid;
+		}
+	}
 
 	// 0) an original cutscene (sm-cutscenes) is playing: watch it like a player (input is ignored meanwhile). Its clock
 	//    running is progress -- the Chapter 1 ones run 40-97 s, past the idle/stuck limits. Enter skips it with
@@ -902,6 +917,64 @@ void UMissionSubsystem::TickSmokeHuman(float Dt)
 				UE_LOG(LogBullyHuman, Warning, TEXT("BR_MISSION_SMOKE human lesson move %s is not what the attack button starts (%s)"), *Lesson.Move.ToString(), *P->GetCombat()->LightChainStart.ToString());
 			}
 			HumanInject(TEXT("attack"), FInputActionValue(true));
+		}
+	}
+	// 3a) sm-minigames: an original minigame on screen -- play it with its keys, reading the prompts like a player: the class's
+	//     action key while its icon sits in the ring (the first run botched once on purpose, so the retry runs for real), the
+	//     lock's dial key held the way the arrow points until each click
+	else if (UBullyMinigameSubsystem* MG = UBullyMinigameSubsystem::Get(World); MG && MG->IsRunning())
+	{
+		bActed = true; Why = TEXT("minigame (original)");
+		Human.ProgressAt = Smoke.Elapsed;
+		Human.IdleSince = -1.0;
+		APlayerController* PC = World->GetFirstPlayerController();
+		const FInputDeviceId Dev = PC ? IPlatformInputDeviceMapper::Get().GetPrimaryInputDeviceForUser(PC->GetPlatformUserId()) : FInputDeviceId();
+		auto Hold = [&](const FKey& K)
+		{
+			if (!PC || K == HumanHeldKey) { return; }
+			if (HumanHeldKey.IsValid()) { PC->InputKey(FInputKeyEventArgs(nullptr, Dev, HumanHeldKey, IE_Released, 0.f, false, FPlatformTime::Cycles64())); }
+			HumanHeldKey = K;
+			if (K.IsValid())
+			{
+				PC->InputKey(FInputKeyEventArgs(nullptr, Dev, K, IE_Pressed, 1.f, false, FPlatformTime::Cycles64()));
+				UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human holds %s (lock dial)"), *K.ToString());
+			}
+		};
+		if (MG->GetKind() == UBullyMinigameSubsystem::EKind::Chem)
+		{
+			const bool bBotch = MG->GetChemRun() == 0 && MG->GetChem().Next == 2;
+			const FKey K = MG->HumanChemKey(bBotch);
+			if (K.IsValid() && Smoke.Elapsed - Human.LastKeyAt > 0.25)
+			{
+				if (bBotch) { UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human botches class prompt 3 of run 1 on purpose (retry rule)")); }
+				HumanPressKey(K);
+			}
+		}
+		else
+		{
+			FKey K;
+			MG->HumanLockDir(K);
+			Hold(K);
+		}
+	}
+	// 3b) sm-minigames: a climb the stage needs (1_04's tree): walk to the trunk, press E at the prompt; wait while climbing
+	else if (FName ClimbId; MG && (MG->IsClimbing() || ([&]{ bool bUp = true; return StageClimbGoal(St, ClimbId, bUp) && MG->IsClimbArmed(ClimbId) && MG->IsPerched(ClimbId) != bUp; }())))
+	{
+		bActed = true; Why = TEXT("climb");
+		if (MG->IsClimbing()) { Human.ProgressAt = Smoke.Elapsed; Human.IdleSince = -1.0; }
+		else if (const UBullyMinigameSubsystem::FClimbSpot* Spot = MG->FindClimb(ClimbId))
+		{
+			Human.GoalWhy = FString::Printf(TEXT("climb %s"), *ClimbId.ToString());
+			if (MG->IsPerched(ClimbId) || !MG->ClimbPrompt().IsEmpty())
+			{
+				Human.ProgressAt = Smoke.Elapsed;
+				if (Smoke.Elapsed - Human.LastKeyAt > 1.2)
+				{
+					UE_LOG(LogBullyHuman, Display, TEXT("BR_MISSION_SMOKE human sees climb prompt '%s'"), *MG->ClimbPrompt());
+					HumanPressKey(EKeys::E);
+				}
+			}
+			else { HumanSteer(Spot->Base, Spot->Radius * 0.4f, true, false); }
 		}
 	}
 	// 3) a minigame station: walk into range, press E once, then hold still until the bar fills

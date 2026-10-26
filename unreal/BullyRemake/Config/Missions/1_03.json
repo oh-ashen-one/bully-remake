@@ -1,6 +1,7 @@
 {
   "_format": "bully-remake.mission/1",
   "_note": "1_03 'The Setup' — chase Davis across the school grounds to the auto-shop yard, fight his backup, knock him off the barrel stack and take his slingshot (recon: docs/re-notes/ch1/1_03-the-setup.md). Chase legs follow the original's own Trigger.img flee paths (SCHOOLFLEE -> FleeToFountain -> brag; FleeFromFountain -> FleeToGarage -> garage; FleeGarage -> barrels), so the route is nav-tested. v1 simplifications (see the recon's gap table): the baked 1-03 cutscene is a title card + speech beat; the player's scripted intro run is free control; gate/garage-door choreography and the barrel-ladder prop break are skipped (props not driven yet); the boss comes down and fights (his scripted per-hit health override is real: hits_to_beat 3); the slingshot pick-up pair-anim is a stub. Pass grants (slingshot 303, bullies respect -> 20) live in the campaign table's on_pass for 1_03. Wording is original. sm-voice: lines name their original recordings (`voice`, by content and order -- 1_03.lua ids 3/5/11/12/14 match their files; 21 = Davis_1-03_006 and 41 = Davis_1-03_010 per the script's own debug prints; 22 = 008, 32 = 007 by content; 23/33/42 have no recording in the import); `text` is our paraphrase fallback. Davis now bolts at the brag break (DavisBreakForGarage), not after the fight. Meshes are imported stand-ins; ped_model_id records the original model ids. Human-pace fix (sm-humandrive): the school chase now runs the player-walkable 1_03h_flee route (see _points_note) instead of SCHOOLFLEE/FleeToFountain, which went through a parapet drop and a wall the player cannot pass.",
+  "_minigames_note": "sm-minigames: the outro's PlayerPickupSlingshot beat plays the original clip WEAPON\\PICKUP_SLINGSHOT (anim group '1_03The Setup', 4.3 s) on Jimmy via player_anim; skipped when the clip is not imported.",
   "id": "1_03",
   "title": "The Setup",
   "retry": "stage",
@@ -139,6 +140,7 @@
       ],
       "complete": { "type": "event", "name": "speech:outro", "latched": true },
       "on_complete": [
+        { "type": "player_anim", "clips": "PICKUP_SLINGSHOT", "hold": true },
         { "type": "camera", "release": true, "blend": 0.6 },
         { "type": "letterbox", "on": false },
         { "type": "hint", "text": "Slingshot: mouse wheel to equip, left click to fire.", "seconds": 5 },

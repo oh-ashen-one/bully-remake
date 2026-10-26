@@ -1,0 +1,79 @@
+{
+  "_format": "bully-remake.mission/1",
+  "_note": "sm-minigames: C_Chem_1, the first Chemistry class (scripts/secnd/ClassChem.lua with F_SetStage(1); force-started by AreaScripts/SchoolHallways.lua once 1_02C has passed and C_Chem_1 has never been attempted -- here 1_02C chains straight into it). Beats: the class intro (Dr. Watts at _C4_TEACH, two students at _C4_STUDENTS, Jimmy walks in from _C4_P_DOOR, fade, Jimmy at the lab table _C4_P_TABLE under the _C4_CAMPATH06 camera looking at the flask), the minigame (Config/Minigames/ClassChem.json class 1: three runs, 'Get Ready' / 'Try Again' / 'Last Chance'; the third failure blows up), the grade screen and, on a pass, F_EndPresentation: back in the hallway at _C4_EXIT, PlayerSetWeapon(301, 3) = three firecrackers, the class-1 unlock (firecrackers from the dorm chem set), PlayerSetGrade(1, 1). A failed class is MissionFail(true, false): no retry now -- the class stays on offer (the campaign star outside the lab in class hours) and the story moves on. All points are inline (the C4.DAT / ClassLoc.DAT Trigger.img extract, UE cm). Teacher lines are our own wording (the CHEM speech events are not mapped to files yet).",
+  "id": "C_Chem_1",
+  "title": "Chemistry",
+  "retry": "none",
+  "start": { "location_cm": [-59920.1, -32690.3, 3422.3], "yaw": 83 },
+  "points": {
+    "c4_door": { "location_cm": [-59920.1, -32690.3, 3422.3] },
+    "c4_table": { "location_cm": [-59622.8, -32427.1, 3422.4] },
+    "c4_teach": { "location_cm": [-59589.0, -32714.6, 3422.3] },
+    "c4_student1": { "location_cm": [-59509.9, -32452.9, 3422.3] },
+    "c4_student2": { "location_cm": [-59909.3, -32417.0, 3422.3] },
+    "c4_exit": { "location_cm": [-60607.9, 29612.5, 3.5] }
+  },
+  "stages": [
+    {
+      "id": "intro",
+      "objective": "Chemistry class is starting.",
+      "blip": false,
+      "on_start": [
+        { "type": "fade", "out": 0.0, "hold": 0.3, "in": 1.0 },
+        { "type": "spawn_npc", "npc": "watts", "point": "c4_teach", "yaw": 91, "mesh": "TE_Chemistry", "ped_model_id": 106, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "student1", "point": "c4_student1", "yaw": 88, "mesh": "NDGirl_Beatrice", "ped_model_id": 3, "invulnerable": true, "untargetable": true },
+        { "type": "spawn_npc", "npc": "student2", "point": "c4_student2", "yaw": 88, "mesh": "GN_Littleblkboy", "ped_model_id": 66, "invulnerable": true, "untargetable": true },
+        { "type": "letterbox", "on": true },
+        { "type": "camera", "frame": ["watts", "player"], "fov": 50, "blend": 0.8 },
+        { "type": "speech_sequence", "id": "chem_intro", "lines": [
+          { "speaker": "DR. WATTS", "text": "Take your places at the benches, please. Today we work with reactive compounds.", "seconds": 3.5 },
+          { "speaker": "DR. WATTS", "text": "Follow my instructions exactly. Exactly, Mr. Hopkins.", "seconds": 3 }
+        ] }
+      ],
+      "complete": { "type": "event", "name": "speech:chem_intro", "latched": true },
+      "on_complete": [
+        { "type": "fade", "out": 0.5, "hold": 0.3, "in": 0.8, "point": "c4_table", "yaw": 90 },
+        { "type": "camera", "release": true, "blend": 0 },
+        { "type": "letterbox", "on": false },
+        { "type": "camera", "location_cm": [-59612.9, -32229.1, 3594.1], "look_cm": [-59618.5, -32385.7, 3554.2], "fov": 70, "blend": 0 }
+      ]
+    },
+    {
+      "id": "class",
+      "objective": "Follow the experiment: press each action as it reaches the ring.",
+      "blip": false,
+      "on_start": [
+        { "type": "minigame_launch", "id": "chem", "kind": "chem", "config": "1", "auto": true, "point": "c4_table", "radius_cm": 400 }
+      ],
+      "complete": { "type": "any", "conditions": [
+        { "type": "event", "name": "minigame:chem_ok", "latched": true },
+        { "type": "event", "name": "minigame:chem_fail", "latched": true }
+      ] },
+      "on_complete": [
+        { "type": "camera", "release": true, "blend": 0 },
+        { "type": "fade", "out": 0.6, "hold": 0.4, "in": 0.9, "point": "c4_exit", "yaw": 89 }
+      ]
+    },
+    {
+      "id": "failed",
+      "objective": "Class is over.",
+      "blip": false,
+      "skip_if": { "type": "event", "name": "minigame:chem_ok", "latched": true },
+      "complete": { "type": "flag", "name": "never" },
+      "fail": { "type": "timer", "seconds": 2.0 },
+      "fail_text": "You failed Chemistry. The class runs again another day."
+    },
+    {
+      "id": "passed",
+      "objective": "Class dismissed.",
+      "blip": false,
+      "on_start": [
+        { "type": "give_weapon", "weapon": "firecracker" },
+        { "type": "give_ammo", "weapon": "firecracker", "n": 3 },
+        { "type": "set_flag", "name": "grade_chemistry_1" },
+        { "type": "log", "text": "C_Chem_1 pass: PlayerSetGrade(1, 1); chem set recipe unlocked (firecrackers) -- campaign on_pass flags it" }
+      ],
+      "complete": { "type": "timer", "seconds": 1.0 }
+    }
+  ]
+}

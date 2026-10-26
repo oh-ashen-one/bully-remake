@@ -1,6 +1,7 @@
 {
   "_format": "bully-remake.mission/1",
   "_note": "1_04 'Slingshot' — Gary hands over the slingshot, the player shoots out the bus windows in the parking lot, then snipes the jock workout squad from the tree while coach Burton patrols (recon: docs/re-notes/ch1/1_04-slingshot.md). v1 simplifications (see the recon's gap table): the baked 1-04 cutscene is a title card + speech beat; the bus windows are stationary one-hit target dummies near the lot (the real window breakables aren't world props we can drive yet — their coords aren't in the trigger extract either); there is no tree-climb, so the perch trigger sits at the tree base; hit attribution: the jocks have the original's 22 hp and one weapon hit tags a jock (hits_to_beat 1 + hits_ranged_only), while punching one down takes a real beating, as in the original where only slingshot/tree hits count per hit; getting down from the tree is a zone_timer exit countdown. The spotter is real: cone + range + line of sight. Pass grants (nerds respect -> 55) live in the campaign table's on_pass for 1_04. Wording is original. Meshes are imported stand-ins; ped_model_id records the original model ids. sm-voice: every line names its original recording (`voice`, picked by content and order from imported/speech -- the script event ids are not file numbers: 48/6/8/10/47/51 match their files, Gary 32 = Gary_1-04_030, Burton 34/38/39 = Burton_1-04_032/039/040); `text` is our own paraphrase, shown only when the speech import is absent. Beats follow 1_04.lua: lot pitch (48) -> range challenge (6) -> per-window good-shot / too-close barks (10/8) -> field (47) -> tree + bleachers (51, 32) -> Burton every 10 s (38) and on a hit (34) -> spotted (39) -> pass (34). The Gary_1-04_003..046 bottle / prefect / mom-cruise recordings belong to a cut design: 1_04.lua never plays them, so they are not staged here.",
+  "_minigames_note": "sm-minigames: the tree is climbed like the original (/Global/TreeClimb): the climb_spot at _1_04_TREE1 (the trunk foot, _1_04_TREE2_TRIG) takes Jimmy up the trunk to the perch on the branch (_1_04_TREE_SIT / _1_04_TREE1_TRIG, feet at game z 4.85 m) with the original Px_Tree clips; perched he can aim and shoot, E climbs down. tree_trig now sits on the perch (the original's TREE1_TRIG 'in tree' volume), so the 15 s zone_timer runs only after climbing down, and a stage retry puts him back on the branch.",
   "id": "1_04",
   "title": "Slingshot",
   "retry": "stage",
@@ -20,7 +21,7 @@
     "jock6": { "location_cm": [-1510.0, 8410.0, 119.0] }
   },
   "triggers": [
-    { "id": "tree_trig", "point": "1_04_tree1", "half_extent_cm": [250, 250, 300] }
+    { "id": "tree_trig", "center_cm": [-690.0, 10526.0, 600.0], "half_extent_cm": [220, 220, 170] }
   ],
   "stages": [
     {
@@ -106,14 +107,15 @@
     {
       "id": "perch",
       "objective": "Get to the tree overlooking the field.",
-      "blip": "tree_trig",
+      "blip": [-675.4, 10746.4, 104.5],
       "on_start": [
         { "type": "speech_sequence", "id": "tree", "lines": [
           { "speaker": "GARY", "voice": "Gary_1-04_51", "text": "Get up in that tree. You can mess with them from there.", "seconds": 3 },
           { "speaker": "GARY", "voice": "Gary_1-04_030", "text": "I'll be on the bleachers, enjoying the show.", "seconds": 3 }
-        ] }
+        ] },
+        { "type": "climb_spot", "id": "tree", "base_cm": [-675.4, 10746.4, 104.5], "trunk_cm": [-690.0, 10700.0, 470.0], "top_cm": [-690.0, 10526.0, 485.0], "yaw": -126, "radius_cm": 170, "prompt": "Climb the tree", "down_prompt": "Climb down", "clear_meshes": ["pxTree6M", "TreeClimbBranch"] }
       ],
-      "complete": { "type": "trigger_enter", "trigger": "tree_trig" }
+      "complete": { "type": "event", "name": "climb:tree_top", "latched": true }
     },
     {
       "id": "snipe",

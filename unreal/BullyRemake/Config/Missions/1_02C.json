@@ -1,6 +1,6 @@
 {
   "_format": "bully-remake.mission/1",
-  "_note": "1_02C — the first-class connector (recon: docs/re-notes/ch1/1_02C-first-class.md). Clock to 9:00 and paused for the first-attempt tutorial cards (retries skip them via the attempt condition, like the original's GetMissionAttemptCount gate), bell banner + event, then a 57 s visible countdown to reach the Chemistry door and interact; expiry fails the stage (retry replays it). Pass: clock unpaused, world loot-tables flag (the loot system itself is pending), and the original's chain into the C_Chem_1 class is logged as out of scope (class system pending). No bell audio: Config/Sfx.json has no bell cue yet. Points: imported/triggers/1_02C.json (Trigger.img extract).",
+  "_note": "1_02C — the first-class connector (recon: docs/re-notes/ch1/1_02C-first-class.md). Clock to 9:00 and paused for the first-attempt tutorial cards (retries skip them via the attempt condition, like the original's GetMissionAttemptCount gate), bell banner + event, then a 57 s visible countdown to reach the Chemistry door and interact; expiry fails the stage (retry replays it). Pass: clock unpaused, world loot-tables flag (the loot system itself is pending), and the chain into the first Chemistry class C_Chem_1 (sm-minigames: the original force-starts it from SchoolHallways.lua once 1_02C has passed). No bell audio: Config/Sfx.json has no bell cue yet. Points: imported/triggers/1_02C.json (Trigger.img extract).",
   "id": "1_02C",
   "title": "First Class",
   "retry": "stage",
@@ -50,7 +50,7 @@
         { "type": "clock", "unpause": true },
         { "type": "event", "name": "world_loot_enabled" },
         { "type": "log", "text": "world loot tables on (crates/mailboxes); loot system pending" },
-        { "type": "log", "text": "C_Chem_1 class launch out of scope (class system pending)" }
+        { "type": "start_mission", "mission": "C_Chem_1", "seconds": 0.8 }
       ]
     }
   ]

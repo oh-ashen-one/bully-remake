@@ -29,6 +29,7 @@
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
 #include "UnrealClient.h"
+#include "HighResScreenshot.h"
 #include "Rendering/DrawElements.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
@@ -589,6 +590,24 @@ bool UBullyMinigameSubsystem::Begin(const FStart& S)
 		Phase = EPhase::Play;
 		UE_LOG(LogBullyMinigame, Display, TEXT("BR_MINIGAME lock '%s' begins: combo %d-%d-%d dial at %.0f"), *S.Id.ToString(), Lock.Combo[0], Lock.Combo[1], Lock.Combo[2], Lock.Dial);
 		LockInput(true, true);
+		// face the locker: the nearest wall around him at chest height (the lock spot is a point, not a facing)
+		if (ABullyCharacter* P = Player())
+		{
+			const FVector Chest = P->GetActorLocation() + FVector(0, 0, 40.f);
+			FCollisionQueryParams Q(SCENE_QUERY_STAT(BullyLockFace), false, P);
+			float BestD = 200.f, BestYaw = P->GetActorRotation().Yaw;
+			for (int32 i = 0; i < 24; ++i)
+			{
+				const float Yaw = i * 15.f;
+				FHitResult H;
+				if (GetWorld()->LineTraceSingleByChannel(H, Chest, Chest + FRotator(0.f, Yaw, 0.f).Vector() * 200.f, ECC_Visibility, Q) && H.Distance < BestD)
+				{
+					BestD = H.Distance; BestYaw = Yaw;
+				}
+			}
+			P->SetActorRotation(FRotator(0.f, BestYaw, 0.f));
+			if (AController* Ctl = P->GetController()) { Ctl->SetControlRotation(FRotator(-10.f, BestYaw, 0.f)); }
+		}
 		SetPlayerClip(TEXT("IDLE2PICK"), 0.6f);
 	}
 	else { return false; }
@@ -1240,6 +1259,7 @@ void UBullyMinigameSubsystem::TickUiShots()
 	if (Name.IsEmpty() || UiShotsTaken.Contains(Name)) { return; }
 	UiShotsTaken.Add(Name);
 	const FString File = FPaths::Combine(Dir, Name + TEXT(".png"));
+	GetHighResScreenshotConfig().SetFilename(File);   // a shots pass leaves its last still's name there, which wins
 	FScreenshotRequest::RequestScreenshot(File, true, false);
 	UE_LOG(LogBullyMinigame, Display, TEXT("BR_MINIGAME ui screenshot -> %s"), *File);
 }

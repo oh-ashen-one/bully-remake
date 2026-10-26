@@ -6,40 +6,59 @@ Status: **built + headless-verified + rendered stills reviewed; owner feel-playt
 
 ---
 
-## story-mode push (2026-10-24–25, integration branch `story-mode`) — paused, Claude weekly limit
+## story-mode: first ~20 minutes of Chapter 1 (Devin, 2026-10-25) — integrated, owner playtest next
 
-Goal from Hari: launch the remake and play story mode for the first ~20 minutes of Chapter 1 (arrival → day_one →
-1_02B → 1_02C → 1_03 → 1_04). Chapters 1–2 should be genuinely playable, and the rest of Kimi K3's work goes in as-is.
-Shared agent brief (goal, ownership, build/test recipes, GPU safety, public-repo content rule): `docs/story-mode-brief.md`.
+Goal (Hari): play the first ~20 minutes of Chapter 1 exactly like the original, i.e. arrival → day_one → 1_02B → 1_02C
+→ Chemistry class (C_Chem_1) → 1_03 → 1_04. Kimi K3's other campaign work rides along unchanged. Agent brief:
+`docs/story-mode-brief.md` (plus `~/bully-remake-evidence/story-mode/devin-brief-2026-10-25.md`, local).
 
-| Branch (worktree `~/bully-remake-wt/<branch>`) | State |
+**Play it:** double-click `Play Bully Story Mode.command` in `~/bully-remake-wt/story-mode` (or `tools/play_story.sh`).
+It builds if needed and opens the game windowed on the title screen (New Story / Continue). Campus life is on in story play.
+The main checkout `~/bully-remake` is still on `kimi-backend`; play from the story-mode worktree.
+
+**Merged into `story-mode`** (each branch is pushed; details in its section below):
+| Branch | What it adds |
 | --- | --- |
-| `story-mode` | Integration branch off `kimi-backend` 44b8930. `sm-playloop` merged, plus coordinator fixes (town life on in `tools/play_story.sh`; fists-only start, weapons through campaign grants). Story smoke re-PASSed after those fixes (per the Claude session). |
-| `sm-playloop` | DONE + merged: `-BRStory` title screen, USaveGame autosave/continue, Save & Quit, free-roam guidance, launcher. Headless only, no attended playtest. |
-| `sm-humandrive` | **r2 done (Devin, 2026-10-25), not merged.** Real-input playthrough driver (move/look/punch/aim/fire/interact only, no teleports) PASSes arrival → 1_04; see "sm-humandrive r2" below. |
-| `sm-visual` | **WIP, unverified, may not compile.** Black-frame fixes, Ch1 interior lighting, scripted-camera solver (`MissionSubsystemVisual.cpp`, `BullySceneFixups.*`, `tools/ue/shot_metrics.py`). Its upstream used to point at `origin/kimi-backend`; it now tracks `origin/sm-visual`. |
+| `sm-playloop` | title screen, autosave/continue, Save & Quit, free-roam guidance, launcher |
+| `sm-cutscenes` | the original Ch1 cutscenes from the owner's install (camera, actors, voice, subtitles), fallback beats in a clean clone |
+| `sm-humandrive` | human-input playthrough bot (`run_mission_smoke.sh <id> --human`); 1_04 floodlight-collision fix |
+| `sm-visual` | 0/64 near-black stills, Ch1 interior lighting, speech-camera framing solver |
+| `sm-models` | original cast models (`Config/PedModels.json`), stand-in fallback, ped importer fixes |
+| `sm-voice` | original recorded voice lines + subtitles (`tools.importers speech`), mission beats re-ordered to the original scripts, in-gameplay barks (stage `reactions`) |
+| `sm-campus` | bells/schedule, truancy, prefects + trouble meter + busts, factions, ambient chatter (2,460 lines), 28 original-model walkers |
+| `sm-minigames` | Chemistry class C_Chem_1 (chained from 1_02C), lockpick dial, slingshot pickup clip, 1_04 tree climb |
+| coordinator | 31-bit text-table keys (all cutscene subtitles resolve by hash), auto-shop garage lighting (`"exterior": true` lights) |
 
-| `sm-humandrive` | **WIP, unverified.** Real-input playthrough driver (move/punch/press only) for Ch1–2. Agent stopped while adding a path-probe flag. Tip commit `WIP sm-humandrive` saved by Devin. |
-| `sm-visual` | **Round 2 (Devin, 2026-10-25): built, `origin/story-mode` merged in, rendered; final-binary smokes arrival/day_one/1_02B PASS, 1_02C/1_03/1_04/campaign/story pending (a system dialog on the Studio blocked launches at 16:50).** Black-frame fixes (`BullySceneFixups`: race-track scenes hidden, indoor characters on lighting channel 1), Ch1 interior lighting (`tools/ue/lighting_variants.json`; **re-run `tools/ue/run_lighting.sh` in any checkout after merging** — the rig lives in the git-ignored map), runtime speech-camera framing (`MissionSubsystemVisual.cpp`: camera `frame` + `at_cm` original NIS spot, fade `place`). |
-| `sm-cutscenes` | **WIP, unverified.** Original cutscene audio/subtitles imported at build time; opening cutscene playback in progress (was rendering 1-1-1 frames). |
-| `sm-models` (Devin, 2026-10-25) | Original Ch1 cast instead of stand-ins: Gary, Russell, Algie, Eunice, Karl, Edward, Peter, Coach Burton, Mrs. McRae (arrival greeter + day_one office), the 1_04 football jocks, the 1_03 wave bullies, a day_one crowd student. Table `Config/PedModels.json` / `docs/re-notes/ch1/cast-models.md`; import `tools/ue/run_import_npc.sh --cast` (one engine run); missing SK_ falls back to the old stand-in. Also fixes `ped.py` skin placement (Edward/Karl sank 1 m, Russell 8 m off) and ped bone-translation retargeting. Headless-verified: the six mission smokes, campaign 5/5, story 5/5 + 3/3, and 1_04 with two models hidden (stand-ins load). No rendered check yet (two renderers were busy). Gotcha: the smoke wrappers' `--seconds-limit` includes GPU-slot queue time, so pass `--seconds-limit 2400` when the slot is contended. |
+**Rebuilding the git-ignored content in a fresh checkout** (needs `BULLY_INSTALL`): `run_import.sh` (world), then
+`python3 -m tools.importers cutscene build --chapter1`, `cutscene actors --chapter1` + `tools/ue/run_import_cutscene_actors.sh`,
+`speech --transcribe` + `speech --extra-only --transcribe` (local faster-whisper), `campus`, `minigame`,
+`tools/ue/run_import_npc.sh --cast` (plus the campus/class peds), then `tools/ue/run_lighting.sh`.
+The story-mode worktree already has all of it.
 
-sm-visual round 2 detail. Stills: `tools/ue/run_mission_shots.sh <id>` then `tools/ue/shot_metrics.py <dir>` (mean luma < 20 =
-DARK; `shots_meta.jsonl` sidecar lists who is on screen). Ch1 opening (arrival, day_one, 1_02B, 1_02C, 1_03, 1_04): **16/64
-dark before → 0/64 after**. Interiors (luma, before → after): main halls ~60 → 75-95, principal's office 31 → 58, dorm hall
-47 → 65-69; fixed probes `tools/ue/shots_ch1_interiors.json` (via `tools/ue/run_shots.sh`) also cover the chemistry room
-and Constantine's bathroom. Frame cameras never sit in/against a character (capsule clearance, body occlusion, foreground
-wall share), prefer the speaker's face, fall back to a single on the speaker, then to no cut; a frame camera issued during
-a teleporting fade solves after the cast lands. Known gaps: `TO_Cop` is imported ~1.5 m under its root (bounds centre
-z -49 cm vs ~+100 for other peds) so every TO_Cop npc renders buried — 1_04's Burton now uses `TO_Construct01`; 1_11x2,
-2_S02 and 3_06 still use TO_Cop (fix the importer). Floating chrome/wire props in the school halls and bathroom are
-importer artifacts, not lighting. Evidence: `~/bully-remake-evidence/story-mode/sm-visual/r2/`.
+**Final regression (2026-10-26 00:15–01:30, story-mode with every branch merged, headless `-nullrhi`,
+evidence `~/bully-remake-evidence/story-mode/integration/r4/summary.txt`):**
+- Mission smokes PASS: arrival 7/7, day_one 33/33, 1_02B 15/15, 1_02C 3/3, C_Chem_1 4/4, 1_03 7/7, 1_04 8/8.
+- Human-input bot PASS: the same seven, with 0 fails (1_03: 1 fail then pass). Original voice lines fired: day_one 6,
+  1_02B 15, 1_03 9, 1_04 8.
+- Campaign PASS 5/5; story smoke PASS (new + continue); campus smoke PASS 14/14.
+- Rendered stills (`integration/r3_shots*`): 1_02B 0/15 dark, 1_03 0/7 dark (garage fixed), 1_04 0/8 dark; original
+  cast textured. No human has played it yet.
+- Gotcha hit again: an incremental build left `Binaries/Mac/UnrealEditor.modules` pointing at the previous dylib, so the
+  first r4 run used a stale binary ("unknown action type player_anim"). Fix: delete `libUnrealEditor-BullyRemake*.dylib`
+  and `UnrealEditor.modules`, rebuild, then check the new dylib for a UTF-16 literal (plain `strings` misses TEXT()).
 
-Not done: `sm-humandrive` and `sm-cutscenes` have not been built or smoke-tested since the agents stopped; `sm-visual`
-was finished in round 2 (above). None of them is merged into `story-mode`. `story-mode` is not merged to `main`. Hari has not done a feel playtest.
-Next: in each WIP worktree, build, run its smokes per the brief, finish or trim it, then merge into `story-mode`. Then run
-the regression bar (day_one, arrival, 1_02B, 1_03, campaign and story smokes) and get Hari's playtest before `main`.
-Evidence: `~/bully-remake-evidence/story-mode/` (not committed).
+**Known gaps vs the original** (from the branch reports):
+- `Bully.exe` (Steam) has its code encrypted by the Steam DRM wrapper, so engine-side rules were inferred from the
+  decompiled Lua and data, not read from the exe. That covers the dial and scroll timing, trouble-meter numbers and the
+  speech event→file map (`SpeechDB.bin`, hash OPEN). Stripping DRM is the owner's call and was not done.
+- Lines with no recording in the import stay text-only: the secretary's 1_02 lines, some bully taunts, Karl, Edward, Watts.
+- 1_04's bottle/prefect/"your mom" recordings exist but 1_04.lua never plays them (cut content), so they aren't staged.
+- Constantine's humiliate/beat-up routes are not built. Walkers move in straight lines (no navmesh). There are no teachers,
+  tattlers or cops on campus, and no detention chores. The chem set itself is not built.
+- Imported `TO_Cop` sits 1.5 m underground (not used in Ch1 now). Floating chrome props in halls are importer artifacts.
+- Gamepad untested on real hardware.
+
+Evidence (local, not committed): `~/bully-remake-evidence/story-mode/` (`integration/r3*`, `integration/r4`, per-branch dirs).
 
 ### sm-voice r3 (Devin, 2026-10-25)
 

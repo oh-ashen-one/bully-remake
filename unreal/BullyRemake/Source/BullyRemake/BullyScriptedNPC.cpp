@@ -599,9 +599,11 @@ namespace
 		if (Configured.Contains(Sk)) { return; }
 		Configured.Add(Sk);
 		const int32 NumBones = Sk->GetReferenceSkeleton().GetNum();
+		const int32 Pelvis = Sk->GetReferenceSkeleton().FindBoneIndex(TEXT("Root"));   // same rule as BullyCharacter's ApplyPedRetargeting
 		for (int32 i = 0; i < NumBones; ++i)
 		{
-			Sk->SetBoneTranslationRetargetingMode(i, i == 0 ? EBoneTranslationRetargetingMode::Animation : EBoneTranslationRetargetingMode::Skeleton);
+			Sk->SetBoneTranslationRetargetingMode(i, i == 0 ? EBoneTranslationRetargetingMode::Animation
+				: i == Pelvis ? EBoneTranslationRetargetingMode::AnimationRelative : EBoneTranslationRetargetingMode::Skeleton);
 		}
 		UE_LOG(LogSNPC, Display, TEXT("BR_SNPC retargeting set on skeleton %s (%d bones: root=Animation, rest=Skeleton) so shared clips stop stretching limbs"), *Sk->GetName(), NumBones);
 	}

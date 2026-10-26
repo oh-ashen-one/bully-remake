@@ -19,6 +19,7 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Engine/LocalPlayer.h"
+#include "Animation/Skeleton.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/CharacterMovementComponent.h"
@@ -132,10 +133,81 @@ void ABullyCharacter::PostInitializeComponents()
 	LoadJimmy();
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// sm-models: story-cast stand-ins. Config/PedModels.json maps each original ped model (Nemesis_Gary, ...) to the
+// generic ped used before it was imported; when /Game/Imported/Characters/<Model>/SK_<Model> is absent (clean clone,
+// import not run) the body falls back to the stand-in instead of the grey placeholder.
+namespace
+{
+	const TMap<FString, FString>& PedStandIns()
+	{
+		static TMap<FString, FString> Map;
+		static bool bLoaded = false;
+		if (bLoaded) { return Map; }
+		bLoaded = true;
+		FString Text;
+		TSharedPtr<FJsonObject> Root;
+		if (!FFileHelper::LoadFileToString(Text, *(FPaths::ProjectConfigDir() / TEXT("PedModels.json")))) { return Map; }
+		if (!FJsonSerializer::Deserialize(TJsonReaderFactory<>::Create(Text), Root) || !Root.IsValid()) { return Map; }
+		const TArray<TSharedPtr<FJsonValue>>* Peds = nullptr;
+		if (!Root->TryGetArrayField(TEXT("peds"), Peds)) { return Map; }
+		for (const TSharedPtr<FJsonValue>& V : *Peds)
+		{
+			const TSharedPtr<FJsonObject> O = V.IsValid() ? V->AsObject() : nullptr;
+			FString Model, StandIn;
+			if (O && O->TryGetStringField(TEXT("model"), Model) && O->TryGetStringField(TEXT("stand_in"), StandIn) && !StandIn.IsEmpty())
+			{
+				Map.Add(Model, StandIn);
+			}
+		}
+		return Map;
+	}
+
+	// Every ped plays Jimmy's C_Player clips. Their absolute bone translations sink or stretch a ped whose proportions
+	// differ (tall prefects/Russell 10-16 cm into the ground, the secretary ~30 cm), so non-Jimmy ped skeletons take
+	// bone lengths from their own reference pose: Dummy (0) = Animation (placement), the pelvis carrier "Root" =
+	// AnimationRelative (bob/knock-down offsets kept, re-based on this ped's own hip height), the rest = Skeleton.
+	// Same rule as BullyScriptedNPC's EnsureGestureRetargeting; runtime-only, one time per skeleton.
+	void ApplyPedRetargeting(USkeletalMesh* SK)
+	{
+		USkeleton* Sk = SK ? SK->GetSkeleton() : nullptr;
+		if (!Sk) { return; }
+		static TSet<TWeakObjectPtr<USkeleton>> Done;
+		if (Done.Contains(Sk)) { return; }
+		Done.Add(Sk);
+		const FReferenceSkeleton& Ref = Sk->GetReferenceSkeleton();
+		const int32 Pelvis = Ref.FindBoneIndex(TEXT("Root"));
+		for (int32 i = 0; i < Ref.GetNum(); ++i)
+		{
+			Sk->SetBoneTranslationRetargetingMode(i, i == 0 ? EBoneTranslationRetargetingMode::Animation
+				: i == Pelvis ? EBoneTranslationRetargetingMode::AnimationRelative : EBoneTranslationRetargetingMode::Skeleton);
+		}
+		UE_LOG(LogBullyChar, Display, TEXT("BR_CHAR ped retargeting on %s (%d bones: Dummy=Animation, Root=AnimationRelative, rest=Skeleton)"),
+			*Sk->GetName(), Ref.GetNum());
+	}
+}
+
 void ABullyCharacter::LoadJimmy()
 {
 	USkeletalMesh* SK = MeshPath.IsEmpty() ? nullptr : LoadObject<USkeletalMesh>(nullptr, *MeshPath, nullptr, LOAD_NoWarn | LOAD_Quiet);
+	FString Model;
+	if (!SK && MeshPath.Split(TEXT("/Game/Imported/Characters/"), nullptr, &Model))
+	{
+		Model.Split(TEXT("/"), &Model, nullptr);
+		if (const FString* StandIn = PedStandIns().Find(Model))
+		{
+			const FString Fallback = FString::Printf(TEXT("/Game/Imported/Characters/%s/SK_%s.SK_%s"), **StandIn, **StandIn, **StandIn);
+			SK = LoadObject<USkeletalMesh>(nullptr, *Fallback, nullptr, LOAD_NoWarn | LOAD_Quiet);
+			UE_LOG(LogBullyChar, Warning, TEXT("BR_CHAR ped %s not imported (run tools/ue/run_import_npc.sh --cast): stand-in %s %s"),
+				*Model, **StandIn, SK ? TEXT("loaded") : TEXT("MISSING too"));
+			if (SK) { MeshPath = Fallback; }   // clips (Anims/ next to the mesh) follow the body actually shown
+		}
+	}
 	bHasJimmyMesh = SK != nullptr;
+	if (SK && MeshPath.StartsWith(TEXT("/Game/Imported/Characters/")) && !MeshPath.StartsWith(TEXT("/Game/Imported/Characters/Jimmy/")))
+	{
+		ApplyPedRetargeting(SK);
+	}
 	if (SK)
 	{
 		GetMesh()->SetSkeletalMeshAsset(SK);

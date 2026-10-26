@@ -20,6 +20,8 @@ vertices the static exporter writes), so IBM_b = S_b * W^-1. All shapes are
 put under ONE glTF skin when their IBMs agree (they do on PLAYER.nif); a
 shape whose IBMs disagree gets its own skin. Joints not used by any skin
 get IBM = inverse of their file-pose model transform.
+A non-identity NiSkinData overall transform O cancels the shape's node
+transform (W_shape * O = I on every ped checked), so then W = O^-1.
 
 Entity space: like convert.py, the root and its direct children are
 identity (the game replaces the model node with the placement).
@@ -376,9 +378,16 @@ def export_ped(name: str, data, txd: str | None, store, out_dir: str, clips: lis
                     res.warnings.append(f"{sname}: head cut out ({nv0 - len(used)} of {nv0} vertices, {(len(tri) // 3) - len(kept)} triangles dropped)")
             ov = coords.Xform.from_av({"rotation": sd["overall"]["rotation"], "scale": sd["overall"]["scale"],
                                        "translation": sd["overall"]["translation"]})
-            if not ov.is_identity(1e-5):
-                res.warnings.append(f"{sname}: NiSkinData overall transform is not identity (applied as S_b * O)")
-            W = _shape_world(snif, b.index, entity_space)
+            if ov.is_identity(1e-5):
+                W = _shape_world(snif, b.index, entity_space)
+            else:
+                # O is the inverse of the skinned shape's node transform relative to the skeleton root (they cancel:
+                # world = W_shape * O * sum w M_b S_b v), so the skinned vertex is M_b * S_b * v. The entity rule
+                # zeroes depth-1 nodes, which on some peds (PFH2_Edward, PFlead_Karl: +1.03 m) is exactly that
+                # shape node, and the old S_b * O sank them; DOlead_Russell's shape node (-3.66, -7.83 m) is kept, so
+                # it was doubled. Placing the vertices at O^-1 v keeps IBM = S_b * O and fixes both.
+                res.warnings.append(f"{sname}: NiSkinData overall transform is not identity (vertices placed at O^-1)")
+                W = m4_inv_affine(m4_from_xform(ov))
             Winv = m4_inv_affine(W)
             nv = gd["num_vertices"]
             src = gd["vertices"]
@@ -387,7 +396,7 @@ def export_ped(name: str, data, txd: str | None, store, out_dir: str, clips: lis
             for k, bone_ref in enumerate(si["bones"]):
                 if bone_ref not in sjidx:
                     raise FormatError(f"{sname}: skin bone #{bone_ref} is outside the skeleton")
-                S = m4_mul(m4_from_xform(coords.Xform.from_av(sd["bones"][k]["transform"])), m4_from_xform(ov))
+                S = m4_from_xform(coords.Xform.from_av(sd["bones"][k]["transform"]))
                 shape_ibm[sjidx[bone_ref]] = (k, m4_mul(S, Winv), S)
             consistent = all(main_skin_ibm.get(ji) is None or _max_abs_diff(main_skin_ibm[ji], ibm) < 1e-4
                              for ji, (_k, ibm, _S) in shape_ibm.items())

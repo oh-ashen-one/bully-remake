@@ -11,7 +11,9 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.join(HERE, "..", "..", "unreal", "BullyRemake", "Config", "NPCScripts")
-LOCOMOTION = ["IDLE", "PLAYERWALK", "PLAYERRUN", "RUNFAST", "IDLEJUMP", "JOGJUMP_L", "JOGJUMP_R", "FALL", "FALL_LAND", "PLAY_LAND_HURT"]
+LOCOMOTION = ["IDLE", "PLAYERWALK", "PLAYERRUN", "RUNFAST", "IDLEJUMP", "JOGJUMP_L", "JOGJUMP_R", "FALL", "FALL_LAND", "PLAY_LAND_HURT",
+              # UBullyAnimInstance start/stop transitions (looked up on every ped; missing = a BR_ANIM clip-missing warning)
+              "PLAYERWALK_START", "PLAYERRUN_START", "PLAYERWALK_STOP", "RUNSTOP0"]
 
 
 def plan(directory=SCRIPTS):

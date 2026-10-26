@@ -114,6 +114,8 @@
 //                    health (N landed hits drop him, damage number irrelevant — the Davis boss model).
 //                    "hits_ranged_only": true -- only weapon hits use that count; melee does normal damage (1_04 jocks).
 //                    Object destruction (1_04's bus windows) is a v1 stand-in: stationary 1-hp dummies.
+//                 "meshes": ["GN_Bully03", "GN_Bully05"] (optional) gives each point its own ped (index-parallel to
+//                    "points"; a missing entry uses "mesh"), so a wave spawns the original per-member models.
 //               { "type": "spotter", "npc": "burton", "range_cm": 1500, "cone_deg": 60, "seconds": 2 }
 //                 -- stealth spotter on a spawned scripted npc: player in range + view cone + line of sight for
 //                    `seconds` (continuous) fires "spotted_by:<id>" (once per stage arming).
@@ -312,6 +314,7 @@ struct FMissionAction
 	// Gait: "walk" | "run" | "sprint" for the npc actions (run:true == "run").
 	FString Gait;
 	TArray<FString> PointNames;
+	TArray<FString> Meshes;      // spawn_wave "meshes": per-point ped folder (parallel to PointNames; missing = Mesh)
 	TArray<FString> Via;
 	float Health = 0.f;
 	bool bHostile = true;

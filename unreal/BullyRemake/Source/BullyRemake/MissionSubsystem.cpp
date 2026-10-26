@@ -471,6 +471,7 @@ namespace
 				A.Name = FName(*S);
 				if (!O->TryGetStringArrayField(TEXT("points"), A.PointNames) || A.PointNames.Num() == 0) { Err = TEXT("spawn_wave: needs \"points\""); return false; }
 				O->TryGetStringField(TEXT("mesh"), A.Mesh);
+				O->TryGetStringArrayField(TEXT("meshes"), A.Meshes);
 				double N2 = 0.0;
 				if (O->TryGetNumberField(TEXT("health"), N2)) { A.Health = float(N2); }
 				if (O->TryGetNumberField(TEXT("hits_to_beat"), N2)) { A.HitsToBeat = int32(N2); }
@@ -3061,7 +3062,9 @@ void UMissionSubsystem::SpawnWave(const FMissionAction& A)
 		SP.bDeferConstruction = true;
 		ABullyCombatPawn* E = World->SpawnActor<ABullyCombatPawn>(ABullyCombatPawn::StaticClass(), *P + FVector(0, 0, 20.f), FRotator::ZeroRotator, SP);
 		if (!E) { continue; }
-		if (!A.Mesh.IsEmpty()) { E->PedMeshPath = FString::Printf(TEXT("/Game/Imported/Characters/%s/SK_%s.SK_%s"), *A.Mesh, *A.Mesh, *A.Mesh); }
+		const int32 Slot = int32(&Pn - A.PointNames.GetData());
+		const FString& PedMesh = A.Meshes.IsValidIndex(Slot) && !A.Meshes[Slot].IsEmpty() ? A.Meshes[Slot] : A.Mesh;
+		if (!PedMesh.IsEmpty()) { E->PedMeshPath = FString::Printf(TEXT("/Game/Imported/Characters/%s/SK_%s.SK_%s"), *PedMesh, *PedMesh, *PedMesh); }
 		E->bStationary = !A.bHostile;
 		E->HitsToBeat = A.HitsToBeat;
 		E->bHitsRangedOnly = A.bHitsRangedOnly;

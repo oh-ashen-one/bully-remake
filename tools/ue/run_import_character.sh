@@ -5,6 +5,7 @@
 #   python3 -m tools.importers ped PLAYER --anims '*' --root-motion inplace     # first (writes imported/models/PLAYER.gltf)
 #   tools/ue/run_import_character.sh [--model PLAYER] [--name Jimmy] [--anims all|IDLE,PLAYERRUN,...] [--imported DIR]
 #   tools/ue/run_import_character.sh --imported imported/extra_anims --anims-only    # add ride/weapon clip groups
+#   tools/ue/run_import_character.sh --batch Nemesis_Gary,Peter,...   # several peds (each its own name) in ONE engine run
 #
 # Same envelope as run_import.sh: UnrealEditor-Cmd pythonscript commandlet, -nullrhi -unattended -nosplash, inside
 # the shared GPU slot (label bully-jimmy), no retries. Log + report in unreal/BullyRemake/Saved/BullyImport/.
@@ -22,9 +23,11 @@ while [ $# -gt 0 ]; do
     --anims) ANIMS="$2"; shift 2 ;;
     --imported) IMPORTED="$2"; shift 2 ;;
     --anims-only) export BR_CHAR_ANIMS_ONLY=1; shift ;;
+    --batch) export BR_CHAR_BATCH="$2"; MODEL="${2%%,*}"; NAME="batch"; shift 2 ;;
     *) br_die "unknown argument $1" ;;
   esac
 done
+for M in ${BR_CHAR_BATCH//,/ }; do [ -f "$IMPORTED/models/$M.gltf" ] || br_die "$IMPORTED/models/$M.gltf missing: run python3 -m tools.importers ped $M first"; done
 [ -f "$IMPORTED/models/$MODEL.gltf" ] || br_die "$IMPORTED/models/$MODEL.gltf missing: run python3 -m tools.importers ped $MODEL --anims '*' first"
 
 br_preflight

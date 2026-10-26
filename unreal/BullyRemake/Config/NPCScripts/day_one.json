@@ -392,8 +392,9 @@
     },
     {
      "id": "crowd_6",
-     "ped": "GN_Asiangirl",
-     "footsteps": "female",
+     "ped": "GN_Hispanicboy",
+     "_ped_note": "ped id 69: 1_02 loads 102, 99, 85, 145, 146, 73, 139, 69, 75, 74 (no GN_Asiangirl); a missing SK_GN_Hispanicboy falls back to GN_Boy02 (Config/PedModels.json)",
+     "footsteps": "shoe",
      "spawn": {
       "point": "crowd_start",
       "index": 3

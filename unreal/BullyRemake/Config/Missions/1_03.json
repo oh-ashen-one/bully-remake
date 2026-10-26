@@ -1,11 +1,32 @@
 {
   "_format": "bully-remake.mission/1",
-  "_note": "1_03 'The Setup' — chase Davis across the school grounds to the auto-shop yard, fight his backup, knock him off the barrel stack and take his slingshot (recon: docs/re-notes/ch1/1_03-the-setup.md). Chase legs follow the original's own Trigger.img flee paths (SCHOOLFLEE -> FleeToFountain -> brag; FleeFromFountain -> FleeToGarage -> garage; FleeGarage -> barrels), so the route is nav-tested. v1 simplifications (see the recon's gap table): the baked 1-03 cutscene is a title card + speech beat; the player's scripted intro run is free control; gate/garage-door choreography and the barrel-ladder prop break are skipped (props not driven yet); the boss comes down and fights (his scripted per-hit health override is real: hits_to_beat 3); the slingshot pick-up pair-anim is a stub. Pass grants (slingshot 303, bullies respect -> 20) live in the campaign table's on_pass for 1_03. Wording is original. Meshes are imported stand-ins; ped_model_id records the original model ids.",
+  "_note": "1_03 'The Setup' — chase Davis across the school grounds to the auto-shop yard, fight his backup, knock him off the barrel stack and take his slingshot (recon: docs/re-notes/ch1/1_03-the-setup.md). Chase legs follow the original's own Trigger.img flee paths (SCHOOLFLEE -> FleeToFountain -> brag; FleeFromFountain -> FleeToGarage -> garage; FleeGarage -> barrels), so the route is nav-tested. v1 simplifications (see the recon's gap table): the baked 1-03 cutscene is a title card + speech beat; the player's scripted intro run is free control; gate/garage-door choreography and the barrel-ladder prop break are skipped (props not driven yet); the boss comes down and fights (his scripted per-hit health override is real: hits_to_beat 3); the slingshot pick-up pair-anim is a stub. Pass grants (slingshot 303, bullies respect -> 20) live in the campaign table's on_pass for 1_03. Wording is original. Meshes are imported stand-ins; ped_model_id records the original model ids. Human-pace fix (sm-humandrive): the school chase now runs the player-walkable 1_03h_flee route (see _points_note) instead of SCHOOLFLEE/FleeToFountain, which went through a parapet drop and a wall the player cannot pass.",
   "id": "1_03",
   "title": "The Setup",
   "retry": "stage",
   "start": { "location_cm": [21493.3, 7602.0, 858.5], "yaw": 0 },
   "trigger_file": "imported/triggers/1_03.json",
+  "_points_note": "sm-humandrive: 1_03h_flee* = Davis's school chase as walked by a player (navmesh-path corners, probed with -BRMissionSmokeHumanProbe): down the front stairs, north past the infirmary, then the original lower route to the brag spot. The original SCHOOLFLEE leg 3 drops 2.5 m off the front terrace through the SC1b_walls_J parapet (no stair geometry there in the import) and FleeToFountain 4->5 climbs a wall, so Davis snapped through both and no player could follow.",
+  "points": {
+    "1_03h_flee01": { "location_cm": [22080, 8040, 866] },
+    "1_03h_flee02": { "location_cm": [22220, 8010, 806] },
+    "1_03h_flee03": { "location_cm": [22780, 8240, 626] },
+    "1_03h_flee04": { "location_cm": [22850, 8490, 626] },
+    "1_03h_flee05": { "location_cm": [22850, 8600, 626] },
+    "1_03h_flee06": { "location_cm": [22780, 9710, 621] },
+    "1_03h_flee07": { "location_cm": [21620, 10610, 626] },
+    "1_03h_flee08": { "location_cm": [21191, 10769, 621] },
+    "1_03h_flee09": { "location_cm": [21000, 10950, 621] },
+    "1_03h_flee10": { "location_cm": [20800, 10950, 616] },
+    "1_03h_flee11": { "location_cm": [17820, 10640, 701] },
+    "1_03h_flee12": { "location_cm": [16630, 10480, 701] },
+    "1_03h_flee13": { "location_cm": [16440, 10440, 701] },
+    "1_03h_flee14": { "location_cm": [15560, 9820, 636] },
+    "1_03h_flee15": { "location_cm": [14000, 8537, 623] },
+    "1_03h_flee16": { "location_cm": [12000, 7000, 601] },
+    "1_03h_flee17": { "location_cm": [10720, 6290, 736] },
+    "1_03h_flee18": { "location_cm": [10670, 6240, 736] }
+  },
   "stages": [
     {
       "id": "intro",
@@ -33,7 +54,7 @@
       "id": "chase_school",
       "objective": "Chase Davis across the school grounds!",
       "on_start": [
-        { "type": "npc_move_to", "npc": "davis", "via": ["1_03_SCHOOLFLEE", "1_03_FleeToFountain"], "point": "1_03_DavisBrag", "gait": "sprint" },
+        { "type": "npc_move_to", "npc": "davis", "via": ["1_03h_flee01", "1_03h_flee02", "1_03h_flee03", "1_03h_flee04", "1_03h_flee05", "1_03h_flee06", "1_03h_flee07", "1_03h_flee08", "1_03h_flee09", "1_03h_flee10", "1_03h_flee11", "1_03h_flee12", "1_03h_flee13", "1_03h_flee14", "1_03h_flee15", "1_03h_flee16", "1_03h_flee17", "1_03h_flee18"], "point": "1_03_DavisBrag", "gait": "sprint" },
         { "type": "hint", "text": "Sprint to keep up with him.", "seconds": 4 }
       ],
       "complete": { "type": "all", "conditions": [

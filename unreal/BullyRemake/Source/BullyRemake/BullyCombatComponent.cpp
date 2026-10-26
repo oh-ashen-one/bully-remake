@@ -860,7 +860,7 @@ UBullyCombatComponent::EHitResult UBullyCombatComponent::ReceiveHit(UBullyCombat
 	LastHitTakenAt = Now;
 	// scripted hit-count health (spawn_wave hits_to_beat; the 1_03 Davis boss model): each landed hit takes
 	// MaxHealth/N, so exactly N hits drop him regardless of the weapon's damage number
-	if (const ABullyCombatPawn* Boss = Cast<ABullyCombatPawn>(O); Boss && Boss->HitsToBeat > 0 && !IsPlayer())
+	if (const ABullyCombatPawn* Boss = Cast<ABullyCombatPawn>(O); Boss && Boss->HitsToBeat > 0 && !IsPlayer() && !(Boss->bHitsRangedOnly && Attacker))
 	{
 		Damage = MaxHealth / float(Boss->HitsToBeat);
 	}

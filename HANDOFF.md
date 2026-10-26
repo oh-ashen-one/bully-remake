@@ -16,7 +16,7 @@ Shared agent brief (goal, ownership, build/test recipes, GPU safety, public-repo
 | --- | --- |
 | `story-mode` | Integration branch off `kimi-backend` 44b8930. `sm-playloop` merged, plus coordinator fixes (town life on in `tools/play_story.sh`; fists-only start, weapons through campaign grants). Story smoke re-PASSed after those fixes (per the Claude session). |
 | `sm-playloop` | DONE + merged: `-BRStory` title screen, USaveGame autosave/continue, Save & Quit, free-roam guidance, launcher. Headless only, no attended playtest. |
-| `sm-humandrive` | **WIP, unverified.** Real-input playthrough driver (move/punch/press only) for Ch1–2. Agent stopped while adding a path-probe flag. Tip commit `WIP sm-humandrive` saved by Devin. |
+| `sm-humandrive` | **r2 done (Devin, 2026-10-25), not merged.** Real-input playthrough driver (move/look/punch/aim/fire/interact only, no teleports) PASSes arrival → 1_04; see "sm-humandrive r2" below. |
 | `sm-visual` | **WIP, unverified, may not compile.** Black-frame fixes, Ch1 interior lighting, scripted-camera solver (`MissionSubsystemVisual.cpp`, `BullySceneFixups.*`, `tools/ue/shot_metrics.py`). Its upstream used to point at `origin/kimi-backend`; it now tracks `origin/sm-visual`. |
 | `sm-cutscenes` | **WIP, unverified.** Original cutscene audio/subtitles imported at build time; opening cutscene playback in progress (was rendering 1-1-1 frames). |
 
@@ -25,6 +25,69 @@ into `story-mode`. `story-mode` is not merged to `main`. Hari has not done a fee
 Next: in each WIP worktree, build, run its smokes per the brief, finish or trim it, then merge into `story-mode`. Then run
 the regression bar (day_one, arrival, 1_02B, 1_03, campaign and story smokes) and get Hari's playtest before `main`.
 Evidence: `~/bully-remake-evidence/story-mode/` (not committed).
+
+### sm-humandrive r2 (Devin, 2026-10-25)
+
+`origin/story-mode` merged in cleanly. Human drive: `tools/ue/run_mission_smoke.sh <id> --human --seconds-limit 1500`.
+
+**1_04 `snipe` root cause (a game bug: a real player hit the same wall).** Every slingshot pellet fired from the tree
+stopped 4 m out on `DL_SC1d_N`. That mesh is the football field's floodlight shine: one additive light-card mesh,
+349 x 93 m. The importer makes every render triangle collision, so the shine was solid. The 30 pellets ran out, the
+player had to leave the perch, and the 15 s tree timer failed the stage. The stage retry then restarted with an empty
+slingshot. The 7.4 m "stuck" in the old report was the fists fallback after that, not a nav problem. Offline proof is a
+ray-vs-imported-triangles test (`r2/raycast.py`). It also found an `iMGRaceC` race-track wall on the same line of fire.
+Fixes:
+- `BullyCollisionFixups.{h,cpp}` (new world subsystem). At begin play it switches collision off on all-additive light
+  cards (glow_beam/lightbloom/sunbeams/halo/corona textures, 53 meshes). It also hides the race-track scenes
+  (iMGRace*) and switches their collision off, which used to be done by the human harness only. Additive
+  grass/water/court-line decals keep collision because they are the floor. Mixed meshes keep collision. Switch it off
+  with `-BRNoCollisionFixups`. sm-visual's `BullySceneFixups` duplicates the race-track half (both idempotent); drop
+  that half here when sm-visual lands.
+- Weapon free aim (`AimPoint`): the crosshair ray now also stops on pawns. Capsules ignore Visibility, so long free-aimed
+  shots went past the target.
+- A stage retry restores the ammo the player had when the stage began (`StageStartAmmo`).
+- `spawn_wave` `hits_ranged_only`: 1_04 jocks have the original's 22 hp. One pellet tags a jock. Punching one down
+  takes a real beating.
+- `origin/story-mode` merged again after sm-cutscenes landed (one conflict in `RetryNow`; both sides kept). The human
+  driver now watches the original cutscenes (input is ignored meanwhile) instead of failing "STUCK idle" after 60 s.
+  Enter skips them with `--skip-speech`. To test that path headlessly, the importer
+  (`python3 -m tools.importers cutscene build`) wrote this worktree's git-ignored `imported/cutscenes`.
+- The regular smoke driver presses interact every 0.4 s instead of every frame. The 1_02B `hide_bin` stage (interact,
+  then wait for heat to decay) used to take 5+ min of wall time, and runs that queued for a GPU slot hit the wrapper's
+  limit. It now takes 8 s.
+
+**Known gaps a player of the original would notice (Ch1 opening slice):**
+- All: stand-in meshes and voices (Burton is TO_Cop, the jocks are GN_Bully03 and so on). Baked cutscenes play from
+  the owner's install when imported (sm-cutscenes: audio tier = camera + subtitles + voice; full tier also needs the
+  actor import). Otherwise they fall back to title cards plus speech beats. Wording is original, not the game's lines. Retries restart the stage, not the mission (the
+  original has no checkpoints). Some light effects with a solid part (a neon tube plus its beam) still collide.
+- arrival: the original 1-1-1 cutscene plays first when it has been imported. The in-engine beats after it still use
+  a faculty stand-in instead of the real characters.
+- day_one: the 1_01 and 1_02 recon simplifications apply. The dorm door is a fade-teleport, not a door transition.
+  The tutorial fight is guided by events.
+- 1_02B: the lockpick is a timed hold bar, not the dial. Heat is "punishment-lite". pair_anim is a generic clip. The
+  bust scene is a speech beat. Chocolates can only be paid for (no humiliate or beat-up route). The 1-02D cafeteria
+  cutscene is a card.
+- 1_02C: no bell audio. The C_Chem_1 class does not run after the door. The loot system is only a flag.
+- 1_03: the school chase uses a player-walkable route, not the original flee path (that path drops off a parapet).
+  The gate, garage-door and barrel-ladder choreography is skipped. Davis comes down and fights. The slingshot pickup
+  anim is a stub.
+- 1_04: **no tree climb**. The perch is a trigger at the tree base (the original is about 4.8 m up, with a climb
+  anim). The bus windows are five stationary one-hit dummies near the lot, not the bus glass. Melee also breaks them,
+  as in the original's wrong-weapon credit. The jocks stand still: no run paths, no jumping-jack cycle, no "yelled
+  back to work" reaction. Burton is a stationary cone spotter (15 m, 60°) with no patrol path and no "busted" camera
+  scene. No interactive music, no Gary pointing anim, and no radar-zoom clamp.
+
+**Verified (headless `-nullrhi`, evidence `~/bully-remake-evidence/story-mode/sm-humandrive/r2/`):**
+- `pre_merge2/batch.txt` was run before the second story-mode merge, with every 1_04 fix in. Human drive PASS 6/6:
+  arrival 6/6, day_one 26/26, 1_02B 14/14, 1_02C 3/3, 1_03 7/7 (the bot is KO'd twice by the yard crew, then passes),
+  and 1_04 8/8 (fails 0, 6 shots for 6 tags). Regular smokes: arrival, day_one and 1_02C PASS.
+- After the merge: `batch.txt` has human arrival PASS 7/7 (it watches the original 1-1-1 cutscene).
+  `check_smoke_1_02B` is a regular smoke PASS 15/15.
+- **Not yet re-run after the merge:** human day_one through 1_04, the regular smokes, the campaign smoke and the
+  story smoke. A macOS system dialog that is not ours (UserNotificationCenter, up since 16:50 local) blocks every
+  launch through the wrappers' preflight. `r2/batch2.sh` waits up to 3 h for it to clear, then runs the rest into
+  `r2/batch.txt`.
 
 ---
 

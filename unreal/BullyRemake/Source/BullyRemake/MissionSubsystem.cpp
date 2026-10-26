@@ -11,6 +11,7 @@
 #include "BullyHUD.h"
 #include "BullyProgressSubsystem.h"
 #include "BullyScriptedNPC.h"
+#include "BullyWeaponComponent.h"
 #include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
@@ -474,6 +475,7 @@ namespace
 				if (O->TryGetNumberField(TEXT("advance_at"), N2)) { A.AdvanceAt = int32(N2); }
 				bool b = true;
 				if (O->TryGetBoolField(TEXT("hostile"), b)) { A.bHostile = b; }
+				if (O->TryGetBoolField(TEXT("hits_ranged_only"), b)) { A.bHitsRangedOnly = b; }
 				if (O->TryGetStringField(TEXT("target"), S)) { A.Sub = S; }   // every other member fights this defender
 			}
 			else if (Type == TEXT("spotter"))
@@ -823,6 +825,18 @@ void UMissionSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		Smoke.bNoQuit = bShotsDrive;
 		Smoke.bWrongWay = FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeWrongWay"));
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION smoke harness armed: mission '%s' (fail/retry test %s, wrong-way %s, shots-drive %s)"), *Smoke.MissionId, Smoke.bWantFailTest ? TEXT("on") : TEXT("off"), Smoke.bWrongWay ? TEXT("on") : TEXT("off"), bShotsDrive ? TEXT("on") : TEXT("off"));
+		// sm-humandrive: -BRMissionSmokeHuman swaps the teleporting driver for the input-only human driver (MissionHumanDrive.cpp)
+		if (!bShotsDrive && FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeHuman")))
+		{
+			Human.bEnabled = true;
+			Human.bSkipSpeech = FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeHumanSkipSpeech"));
+			Human.bChain = FParse::Param(FCommandLine::Get(), TEXT("BRMissionSmokeHumanChain"));
+			FParse::Value(FCommandLine::Get(), TEXT("-BRMissionSmokeHumanLimit="), Human.Limit);
+			Smoke.bWantFailTest = false;   // a human never fires smoke_fail; real fails at human pace are counted instead
+			Smoke.bWrongWay = false;
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE human driver armed: mission '%s' (skip speech %s, chain %s, limit %.0f s)"), *Smoke.MissionId,
+				Human.bSkipSpeech ? TEXT("on") : TEXT("off"), Human.bChain ? TEXT("on") : TEXT("off"), Human.Limit);
+		}
 	}
 }
 
@@ -1105,7 +1119,8 @@ void UMissionSubsystem::FailMission(const FString& Reason)
 {
 	if (State != EState::Running || !Mission.IsValid()) { return; }
 	const FMissionStage& St = Mission->Stages[StageIndex];
-	const FString Why = St.FailText.IsEmpty() ? Reason : St.FailText;   // a stage can carry a keyed fail line
+	const FString Why = (St.FailText.IsEmpty() || bForceFailReason) ? Reason : St.FailText;   // a stage can carry a keyed fail line
+	bForceFailReason = false;
 	State = EState::Failed;
 	FailTime = GetWorld()->GetTimeSeconds();
 	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION stage %d: %s -> FAIL (%s) attempt %d"), StageIndex + 1, *St.Objective, *Why, Attempt);
@@ -1120,7 +1135,13 @@ void UMissionSubsystem::FailMission(const FString& Reason)
 void UMissionSubsystem::RetryNow()
 {
 	if (!Mission.IsValid()) { return; }
-	if (Mission->Retry == FMissionDef::ERetry::None) { StopMission(TEXT("failed, retry disabled")); return; }
+	if (Mission->Retry == FMissionDef::ERetry::None)
+	{
+		// sm-humandrive: a knocked-out player gets back up when the mission ends (no retry to revive him)
+		if (ABullyCharacter* P = Cast<ABullyCharacter>(GetPlayerPawn()); P && P->GetCombat() && P->GetCombat()->IsOut()) { P->GetCombat()->Revive(); }
+		StopMission(TEXT("failed, retry disabled"));
+		return;
+	}
 	StopCutscene();   // sm-cutscenes
 	++Attempt;
 	// campaign attempt counting is retry-aware (the original's attempt count gates first-attempt tutorial cards)
@@ -1145,6 +1166,22 @@ void UMissionSubsystem::RetryNow()
 		const FVector At = St.bHasCheckpoint ? St.CheckpointLocation : StageStartPawnLoc;
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION retry attempt %d: reload stage %d (%s) at %s"), Attempt, StageIndex + 1, St.bHasCheckpoint ? TEXT("checkpoint") : TEXT("stage-start pos"), *At.ToCompactString());
 		TeleportPlayer(At, St.CheckpointYaw, St.bHasCheckpoint);
+		// mission npcs go back to where they stood when the stage began (cancel their moves/leads without firing arrivals)
+		for (const auto& Pair : StageStartNpcXf)
+		{
+			const TWeakObjectPtr<ABullyScriptedNPC>* W = Npcs.Find(Pair.Key);
+			ABullyScriptedNPC* N = W ? W->Get() : nullptr;
+			if (!N) { continue; }
+			PendingArrive.Remove(N);
+			Leads.RemoveAll([&](const FLeadOrder& E) { return E.Npc.Get() == N; });
+			N->ClearCommands(true);
+			if (FVector::Dist(N->GetActorLocation(), Pair.Value.GetLocation()) > 50.f)
+			{
+				N->SetActorLocationAndRotation(Pair.Value.GetLocation(), Pair.Value.GetRotation(), false, nullptr, ETeleportType::TeleportPhysics);
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION retry: npc %s back to its stage-start spot %s"), *Pair.Key.ToString(), *Pair.Value.GetLocation().ToCompactString());
+			}
+		}
+		if (ABullyCharacter* PCh = Cast<ABullyCharacter>(GetPlayerPawn()); bHasStageStartAmmo && PCh && PCh->GetWeapons()) { PCh->GetWeapons()->RestoreAmmoTable(StageStartAmmo); }
 		State = EState::Running;
 		BeginStage(StageIndex, true);
 	}
@@ -1213,6 +1250,14 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	Race.bActive = false;   // a race is stage-scoped (a retry re-arms it from on_start)
 	if (Hud.IsValid()) { Hud->SetProgress(-1.f); Hud->SetCountdown(-1.f); }
 	if (APawn* P = GetPlayerPawn()) { StageStartPawnLoc = P->GetActorLocation(); }
+	if (!bRetry)
+	{
+		StageStartNpcXf.Reset();
+		for (const auto& Pair : Npcs) { if (Pair.Value.IsValid()) { StageStartNpcXf.Add(Pair.Key, Pair.Value->GetActorTransform()); } }
+		ABullyCharacter* PCh = Cast<ABullyCharacter>(GetPlayerPawn());
+		bHasStageStartAmmo = PCh && PCh->GetWeapons();
+		if (bHasStageStartAmmo) { StageStartAmmo = PCh->GetWeapons()->GetAmmoTable(); }
+	}
 
 	// actors for actor_tag interact conditions
 	RefreshStageActors();
@@ -1420,6 +1465,10 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			ABullyScriptedNPC* N = NpcById(A.NpcId);
 			if (!N) { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION %s: unknown npc '%s'"), A.Type == FMissionAction::EType::NpcLead ? TEXT("npc_lead") : TEXT("npc_move_to"), *A.NpcId.ToString()); break; }
 			const FName Ev = !A.Sub.IsEmpty() ? FName(*A.Sub) : FName(*FString::Printf(TEXT("npc_arrived:%s"), *A.NpcId.ToString()));
+			// sm-humandrive: a new move starts a new journey -- forget the previous move's (latched) arrival so a later
+			// stage waiting on this event really waits for this move
+			StageEvents.Remove(Ev);
+			MissionEvents.Remove(Ev);
 			// route: "via" names (points OR trigger-file paths) + a "path" between the npc and the goal
 			TArray<FVector> Route;
 			for (const FString& V : A.Via)
@@ -1450,6 +1499,9 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			}
 			else
 			{
+				// sm-humandrive: drop the previous move's pending arrival before cancelling it, otherwise
+				// the cancelled command fires a stale npc_arrived:<id> that latches in a retried stage
+				PendingArrive.Remove(N);
 				N->ClearCommands(true);
 				if (Route.Num() > 0)
 				{
@@ -2177,7 +2229,7 @@ void UMissionSubsystem::Tick(float Dt)
 		bPendingDevOverride = false;
 		StartMission(Id, 0, bDev);
 	}
-	if (Smoke.bEnabled) { TickSmoke(Dt); }
+	if (Smoke.bEnabled) { if (Human.bEnabled) { TickSmokeHuman(Dt); } else { TickSmoke(Dt); } }   // sm-humandrive: human-mode driver
 	if (Shots.bEnabled) { TickMissionShots(Dt); }
 	TickFade(Dt);
 	if (Hud.IsValid()) { Hud->Tick(Dt); }
@@ -2240,6 +2292,23 @@ void UMissionSubsystem::Tick(float Dt)
 			FailMission(Mission->RootFailText.IsEmpty() ? TEXT("mission area left") : Mission->RootFailText);
 		}
 		else if (Evaluate(St.Complete)) { CompleteStage(); }
+		// sm-humandrive: a KO'd player with no stage rule for it would lie on the floor forever (soft-lock): fail the stage
+		// after a beat, like the original's knocked-out mission fail; the retry revives him
+		if (State == EState::Running)
+		{
+			const ABullyCharacter* PlayerChar = Cast<ABullyCharacter>(GetPlayerPawn());
+			if (PlayerChar && PlayerChar->GetCombat() && PlayerChar->GetCombat()->IsOut())
+			{
+				if (PlayerOutSince < 0.0) { PlayerOutSince = World->GetTimeSeconds(); }
+				else if (World->GetTimeSeconds() - PlayerOutSince > 4.0)
+				{
+					PlayerOutSince = -1.0;
+					bForceFailReason = true;
+					FailMission(TEXT("You got knocked out."));
+				}
+			}
+			else { PlayerOutSince = -1.0; }
+		}
 	}
 	else if (State == EState::Failed && Mission.IsValid())
 	{
@@ -2622,7 +2691,14 @@ void UMissionSubsystem::TickSmoke(float Dt)
 	if (Interacts.Num() > 0 && InteractInRange(*Interacts[0]))
 	{
 		if (Smoke.InsideSince < 0.0) { Smoke.InsideSince = Smoke.Elapsed; }
-		if (Smoke.Elapsed - Smoke.InsideSince > 0.4) { UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE pressing interact (stage %d, prompt shown: '%s')"), StageIndex + 1, Hud.IsValid() ? *Hud->GetState().PromptText : TEXT("-")); DoInteract(); }
+		if (Smoke.Elapsed - Smoke.InsideSince > 0.4)
+		{
+			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION_SMOKE pressing interact (stage %d, prompt shown: '%s')"), StageIndex + 1, Hud.IsValid() ? *Hud->GetState().PromptText : TEXT("-"));
+			DoInteract();
+			// sm-humandrive: press again 0.4 s later, not every frame. An interact stage that also waits on something
+			// else (1_02B hide_bin: heat decay) used to log + fire thousands of presses and took 5+ min wall time.
+			Smoke.InsideSince = Smoke.Elapsed;
+		}
 		return;
 	}
 	if (St.Complete.Type == FMissionCondition::EType::Event && !SystemEvent(St.Complete.Name)) { Smoke.LastDrive = Smoke.Elapsed; FireEvent(St.Complete.Name); return; }
@@ -2953,6 +3029,7 @@ void UMissionSubsystem::SpawnWave(const FMissionAction& A)
 		if (!A.Mesh.IsEmpty()) { E->PedMeshPath = FString::Printf(TEXT("/Game/Imported/Characters/%s/SK_%s.SK_%s"), *A.Mesh, *A.Mesh, *A.Mesh); }
 		E->bStationary = !A.bHostile;
 		E->HitsToBeat = A.HitsToBeat;
+		E->bHitsRangedOnly = A.bHitsRangedOnly;
 		// "target": every other member fights the named defender instead of the player (the pack splits, like the original)
 		if (!A.Sub.IsEmpty() && G.Members.Num() % 2 == 0)
 		{

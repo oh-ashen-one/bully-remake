@@ -71,6 +71,12 @@ public:
 	/** Fire at an actor's chest; the shot re-aims at where it is on the release frame. */
 	bool FireAtActor(AActor* Target);
 	void RefillAll();
+	/** sm-humandrive: empty every weapon (fists only) -- the human-mode smoke starts a mission with only what the campaign
+	 *  would have granted by then. */
+	void EmptyAll();
+	/** sm-humandrive: the ammo table, so a mission stage retry can give back what the player carried when the stage began. */
+	TMap<FName, int32> GetAmmoTable() const { return Ammo; }
+	void RestoreAmmoTable(const TMap<FName, int32>& Table);
 	/** Campaign grant (on_pass / give_weapon): v1 every weapon starts unlocked, so this tops ammo up to the
 	 *  weapon's starting loadout and logs. False if the id is not in the arsenal. */
 	bool GiveWeapon(FName Id);

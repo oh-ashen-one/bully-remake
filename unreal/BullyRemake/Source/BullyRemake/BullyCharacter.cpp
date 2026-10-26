@@ -566,6 +566,12 @@ const UInputAction* ABullyCharacter::GetCombatAction(FName Which) const
 	if (Which == TEXT("block")) { return BlockAction; }
 	if (Which == TEXT("lockon")) { return LockOnAction; }
 	if (Which == TEXT("move")) { return MoveAction; }
+	// sm-humandrive: the human-mode mission smoke injects locomotion and weapon-cycle input through the real bindings too
+	if (Which == TEXT("sprint")) { return SprintAction; }
+	if (Which == TEXT("jump")) { return JumpAction; }
+	if (Which == TEXT("walk")) { return WalkAction; }
+	if (Which == TEXT("weapon_next")) { return WeaponNextAction; }
+	if (Which == TEXT("weapon_prev")) { return WeaponPrevAction; }
 	return nullptr;
 }
 

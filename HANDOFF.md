@@ -58,6 +58,31 @@ Original voices wired into arrival, day_one, 1_02B, 1_03 and 1_04, in the order 
 - Missing recordings (beats kept text-only or not staged): 1_01 secretary wave (101), 1_02 secretary (101/123), bully
   NIS (33/34), FIGHT_WATCH barks, Hattrick 134, Jimmy 85/90; 1_02B Gary 37/81, Karl 83, Edward 169; 1_03 Davis 23/33/42.
 
+### sm-campus (Devin, 2026-10-25): campus life at Bullworth Academy
+
+`UBullyCampusSubsystem` (`BullyCampusSubsystem.*`, config `Config/Campus.json`, notes `docs/re-notes/campus-life.md`)
+on top of the ambient walkers, the clock and campaign respect. Import once per checkout (git-ignored output):
+`python3 -m tools.importers campus --transcribe` (cast voices from default.ide, ~2.5k ambient speech takes, the
+SB_Int bell, the campus trigger files) and `tools/ue/run_import_npc.sh --peds PRH1_Gord,PRH1a_Tad,PRGirl_Pinky,GRH1_Lefty,GRH1a_Vance,GRGirl_Lola,JKH1a_Kirby,JKH2_Dan,JKGirl_Mandy,NDH2_Thad,NDGirl_Beatrice,PF2nd_Max,GN_SexyGirl,GN_WhiteBoy`.
+- Schedule: classes 9:00-11:30 / 13:00-15:30 (MainMap.lua / SchoolHallways.lua spawner and docker times), students
+  head in at 8:45 / 12:45 (run after the bell), stream out after; bell at start and end; truancy (after 1_02C) two
+  game minutes after the bell; F_AttendedClass / F_MissedClass / skipping punishment; curfew 23-7. The day is held
+  at MORNING until 1_02C (its 9:00 set is the first bell), because our boot chain does not pause the clock.
+  Attending a class = standing at a classroom door in class time (fade, clock to the period end).
+- Trouble meter (0-400) replaces the 1_02B "punishment-lite" stub: MissionSubsystem `heat_set` / `hide` forward to it
+  (same contract). Offences: truancy, curfew, hitting students / prefects, trespass (principal's office). Prefects
+  (pedstats cone 100 deg / 12 m) warn, chase (5.6 m/s), bust; bust outcome per main.lua F_PlayerBusted (sent to class,
+  principal's office with the PriOff lecture lines, or released). HUD: clock/period line + trouble bar, bottom left.
+- Factions: SFaction.lua attitude rows shifted by campaign respect (1_01's starting respect is seeded when day_one
+  passes on a fresh game; coordinator may prefer moving that into Campaign.json). Greet / taunt / bump / picked
+  fights / faction mates joining / non-fighters fleeing; ambient barks and two-student conversations by context code.
+- Cast: 28 walkers (front lawn loops + 5 hangout cliques + 2 prefects; halls 6 students + 2 prefects), dormant beyond
+  110 m. Missions: rules stand down, walkers become bystanders (pass-through, untargetable), walkers whose model the
+  mission names are hidden. Harness runs keep campus life off unless `-BRCampusLife` (story play turns it on).
+- Smoke: `tools/ue/run_campus_smoke.sh` (`-BRCampusSmoke`). Gaps: no detention chores, no class minigames (sm-minigames),
+  no teachers, hall truants, cops or tattling; per-offence points / chase line / drain are ours; walkers walk straight
+  lines (a hand-placed lane round the front terrace), no navmesh.
+
 ### sm-humandrive r2 (Devin, 2026-10-25)
 
 `origin/story-mode` merged in cleanly. Human drive: `tools/ue/run_mission_smoke.sh <id> --human --seconds-limit 1500`.

@@ -1,0 +1,189 @@
+{
+ "_format": "bully-remake.campus/1",
+ "_owner": "sm-campus",
+ "_note": "Campus life at Bullworth Academy (UBullyCampusSubsystem). Behaviour, times and numbers are from the original's scripts/data where they exist (sources per block, docs/re-notes/campus-life.md); values marked _approx are ours where the rule is engine-side (Bully.exe, not readable). Install-derived data (trigger points, voices, speech takes, the bell) come from `python3 -m tools.importers campus` into imported/ (git-ignored); names below refer to it. No game text or audio is in this file.",
+ "enabled": true,
+
+ "schedule": {
+  "_src": "periods: install Config/timeCycl.dat (MORNING 7, FIRST_CLASS 9, LUNCH_TIME 12, SECOND_CLASS 13, AFTERNOON 16, EVENING 21, BED_TIME 23). The classes END at 11:30 and 15:30: AreaScripts/MainMap.lua + SchoolHallways.lua start the class spawners (students out of the classrooms) at 11:30 and 15:30 and the class dockers (students into the school, 80 % running) at 8:45 and 12:45; timeCycl.dat's 12/16 are the HUD clock arcs. Curfew 23:00-07:00: STimeCycle.lua F_CurfewDefaultRules. Skipping punishment: SGlFunc.lua gSkippingPunishmentThresholds over the 5-class window of SInitGl.lua shared.gClassesSkipped, applied at F_StartClass. Truancy only after 1_02C (main.lua F_PlayerBusted has no class consequence before it; 1_02C is the first-class tutorial). Hangout spawners stop ~22:30 (15:30 + 420 min); the school empties at 18:45 (SchoolHallways.lua F_UpdateSpawnerTimer).",
+  "periods": [
+   { "id": "MORNING",      "start": 7,    "end": 9 },
+   { "id": "FIRST_CLASS",  "start": 9,    "end": 11.5, "class": true },
+   { "id": "LUNCH_TIME",   "start": 11.5, "end": 13 },
+   { "id": "SECOND_CLASS", "start": 13,   "end": 15.5, "class": true },
+   { "id": "AFTERNOON",    "start": 15.5, "end": 21 },
+   { "id": "EVENING",      "start": 21,   "end": 23 },
+   { "id": "BED_TIME",     "start": 23,   "end": 7 }
+  ],
+  "head_to_class_lead_minutes": 15,
+  "late_after_minutes": 2,
+  "_late_after_approx": "the 'late for class' moment is engine-side; two game minutes after the bell is ours",
+  "stream_out_minutes": 30,
+  "dorm_hour": 22.5,
+  "school_closed_hour": 18.75,
+  "curfew": [23, 7],
+  "truancy_after_mission": "1_02C",
+  "skipped_window": 5,
+  "skipping_punishment": [ { "skipped": 1, "points": 100 }, { "skipped": 3, "points": 100 }, { "skipped": 5, "points": 200 } ],
+  "bell_loops": 10
+ },
+
+ "trouble": {
+  "_src": "Punishment points (PlayerSetPunishmentPoints): 1_02B forces 200 (min 199 until hidden, docs/re-notes/ch1/1_02B); 3_01A summons cops at 300; 2_S06/4_01 add 200 for big offences; F_AttendedClass zeroes the meter; a bust zeroes it (main.lua). The per-offence amounts, the chase line and the drain rate are engine-side: _approx.",
+  "max": 400,
+  "chase_threshold": 100,
+  "decay_unseen_per_s": 2.5,
+  "decay_hidden_per_s": 25,
+  "truancy_floor": 100,
+  "trespass_per_s": 10,
+  "hit_student": 20,
+  "hit_prefect": 100
+ },
+
+ "prefects": {
+  "_src": "vision: install Config/dat/pedstats.dat STAT_PF_BASIC_A (vision yaw 100 deg total, 12 m); run speed: Config/dat/ped.dat PREFECT run 6.0 m/s (we run 5.6 so a sprinting Jimmy, 8 m/s, can get away). Patrol routes: DAT PrefectsSchoolGround / PrefectsMainBuilding (AreaScripts MainMap.lua / SchoolHallways.lua PatrolPathInit). Bust radius / give-up: _approx.",
+  "vision_yaw_deg": 100,
+  "vision_range_m": 12,
+  "run_speed_cm_s": 560,
+  "bust_radius_cm": 120,
+  "give_up_seconds": 6,
+  "give_up_range_m": 30
+ },
+
+ "factions": {
+  "_src": "SFaction.lua F_MissionFactionChanges: per faction the first completed mission in the list sets its default attitude toward the player (0 Abhor, 1 Averse, 2 Dispassionate, 3 Dig, 4 Adore; Chapter 1-2 rows kept). Respect (campaign, SetFactionRespect values: 1_01 sets bullies 25 / nerds, preps, greasers, jocks 50 / dropouts 0) shifts it one step at the extremes (_approx: the engine's respect -> attitude curve is not in the scripts).",
+  "start_respect": { "bullies": 25, "nerds": 50, "preppies": 50, "greasers": 50, "jocks": 50, "townies": 0 },
+  "_start_respect_src": "1_01.lua SetFactionRespect(11, 25) (1, 50) (5, 50) (4, 50) (2, 50) (3, 0): seeded when day_one (our 1_01) passes on a fresh game",
+  "respect_high": 80,
+  "respect_low": 20,
+  "bullies":  { "respect": "bullies",  "rows": [["1_B", 4], ["1_11x2", 0], ["1_11x1", 2], ["1_07", 0], ["1_04", 1]], "default": 1 },
+  "nerds":    { "respect": "nerds",    "rows": [["1_04", 3]], "default": 2 },
+  "preppies": { "respect": "preppies", "rows": [["2_B", 4], ["2_05", 0], ["2_03", 1], ["1_B", 2]], "default": 2 },
+  "greasers": { "respect": "greasers", "rows": [["1_04", 2]], "default": 2 },
+  "jocks":    { "respect": "jocks",    "rows": [["1_09", 1], ["1_04", 2]], "default": 2 },
+  "townies":  { "respect": "townies",  "rows": [], "default": 1 },
+  "students": { "rows": [["1_04", 3]], "default": 2 },
+  "prefect":  { "rows": [], "default": 1 }
+ },
+
+ "_cast_note": "Fallback faction / voice / aggression per model; `python3 -m tools.importers campus` replaces them with the install's Objects/default.ide ped type + N_<name> voice and the pedstats.dat aggression. Aggression < 15 = runs when hit (generic students, girls), >= 50 = picks fights at Abhor and backs up faction mates.",
+ "cast": [
+  { "model": "GN_Boy01",       "faction": "students", "voice": "Ivan",     "aggression": 0 },
+  { "model": "GN_Boy02",       "faction": "students", "voice": "Trevor",   "aggression": 0 },
+  { "model": "GN_Asiangirl",   "faction": "students", "voice": "Angie",    "aggression": 0, "female": true },
+  { "model": "GN_Greekboy",    "faction": "students", "voice": "Constant", "aggression": 0 },
+  { "model": "GN_Hispanicboy", "faction": "students", "voice": "Pedro",    "aggression": 0 },
+  { "model": "GN_SexyGirl",    "faction": "students", "voice": "Christy",  "aggression": 0, "female": true },
+  { "model": "GN_WhiteBoy",    "faction": "students", "voice": "Gordon",   "aggression": 0 },
+  { "model": "GN_Fatgirl",     "faction": "students", "voice": "Eunice",   "aggression": 0, "female": true },
+  { "model": "NDH3_Bucky",     "faction": "nerds",    "voice": "Bucky",    "aggression": 20 },
+  { "model": "NDH2_Thad",      "faction": "nerds",    "voice": "Thad",     "aggression": 20 },
+  { "model": "NDH1a_Algernon", "faction": "nerds",    "voice": "Algie",    "aggression": 20 },
+  { "model": "NDGirl_Beatrice","faction": "nerds",    "voice": "Beatrice", "aggression": 0, "female": true },
+  { "model": "GN_Bully01",     "faction": "bullies",  "voice": "Troy",     "aggression": 70 },
+  { "model": "GN_Bully02",     "faction": "bullies",  "voice": "Davis",    "aggression": 70 },
+  { "model": "GN_Bully03",     "faction": "bullies",  "voice": "Trent",    "aggression": 70 },
+  { "model": "GN_Bully04",     "faction": "bullies",  "voice": "Ethan",    "aggression": 70 },
+  { "model": "GN_Bully05",     "faction": "bullies",  "voice": "Wade",     "aggression": 70 },
+  { "model": "PRH1_Gord",      "faction": "preppies", "voice": "Gord",     "aggression": 60 },
+  { "model": "PRH1a_Tad",      "faction": "preppies", "voice": "Tad",      "aggression": 60 },
+  { "model": "PRGirl_Pinky",   "faction": "preppies", "voice": "Pinky",    "aggression": 0, "female": true },
+  { "model": "GRH1_Lefty",     "faction": "greasers", "voice": "Lefty",    "aggression": 65 },
+  { "model": "GRH1a_Vance",    "faction": "greasers", "voice": "Vance",    "aggression": 65 },
+  { "model": "GRGirl_Lola",    "faction": "greasers", "voice": "Lola",     "aggression": 0, "female": true },
+  { "model": "JKH1a_Kirby",    "faction": "jocks",    "voice": "Kirby",    "aggression": 75 },
+  { "model": "JKH2_Dan",       "faction": "jocks",    "voice": "Dan",      "aggression": 75 },
+  { "model": "JKGirl_Mandy",   "faction": "jocks",    "voice": "Mandy",    "aggression": 0, "female": true },
+  { "model": "PFH1_Seth",      "faction": "prefect",  "voice": "Seth",     "aggression": 0 },
+  { "model": "PFH2_Edward",    "faction": "prefect",  "voice": "Edward",   "aggression": 0 },
+  { "model": "PFlead_Karl",    "faction": "prefect",  "voice": "Karl",     "aggression": 0 },
+  { "model": "PF2nd_Max",      "faction": "prefect",  "voice": "Max",      "aggression": 0 }
+ ],
+
+ "_spawns_note": "The campus cast beyond Config/AmbientLoops.json (whose loop walkers are adopted as the between-classes crowd on the front lawn). hangout = a faction hangout POI point of DAT tschool_hangouts (file/poi#index; dx/dy spread the clique); path = a patrol path of the trigger files. zone: grounds (outdoor, docks into the school front doors) or halls (the main building, docks into the classroom doors). A model that is not imported here is skipped.",
+ "spawns": [
+  { "id": "troy",     "model": "GN_Bully01",  "hangout": "tschool_hangouts/tschool_girls#1",    "dx_cm": 70,  "dy_cm": 0 },
+  { "id": "trent",    "model": "GN_Bully03",  "hangout": "tschool_hangouts/tschool_girls#1",    "dx_cm": -70, "dy_cm": 30 },
+  { "id": "kirby",    "model": "JKH1a_Kirby", "hangout": "tschool_hangouts/tschool_boys#0",     "dx_cm": 75,  "dy_cm": 0 },
+  { "id": "dan",      "model": "JKH2_Dan",    "hangout": "tschool_hangouts/tschool_boys#0",     "dx_cm": -75, "dy_cm": 20 },
+  { "id": "gord",     "model": "PRH1_Gord",   "hangout": "tschool_hangouts/tschool_boys#1",     "dx_cm": 70,  "dy_cm": 0 },
+  { "id": "tad",      "model": "PRH1a_Tad",   "hangout": "tschool_hangouts/tschool_boys#1",     "dx_cm": -70, "dy_cm": -20 },
+  { "id": "lefty",    "model": "GRH1_Lefty",  "hangout": "tschool_hangouts/tschool_boys#2",     "dx_cm": 70,  "dy_cm": 0 },
+  { "id": "vance",    "model": "GRH1a_Vance", "hangout": "tschool_hangouts/tschool_boys#2",     "dx_cm": -70, "dy_cm": 25 },
+  { "id": "pinky",    "model": "PRGirl_Pinky","hangout": "tschool_hangouts/tschool_girls#0",    "dx_cm": 65,  "dy_cm": 0 },
+  { "id": "mandy",    "model": "JKGirl_Mandy","hangout": "tschool_hangouts/tschool_girls#0",    "dx_cm": -65, "dy_cm": 15 },
+  { "id": "max",      "model": "PF2nd_Max",   "path": "PrefectsSchoolGround/SG_Prefect01",      "speed_cm_s": 150, "idle_s": [2, 5] },
+
+  { "id": "eunice",   "model": "GN_Fatgirl",     "zone": "halls", "path": "Patrol_School/hallspatrol_1A", "start_index": 2, "speed_cm_s": 150 },
+  { "id": "algie",    "model": "NDH1a_Algernon", "zone": "halls", "path": "Patrol_School/hallspatrol_1A", "start_index": 6, "speed_cm_s": 160 },
+  { "id": "thad",     "model": "NDH2_Thad",      "zone": "halls", "path": "Patrol_School/hallspatrol_1B", "start_index": 0, "speed_cm_s": 165 },
+  { "id": "beatrice", "model": "NDGirl_Beatrice","zone": "halls", "path": "Patrol_School/hallspatrol_1B", "start_index": 5, "speed_cm_s": 150 },
+  { "id": "ethan",    "model": "GN_Bully04",     "zone": "halls", "path": "Patrol_School/hallspatrol_2A", "start_index": 0, "speed_cm_s": 175 },
+  { "id": "wade",     "model": "GN_Bully05",     "zone": "halls", "path": "Patrol_School/hallspatrol_2A", "start_index": 6, "speed_cm_s": 175 },
+  { "id": "karl",     "model": "PFlead_Karl",    "zone": "halls", "path": "PrefectsMainBuilding/1F_Prefect03", "speed_cm_s": 140, "idle_s": [2, 6] },
+  { "id": "edward",   "model": "PFH2_Edward",    "zone": "halls", "path": "PrefectsMainBuilding/2F_Prefect01", "speed_cm_s": 140, "idle_s": [2, 6] }
+ ],
+
+ "places": {
+  "_src": "DAT tschool_doors (outdoor school doors the class dockers/spawners use, MainMap.lua SchoolGroundsSpawners kind=class), ischool_doors (classroom doors, SchoolHallways.lua SchoolSpawnTable), Population/SchoolArea (the school-grounds volume), SP_School_Hallways (the main building), PriOffice/POfficeExclude, PrincipalCutscene PRIOFF_SPAWN / PRIOFF_OUTSIDE (PriOff.lua), School_Exterior/Schoolbell.",
+  "grounds_doors": ["tschool_doors/tschool_SchoolFrontDoorL", "tschool_doors/tschool_SchoolFrontDoorR"],
+  "_grounds_lane_note": "hand-placed (ours): the central path from the gates to the front-terrace stairs; the terrace wall blocks the straight line from most of the lawn to the main door, and the side doors (LeftFront / RightFront) are terrace-only",
+  "grounds_lane_cm": [[28600, 7150, 600], [24500, 7150, 620], [22900, 7300, 700], [21700, 7330, 860]],
+  "halls_doors": ["ischool_doors/ischool_Door24", "ischool_doors/ischool_Door23", "ischool_doors/ischool_Door22", "ischool_doors/ischool_Door20", "ischool_doors/ischool_Door19", "ischool_doors/ischool_Door21", "ischool_doors/ischool_Door06", "ischool_doors/ischool_Door05", "ischool_doors/ischool_Door01", "ischool_doors/ischool_Door00", "ischool_doors/ischool_Chem", "ischool_doors/ischool_Door28", "ischool_doors/ischool_Door29", "ischool_doors/ischool_Door30", "ischool_doors/ischool_Door25", "ischool_doors/ischool_Door14", "ischool_doors/ischool_Door12", "ischool_doors/ischool_Door13", "ischool_doors/ischool_Door09", "ischool_doors/ischool_Door10"],
+  "dorm_doors": ["tschool_doors/tschool_BoysDormL", "tschool_doors/tschool_GirlsDormL"],
+  "grounds_volume": "Population/SchoolArea",
+  "school_volumes": ["SP_School_Hallways/SchoolMainAtrium", "SP_School_Hallways/SchoolHalls01", "SP_School_Hallways/SchoolHalls02", "SP_School_Hallways/SchoolCafeteria", "SP_School_Hallways/SchoolBoysWash", "SP_School_Hallways/SchoolBoysWash2", "SP_School_Hallways/SchoolGirlsWash", "SP_School_Hallways/SchoolGirlsWash2"],
+  "trespass_volumes": ["PriOffice/POfficeExclude"],
+  "class_exit": "1_02C/1_02C_ClassExit",
+  "principal_spawn": "PrincipalCutscene/PRIOFF_SPAWN",
+  "principal_outside": "PrincipalCutscene/PRIOFF_OUTSIDE",
+  "school_front": "main_door_ext",
+  "bell": "School_Exterior/Schoolbell",
+  "_fallback_note": "Used when the trigger import is absent (clean clone): the hand-placed main-door spots of tools/ue/door_links.json and a box around the ambient loops.",
+  "fallback_cm": {
+   "main_door_ext": [21320, 7330, 950],
+   "tschool_doors/tschool_SchoolFrontDoorL": [21320, 7400, 950],
+   "tschool_doors/tschool_SchoolFrontDoorR": [21320, 7260, 950],
+   "1_02C/1_02C_ClassExit": [-62860, 32200, 100]
+  },
+  "fallback_boxes_cm": {
+   "Population/SchoolArea": [15000, 2000, 0, 32000, 13000, 3000]
+  }
+ },
+
+ "speech": {
+  "_src": "Speech.lst ambient lines `<Speaker>_<CODE>_v<k>`. Context codes: what each code is was worked out from the event names the scripts request (SoundPlayAmbientSpeechEvent: GREET, BUMP_RUDE, FIGHT_INITIATE, CONVERSATION_GOSSIP, WARNING_TRESPASSING, WARNING_COMING_TO_CATCH, CHASE, BUSTING_JIMMY, ...; Scripts.img also names FIGHT_WATCH, CONVERSATION_QUESTION(_REPLY), CONVERSATION_NEGATIVE_PERSONAL/REPLY, SEE_SOMETHING_CRAP, RESPONSE_GREET_FRIENDLY, WARNING_MINOR_INFRACTION) and checked by ear on a sample (docs/re-notes/campus-life.md has the table). Lecture: PriOff.lua PRINCIPAL_LECTURING ids -> Crabble_PLECT_<id> (id = file number, inferred).",
+  "codes": ["GREE", "RESPGF", "RESPGD", "BYE", "BUMPF", "BUMPR", "CHATTER", "COMPLAIN", "CONVQ", "CONVQR", "CONVG", "CONVGR", "CONVPP", "CONVPR", "CONVNP", "CONVNR", "CONVP", "DONTHIT", "INDIG", "FIGHI", "FIGH", "FIGHB", "FIGHW", "SCARED", "TAUN", "JEER", "LAFFC", "SEESCRAP",
+            "WARNMI", "WARNTRU", "WARNGTC", "WARNT", "WARNC", "WARNCTC", "CHASE", "CHASEESC", "CHASEOOB", "BUSTING"],
+  "lecture": { "speaker": "Crabble", "ids": [1, 2, 9, 10, 50, 51, 52], "first": [10, 51, 52], "repeat": [1, 2, 9, 50, 52] }
+ },
+
+ "barks": {
+  "greet": ["GREE"],
+  "bump_sorry": ["BUMPF"],
+  "bump_rude": ["BUMPR"],
+  "taunt": ["TAUN", "JEER"],
+  "chatter": ["CHATTER", "COMPLAIN"],
+  "hit": ["INDIG", "FIGHI"],
+  "fight_start": ["FIGHI"],
+  "beaten": ["FIGHB"],
+  "watch_fight": ["FIGHW", "SEESCRAP"],
+  "scared": ["SCARED", "DONTHIT"],
+  "warn_minor": ["WARNMI"],
+  "warn_truancy": ["WARNTRU"],
+  "warn_go_to_class": ["WARNGTC"],
+  "warn_trespass": ["WARNT"],
+  "warn_curfew": ["WARNC"],
+  "chase_start": ["WARNCTC"],
+  "chase": ["CHASE"],
+  "chase_lost": ["CHASEESC", "CHASEOOB"],
+  "bust": ["BUSTING"],
+  "conversations": [["CONVQ", "CONVQR"], ["CONVG", "CONVGR"], ["CONVPP", "CONVPR"], ["CONVNP", "CONVNR"]]
+ },
+
+ "performance": {
+  "_note": "walkers farther than dormant_beyond_m from Jimmy freeze and hide (no tick); the halls and the lawn are ~870 m apart, so only one half of the cast runs at a time",
+  "dormant_beyond_m": 110,
+  "wake_within_m": 95
+ }
+}

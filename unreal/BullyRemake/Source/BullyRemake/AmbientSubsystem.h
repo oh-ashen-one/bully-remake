@@ -50,6 +50,12 @@ public:
 	/** Gives a character (a scripted NPC) the same footstep component the ambient walkers get. Kind: "shoe" | "female". */
 	void AttachFootsteps(ACharacter* Character, const FString& Kind, const FString& Tag);
 
+	/** sm-campus: spawn one more walker (the campus cast beyond Config/AmbientLoops.json) with the same setup as the
+	 *  loop walkers: imported mesh /Game/Imported/Characters/<Model>/SK_<Model>, footsteps, walker <-> walker
+	 *  pass-through. Returns null when the model is not imported here. */
+	AAmbientWalker* SpawnWalker(const FString& Model, const FString& StudentId, const FString& LoopId, const TArray<FVector>& Loop,
+		int32 Start, float Speed, const FVector2D& IdleRange, const FString& FootstepKind);
+
 private:
 	void Spawn(UWorld& World);
 	void ValidateLoop(UWorld& World, const FString& Id, const TArray<FVector>& Pts);

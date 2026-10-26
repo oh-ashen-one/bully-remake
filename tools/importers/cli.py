@@ -252,6 +252,16 @@ def cmd_audio(a) -> int:
     return 0
 
 
+def cmd_campus(a) -> int:
+    """sm-campus: campus life data (cast voices, ambient speech, the bell, campus trigger files) -> <out>/campus/."""
+    from . import campus
+    install = resolve_install(a.install)
+    data = campus.build(install, a.out, a.config, takes=a.takes, speech=not a.no_speech, transcribe=a.transcribe,
+                        model=a.model, log=lambda m: print(m, file=sys.stderr))
+    print(json.dumps({"out": os.path.join(a.out, "campus"), "cast": len(data["cast"]), **({"speech": data["speech"]} if "speech" in data else {})}))
+    return 0
+
+
 def cmd_speech(a) -> int:
     """Scripted mission speech (PLAYLIST/Speech.bin) -> <out>/speech/<line>/v<take>.wav + speech/manifest.json."""
     from . import speech
@@ -611,6 +621,14 @@ def main(argv=None) -> int:
     p.add_argument("--merge", action="store_true", help="keep the lines of an existing manifest that this run does not redo")
     p.add_argument("--extra-only", action="store_true", help="only the extra cross-bank lines the opening plays (narration, 1-11), merged")
     p.set_defaults(fn=cmd_speech)
+
+    p = sub.add_parser("campus", help="campus life (sm-campus): cast voices, ambient speech takes, the school bell, campus trigger files -> <out>/campus/")
+    p.add_argument("--config", default="unreal/BullyRemake/Config/Campus.json", help="cast list + speech context codes")
+    p.add_argument("--takes", type=int, default=3, help="takes per (speaker, context code) (default 3)")
+    p.add_argument("--no-speech", action="store_true", help="skip the speech takes (cast table, bell and triggers only)")
+    p.add_argument("--transcribe", action="store_true", help="transcribe the principal's lecture lines for the HUD (local faster-whisper, optional)")
+    p.add_argument("--model", default="small", help="faster-whisper model for --transcribe (must be cached locally)")
+    p.set_defaults(fn=cmd_campus)
 
     p = sub.add_parser("nft", help="decode .nft texture dictionaries to PNG")
     p.add_argument("names", nargs="+", help="World.img .nft names or paths to loose .nft/.txd files")

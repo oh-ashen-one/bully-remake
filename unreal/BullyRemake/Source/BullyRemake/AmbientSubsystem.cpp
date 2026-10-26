@@ -16,6 +16,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Paths.h"
+#include "Misc/PackageName.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
 #include "Sound/SoundAttenuation.h"
@@ -123,7 +124,9 @@ void AAmbientSoundActor::EndPlay(const EEndPlayReason::Type Reason)
 bool UAmbientSubsystem::ShouldCreateSubsystem(UObject* Outer) const
 {
 	const UWorld* W = Cast<UWorld>(Outer);
-	if (!W || !W->IsGameWorld() || FParse::Param(FCommandLine::Get(), TEXT("BRNoAmbient")))
+	// sm-campus: -BRCampusLife / -BRCampusSmoke bring the campus cast back into headless harness runs (which pass -BRNoAmbient)
+	const bool bCampus = FParse::Param(FCommandLine::Get(), TEXT("BRCampusLife")) || FParse::Param(FCommandLine::Get(), TEXT("BRCampusSmoke"));
+	if (!W || !W->IsGameWorld() || (FParse::Param(FCommandLine::Get(), TEXT("BRNoAmbient")) && !bCampus))
 	{
 		return false;
 	}
@@ -348,6 +351,40 @@ void UAmbientSubsystem::AttachFootsteps(ACharacter* Character, const FString& Ki
 		F->Tag = Tag;
 		F->RegisterComponent();
 	}
+}
+
+AAmbientWalker* UAmbientSubsystem::SpawnWalker(const FString& Model, const FString& StudentId, const FString& LoopId, const TArray<FVector>& Loop,
+	int32 Start, float Speed, const FVector2D& IdleRange, const FString& FootstepKind)
+{
+	UWorld* W = GetWorld();
+	if (!W || Loop.Num() == 0) { return nullptr; }
+	const FString Pkg = FString::Printf(TEXT("/Game/Imported/Characters/%s/SK_%s"), *Model, *Model);
+	if (!FPackageName::DoesPackageExist(Pkg))
+	{
+		UE_LOG(LogAmbientSys, Display, TEXT("BR_AMBIENT %s not imported here (tools/ue/run_import_npc.sh --peds %s): %s skipped"), *Model, *Model, *StudentId);
+		return nullptr;
+	}
+	const int32 S = Start % Loop.Num();
+	AAmbientWalker* Wk = W->SpawnActorDeferred<AAmbientWalker>(AAmbientWalker::StaticClass(),
+		FTransform(FRotator::ZeroRotator, Loop[S] + FVector(0, 0, 90.f)), nullptr, nullptr, ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (!Wk) { return nullptr; }
+	Wk->MeshPath = FString::Printf(TEXT("%s.SK_%s"), *Pkg, *Model);
+	Wk->LoopId = LoopId;
+	Wk->StudentId = StudentId;
+	Wk->Waypoints = Loop;
+	Wk->StartIndex = S;
+	Wk->WalkSpeed = Speed;
+	Wk->IdleSecondsRange = IdleRange;
+	Wk->FinishSpawning(Wk->GetActorTransform());
+	if (UBullyFootstepComponent* F = NewObject<UBullyFootstepComponent>(Wk, TEXT("Footsteps")))
+	{
+		F->Sounds = StepSets.FindRef(FootstepKind);
+		F->Role = FootstepKind == TEXT("female") ? TEXT("female") : TEXT("student");
+		F->Tag = StudentId;
+		F->RegisterComponent();
+	}
+	Walkers.Add(Wk);
+	return Wk;
 }
 
 void UAmbientSubsystem::StartEvidenceCamera(UWorld& World, const FString& Spec)

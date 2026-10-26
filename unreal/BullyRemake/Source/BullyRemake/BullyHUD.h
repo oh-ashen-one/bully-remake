@@ -38,6 +38,10 @@ struct FBullyHUDState
 	float BannerTotal = 1.f;
 	bool bBannerBad = false;
 
+	FString CampusText;         // sm-campus: clock + school period line, bottom left; empty = hidden
+	float TroubleFrac = -1.f;   // sm-campus: trouble meter fill 0..1; < 0 = hidden
+	float TroubleChaseFrac = 0.25f;   // where the "prefects chase on sight" line sits on the bar
+	bool bTroubleChase = false; // a prefect is after Jimmy (the bar pulses red)
 	FString WalletText;         // reward loop: running "$money" (+ respect) shown top-right; empty = hidden
 	float WalletFlash = 0.f;    // seconds left of the gold flash when it changes
 
@@ -82,6 +86,8 @@ public:
 	void ShowBanner(const FString& Text, const FString& Sub, float Seconds, bool bBad);
 	/** Reward loop: set the running wallet readout (top-right). bFlash gives it a brief gold highlight. */
 	void SetWallet(int32 Money, int32 Respect, bool bFlash);
+	/** sm-campus: the school clock line and the trouble meter (Frac < 0 hides the meter). */
+	void SetCampus(const FString& ClockLine, float TroubleFrac, bool bChase, float ChaseFrac);
 	/** Cinematic: slide the letterbox bars in (bOn) or out. */
 	void SetLetterbox(bool bOn);
 	/** Cinematic: show one cutscene dialogue line (speaker label + text) for Seconds. */

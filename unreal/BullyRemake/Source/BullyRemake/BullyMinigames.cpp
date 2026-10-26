@@ -6,6 +6,9 @@
 #include "MissionSubsystem.h"
 
 #include "Components/CapsuleComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/StaticMesh.h"
+#include "EngineUtils.h"
 #include "Dom/JsonObject.h"
 #include "Engine/Engine.h"
 #include "Engine/GameViewportClient.h"
@@ -851,8 +854,12 @@ void UBullyMinigameSubsystem::LockTurn(float Numbers)
 	const float Travel = FMath::Abs(Numbers);
 	float Dist = Dir > 0 ? Before - Target : Target - Before;   // distance still to go in the turning direction
 	Dist = FMath::Fmod(Dist + 400.f, 40.f);
-	if (Dist <= Travel + KINDA_SMALL_NUMBER)
+	// reversing onto the number the dial already shows (a repeated digit) takes a full turn, like a real lock
+	const bool bFirstNudge = Lock.StepTravel <= 0.f;
+	Lock.StepTravel += Travel;
+	if (Dist <= Travel + KINDA_SMALL_NUMBER && !(bFirstNudge && Dist < 0.5f))
 	{
+		Lock.StepTravel = 0.f;
 		Lock.Dial = Target;
 		++Lock.Step;
 		Lock.ClickAt = Now();
@@ -949,6 +956,27 @@ void UBullyMinigameSubsystem::ArmClimb(const FClimbSpot& Spot)
 {
 	Climbs.RemoveAll([&](const FClimbSpot& C) { return C.Id == Spot.Id; });
 	Climbs.Add(Spot);
+	if (Spot.ClearMeshes.Num() > 0)
+	{
+		int32 N = 0;
+		for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+		{
+			if (FVector::Dist2D(It->GetActorLocation(), Spot.Base) > 1500.f) { continue; }
+			TArray<UStaticMeshComponent*> Comps;
+			It->GetComponents(Comps);
+			for (UStaticMeshComponent* C : Comps)
+			{
+				const FString Mesh = C && C->GetStaticMesh() ? C->GetStaticMesh()->GetName() : FString();
+				if (Mesh.IsEmpty() || !Spot.ClearMeshes.ContainsByPredicate([&](const FString& Sub) { return Mesh.Contains(Sub); })) { continue; }
+				if (FVector::Dist2D(C->Bounds.Origin, Spot.Base) > 1200.f) { continue; }
+				C->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
+				C->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+				ClearedComps.Add(C);
+				++N;
+			}
+		}
+		UE_LOG(LogBullyMinigame, Display, TEXT("BR_MINIGAME climb spot '%s': %d climbable mesh(es) let pellets + camera through"), *Spot.Id.ToString(), N);
+	}
 	UE_LOG(LogBullyMinigame, Display, TEXT("BR_MINIGAME climb spot '%s' armed: base %s -> perch %s (%.0f cm up)"), *Spot.Id.ToString(),
 		*Spot.Base.ToCompactString(), *Spot.Top.ToCompactString(), Spot.Top.Z - Spot.Base.Z);
 	ShowOverlay(true);
@@ -973,6 +1001,11 @@ void UBullyMinigameSubsystem::DisarmClimbs()
 		ClimbState = EClimb::None;
 	}
 	Climbs.Reset();
+	for (const TWeakObjectPtr<UPrimitiveComponent>& C : ClearedComps)
+	{
+		if (C.IsValid()) { C->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block); C->SetCollisionResponseToChannel(ECC_Camera, ECR_Block); }
+	}
+	ClearedComps.Reset();
 	if (!IsRunning()) { ShowOverlay(false); }
 }
 

@@ -108,7 +108,8 @@
 //                    (Config/Minigames/ClassChem.json; "auto": true starts it without E; three runs, then pass = grade +
 //                    unlock screens -> success event, three failed runs -> fail event). "kind" absent = the v1 bar.
 //               { "type": "climb_spot", "id": "tree", "base": "<point>" | "base_cm": [..], "trunk_cm": [..], "top_cm": [..],
-//                 "yaw": 0, "radius_cm": 170, "prompt": "Climb the tree", "down_prompt": "Climb down" }
+//                 "yaw": 0, "radius_cm": 170, "prompt": "Climb the tree", "down_prompt": "Climb down",
+//                 "clear_meshes": ["pxTree6M"] }   // the climbable's own meshes let pellets + the camera through
 //                 -- sm-minigames: an interact-to-climb spot (1_04's tree, /Global/TreeClimb): E at the base climbs
 //                    base -> trunk_cm -> top_cm (feet heights) with the original tree clips; perched = pinned there with the
 //                    weapon usable; E again climbs down. Fires "climb:<id>_top" / "climb:<id>_bottom". Mission-scoped.

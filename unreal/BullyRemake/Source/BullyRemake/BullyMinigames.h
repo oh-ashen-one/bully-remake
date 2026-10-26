@@ -89,6 +89,10 @@ public:
 		float TopYaw = 0.f;
 		float Radius = 170.f;                 // how close to Base the climb prompt shows
 		FString UpPrompt = TEXT("Climb"), DownPrompt = TEXT("Climb down");
+		/** Static meshes (name substrings) of the climbable itself near Base: while the spot is armed they let pellets and
+		 *  the camera through (the importer made every render triangle solid; the original tree's branch doesn't stop shots
+		 *  fired from it). */
+		TArray<FString> ClearMeshes;
 	};
 	void ArmClimb(const FClimbSpot& Spot);
 	void DisarmClimbs();
@@ -140,6 +144,7 @@ public:
 		double ClickAt = -10.0;         // last click (feedback flash)
 		float Speed = 0.f;              // numbers per second (signed, + = clockwise)
 		bool bTurned = false;
+		float StepTravel = 0.f;         // numbers turned the arrow's way since the last click
 	};
 	EPhase GetPhase() const { return Phase; }
 	double Now() const;
@@ -197,6 +202,7 @@ private:
 	FVector ClimbFrom = FVector::ZeroVector;
 	int32 ClimbLeg = 0;
 	uint8 SavedMoveMode = 1;
+	TArray<TWeakObjectPtr<class UPrimitiveComponent>> ClearedComps;   // climbable meshes made pellet/camera-transparent
 
 	// player clip
 	double ClipEndsAt = -1.0;

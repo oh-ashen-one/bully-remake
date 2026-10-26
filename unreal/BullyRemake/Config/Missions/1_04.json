@@ -100,7 +100,7 @@
       "objective": "Get to the tree overlooking the field.",
       "blip": [-675.4, 10746.4, 104.5],
       "on_start": [
-        { "type": "climb_spot", "id": "tree", "base_cm": [-675.4, 10746.4, 104.5], "trunk_cm": [-690.0, 10700.0, 470.0], "top_cm": [-690.0, 10526.0, 485.0], "yaw": -126, "radius_cm": 170, "prompt": "Climb the tree", "down_prompt": "Climb down" }
+        { "type": "climb_spot", "id": "tree", "base_cm": [-675.4, 10746.4, 104.5], "trunk_cm": [-690.0, 10700.0, 470.0], "top_cm": [-690.0, 10526.0, 485.0], "yaw": -126, "radius_cm": 170, "prompt": "Climb the tree", "down_prompt": "Climb down", "clear_meshes": ["pxTree6M", "TreeClimbBranch"] }
       ],
       "complete": { "type": "event", "name": "climb:tree_top", "latched": true },
       "on_complete": [

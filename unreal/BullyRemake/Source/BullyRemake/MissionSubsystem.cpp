@@ -468,6 +468,7 @@ namespace
 				A.Radius = O->TryGetNumberField(TEXT("radius_cm"), N2) ? float(N2) : 170.f;
 				if (!O->TryGetStringField(TEXT("prompt"), A.Text)) { A.Text = TEXT("Climb"); }
 				if (!O->TryGetStringField(TEXT("down_prompt"), A.Sub)) { A.Sub = TEXT("Climb down"); }
+				O->TryGetStringArrayField(TEXT("clear_meshes"), A.Meshes);
 			}
 			else if (Type == TEXT("player_anim"))   // sm-minigames
 			{
@@ -1665,6 +1666,7 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 				Spot.Radius = A.Radius;
 				Spot.UpPrompt = A.Text;
 				Spot.DownPrompt = A.Sub;
+				Spot.ClearMeshes = A.Meshes;
 				MG->ArmClimb(Spot);
 			}
 			break;

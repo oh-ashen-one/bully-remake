@@ -971,6 +971,7 @@ void UBullyMinigameSubsystem::ArmClimb(const FClimbSpot& Spot)
 				if (FVector::Dist2D(C->Bounds.Origin, Spot.Base) > 1200.f) { continue; }
 				C->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Ignore);
 				C->SetCollisionResponseToChannel(ECC_Camera, ECR_Ignore);
+				C->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);   // the free-aim ray from a camera behind the canopy
 				ClearedComps.Add(C);
 				++N;
 			}
@@ -1003,7 +1004,7 @@ void UBullyMinigameSubsystem::DisarmClimbs()
 	Climbs.Reset();
 	for (const TWeakObjectPtr<UPrimitiveComponent>& C : ClearedComps)
 	{
-		if (C.IsValid()) { C->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block); C->SetCollisionResponseToChannel(ECC_Camera, ECR_Block); }
+		if (C.IsValid()) { C->SetCollisionResponseToChannel(ECC_WorldDynamic, ECR_Block); C->SetCollisionResponseToChannel(ECC_Camera, ECR_Block); C->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block); }
 	}
 	ClearedComps.Reset();
 	if (!IsRunning()) { ShowOverlay(false); }

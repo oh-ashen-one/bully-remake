@@ -1254,12 +1254,11 @@ void UBullyMinigameSubsystem::TickUiShots()
 	if (Kind == EKind::Chem && Phase == EPhase::Play && Chem.Prompts.IsValidIndex(Chem.Next) && Now() > Chem.Prompts[0].DueAt - 0.4) { Name = FString::Printf(TEXT("ui_chem_run%d"), Chem.Run + 1); }
 	else if (Kind == EKind::Chem && Phase == EPhase::Grades && Now() - Chem.PhaseAt > 1.0) { Name = TEXT("ui_chem_grades"); }
 	else if (Kind == EKind::Chem && Phase == EPhase::Unlock && Now() - Chem.PhaseAt > 1.0) { Name = TEXT("ui_chem_unlock"); }
-	else if (Kind == EKind::Lock && Phase == EPhase::Play && Now() - LockBeganAt > 1.5) { Name = TEXT("ui_lock"); }
+	else if (Kind == EKind::Lock && Phase == EPhase::Play && Now() - LockBeganAt > 2.5) { Name = TEXT("ui_lock"); }   // clear of the shots pass's own still at +1.5 s
 	else if (ClimbState == EClimb::Perched) { Name = TEXT("ui_perch"); }
 	if (Name.IsEmpty() || UiShotsTaken.Contains(Name)) { return; }
 	UiShotsTaken.Add(Name);
 	const FString File = FPaths::Combine(Dir, Name + TEXT(".png"));
-	GetHighResScreenshotConfig().SetFilename(File);   // a shots pass leaves its last still's name there, which wins
 	FScreenshotRequest::RequestScreenshot(File, true, false);
 	UE_LOG(LogBullyMinigame, Display, TEXT("BR_MINIGAME ui screenshot -> %s"), *File);
 }

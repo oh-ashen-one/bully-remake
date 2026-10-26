@@ -590,21 +590,30 @@ bool UBullyMinigameSubsystem::Begin(const FStart& S)
 		Phase = EPhase::Play;
 		UE_LOG(LogBullyMinigame, Display, TEXT("BR_MINIGAME lock '%s' begins: combo %d-%d-%d dial at %.0f"), *S.Id.ToString(), Lock.Combo[0], Lock.Combo[1], Lock.Combo[2], Lock.Dial);
 		LockInput(true, true);
-		// face the locker: the nearest wall around him at chest height (the lock spot is a point, not a facing)
+		// step up to the locker like the original's prop use: the lockers' wall nearest the lock spot, Jimmy 55 cm off it
+		// facing it (the spot is a point, not a facing)
 		if (ABullyCharacter* P = Player())
 		{
-			const FVector Chest = P->GetActorLocation() + FVector(0, 0, 40.f);
+			const FVector Chest(S.At.X, S.At.Y, P->GetActorLocation().Z + 40.f);
 			FCollisionQueryParams Q(SCENE_QUERY_STAT(BullyLockFace), false, P);
-			float BestD = 200.f, BestYaw = P->GetActorRotation().Yaw;
+			float BestD = 220.f, BestYaw = P->GetActorRotation().Yaw;
+			FVector BestHit = FVector::ZeroVector;
 			for (int32 i = 0; i < 24; ++i)
 			{
 				const float Yaw = i * 15.f;
 				FHitResult H;
-				if (GetWorld()->LineTraceSingleByChannel(H, Chest, Chest + FRotator(0.f, Yaw, 0.f).Vector() * 200.f, ECC_Visibility, Q) && H.Distance < BestD)
+				if (GetWorld()->LineTraceSingleByChannel(H, Chest, Chest + FRotator(0.f, Yaw, 0.f).Vector() * 220.f, ECC_Visibility, Q) && H.Distance < BestD)
 				{
-					BestD = H.Distance; BestYaw = Yaw;
+					BestD = H.Distance; BestYaw = Yaw; BestHit = H.ImpactPoint;
 				}
 			}
+			if (!BestHit.IsZero())
+			{
+				const FVector Dir = FRotator(0.f, BestYaw, 0.f).Vector();
+				const FVector Stand(BestHit.X - Dir.X * 55.f, BestHit.Y - Dir.Y * 55.f, P->GetActorLocation().Z);
+				P->SetActorLocation(Stand, false, nullptr, ETeleportType::TeleportPhysics);
+			}
+			P->GetCharacterMovement()->StopMovementImmediately();
 			P->SetActorRotation(FRotator(0.f, BestYaw, 0.f));
 			if (AController* Ctl = P->GetController()) { Ctl->SetControlRotation(FRotator(-10.f, BestYaw, 0.f)); }
 		}

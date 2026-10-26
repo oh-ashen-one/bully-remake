@@ -1141,7 +1141,7 @@ void UMissionSubsystem::StopMission(const FString& Reason)
 	BossBarState.Boss.Reset();
 	if (Hud.IsValid()) { Hud->ClearChoice(); }
 	Speech.bActive = false;
-	QueuedSays.Reset();   // sm-voice
+	QueuedSays.Reset(); QueuedSayUntil.Reset();   // sm-voice
 	Minigame = FMinigameState();
 	HeatPoints = 0.f;
 	if (Hud.IsValid()) { Hud->SetCountdown(-1.f); Hud->SetProgress(-1.f); }
@@ -1310,9 +1310,12 @@ void UMissionSubsystem::TickReactions()
 	if (QueuedSays.Num() > 0 && Now >= SayBusyUntil && !Speech.bActive)
 	{
 		FMissionAction A = QueuedSays[0];
+		const double Until = QueuedSayUntil.IsValidIndex(0) ? QueuedSayUntil[0] : Now;
 		QueuedSays.RemoveAt(0);
+		if (QueuedSayUntil.Num() > 0) { QueuedSayUntil.RemoveAt(0); }
 		A.bQueue = false;
-		RunActions(TArray<FMissionAction>{ A });
+		if (Now <= Until) { RunActions(TArray<FMissionAction>{ A }); }
+		else { UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION say %s dropped (waited too long in the queue): %s"), A.Sub.IsEmpty() ? TEXT("-") : *A.Sub, A.Voice.IsEmpty() ? *A.Text : *A.Voice); }
 	}
 	const int32 AtStage = StageIndex;
 	const int32 N = FMath::Min(ReactionNextAt.Num(), Mission->Stages[StageIndex].Reactions.Num());
@@ -1353,7 +1356,7 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	StageStartTime = GetWorld()->GetTimeSeconds();
 	StageEvents.Reset();
 	ResetReactions();   // sm-voice: reactions are stage-scoped; queued says carry over into the next stage (not a retry)
-	if (bRetry) { QueuedSays.Reset(); }
+	if (bRetry) { QueuedSays.Reset(); QueuedSayUntil.Reset(); }
 	// chapter-1 primitives are stage-scoped: a new stage disarms a leftover minigame/speech beat (its own on_start re-arms)
 	Minigame = FMinigameState();
 	Speech.bActive = false;
@@ -1448,7 +1451,7 @@ void UMissionSubsystem::CompleteMission()
 	BossBarState.Boss.Reset();
 	if (Hud.IsValid()) { Hud->ClearChoice(); }
 	Speech.bActive = false;
-	QueuedSays.Reset();   // sm-voice
+	QueuedSays.Reset(); QueuedSayUntil.Reset();   // sm-voice
 	Minigame = FMinigameState();
 	HeatPoints = 0.f;
 	OnMissionFinished.Broadcast(*Mission, true);
@@ -1538,7 +1541,7 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			// sm-voice: bark = dropped while a line is still being spoken; queue = held until it ends (TickReactions)
 			if ((A.bBark || A.bQueue) && GetWorld() && (GetWorld()->GetTimeSeconds() < SayBusyUntil || Speech.bActive))
 			{
-				if (A.bQueue) { QueuedSays.Add(A); }
+				if (A.bQueue) { QueuedSays.Add(A); QueuedSayUntil.Add(GetWorld()->GetTimeSeconds() + QueuedSayMaxWait); }
 				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION say %s %s (a line is still playing): %s"), A.Sub.IsEmpty() ? TEXT("-") : *A.Sub,
 					A.bQueue ? TEXT("queued") : TEXT("dropped"), A.Voice.IsEmpty() ? *A.Text : *A.Voice);
 				break;

@@ -38,6 +38,10 @@ STEPS = {
     "go_upstairs": [(1.5, "Mission.Goto")],
     # ---- 1_02 ----
     "office_cutscene": [(2.0, "Cutscene.Skip")],   # sm-cutscenes: original 1-1-2 (passes straight through when not imported)
+    "narration_1": [(1.5, "Mission.Fire speech:narration_1")],   # sm-voice: intro-tour narration beats (speech-gated)
+    "narration_2": [(1.5, "Mission.Fire speech:narration_2")],
+    "narration_3": [(1.5, "Mission.Fire speech:narration_3")],
+    "narration_4": [(1.5, "Mission.Fire speech:narration_4")],
     "briefing": [],                                # timer stage
     "leave_office": [(1.5, "Mission.Goto")],
     "exit_building": [(1.5, "Mission.Goto")],
@@ -58,7 +62,7 @@ STEPS = {
     "humiliate": [(1.5, "Mission.Fire humiliation_done")],
     "fight_end": [(1.5, "Mission.Fire enemy_knocked_out")],   # the crowd's disperse beat listens for the same event
     "crowd_leaves": [(2.0, "SNPC.Status")],
-    "staff_coming": [],                            # timer stage (day_one mode skips it with Mission.Skip next)
+    "staff_coming": [(1.5, "Mission.Fire speech:prefect")],   # sm-voice: the teacher break-up scene (day_one mode skips it)
     "to_dorm": [(1.5, "Mission.Goto")],
     "dorm_arrival_cutscene": [(2.0, "Cutscene.Skip")],   # sm-cutscenes: original 1-02B
     "dorm_room_cutscene": [(2.0, "Cutscene.Skip")],      # sm-cutscenes: original 1-02E

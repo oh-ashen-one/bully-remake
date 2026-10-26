@@ -182,7 +182,8 @@
 //                       run them on a timer from the stage's start (every 0 = once). "if"/"unless" gate each run, "max"
 //                       caps the runs per stage. Reactions never nest (a reaction's own events don't trigger others).
 //   say extras: "bark": true  -- dropped if a say / speech line is still being spoken (the original's
-//                                "if not SoundSpeechPlaying" guard); "queue": true -- held until that line ends.
+//                                "if not SoundSpeechPlaying" guard); "queue": true -- held until that line ends (dropped
+//                                if it would wait more than 8 s; queued lines carry over into the next stage).
 //   spawn_wave events: besides "wave:<group>", every newly downed member fires "wave_down:<group>" and a member that loses
 //                    health without going down fires "wave_hit:<group>" (both after "wave:<group>" in the same tick).
 //
@@ -609,6 +610,8 @@ private:
 	bool bInReaction = false;
 	double SayBusyUntil = 0.0;          // the last say / speech line is still being spoken until then
 	TArray<FMissionAction> QueuedSays;
+	TArray<double> QueuedSayUntil;      // a queued line still waiting past this is stale (out of context): dropped
+	static constexpr double QueuedSayMaxWait = 8.0;
 	void ResetReactions();
 	void RunReaction(int32 Index, const TCHAR* Why);
 	void TickReactions();

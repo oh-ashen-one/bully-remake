@@ -52,7 +52,13 @@ class Mission:
         for k, p in self.d.get("points", {}).items():
             self.points[k] = self.loc(p)
         for t in self.d.get("triggers", []):
-            self.triggers[t["id"]] = (self.loc(t), vec(t.get("half_extent_cm", [100, 100, 150])), float(t.get("yaw", 0.0)))
+            if "point" in t and not any(k in t for k in ("location_cm", "center_cm", "game_m")):
+                if t["point"] not in self.points:   # placed on a trigger-file point: not resolvable offline
+                    continue
+                at = self.points[t["point"]]
+            else:
+                at = self.loc(t)
+            self.triggers[t["id"]] = (at, vec(t.get("half_extent_cm", [100, 100, 150])), float(t.get("yaw", 0.0)))
 
     @staticmethod
     def loc(o):
@@ -154,6 +160,10 @@ def audit(m):
         c = s["complete"]
         if not skippable(c):
             rows.append((i + 1, s["id"], "n/a", "not positional (%s)" % c["type"]))
+            continue
+        missing = [lf["trigger"] for lf in leaves(c) if lf["type"] == "trigger_enter" and lf["trigger"] not in m.triggers]
+        if missing:
+            rows.append((i + 1, s["id"], "n/a", "trigger %s sits on a trigger-file point that is not imported" % missing[0]))
             continue
         notes = []
         for lf in leaves(c):

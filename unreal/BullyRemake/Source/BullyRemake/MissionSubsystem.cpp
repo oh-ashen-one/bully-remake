@@ -261,6 +261,8 @@ namespace
 				if (A.Text.IsEmpty()) { O->TryGetStringField(TEXT("line"), A.Text); }   // "line" accepted as an alias for "text"
 				if (!O->HasField(TEXT("seconds"))) { A.Seconds = 4.f; }
 				O->TryGetStringField(TEXT("voice"), A.Voice);   // sm-voice
+				O->TryGetBoolField(TEXT("bark"), A.bBark);
+				O->TryGetBoolField(TEXT("queue"), A.bQueue);
 			}
 			else if (Type == TEXT("camera"))
 			{
@@ -1018,6 +1020,32 @@ bool UMissionSubsystem::LoadMission(const FString& Id, FMissionDef& D, FString& 
 		{
 			Err = FString::Printf(TEXT("stage %d: %s"), Index, *Err); return false;
 		}
+		// sm-voice: stage reactions (event-driven or timed barks)
+		if (const TArray<TSharedPtr<FJsonValue>>* RA = nullptr; O->TryGetArrayField(TEXT("reactions"), RA))
+		{
+			for (const TSharedPtr<FJsonValue>& RV : *RA)
+			{
+				const FObj RO = RV.IsValid() ? RV->AsObject() : nullptr;
+				if (!RO.IsValid()) { Err = FString::Printf(TEXT("stage %d: a reaction must be an object"), Index); return false; }
+				FMissionReaction R;
+				FString OnName;
+				if (RO->TryGetStringField(TEXT("on"), OnName)) { R.On = FName(*OnName); }
+				double RN = 0.0;
+				if (RO->TryGetNumberField(TEXT("after"), RN)) { R.After = FMath::Max(0.f, float(RN)); }
+				if (RO->TryGetNumberField(TEXT("every"), RN)) { R.Every = FMath::Max(0.f, float(RN)); }
+				if (RO->TryGetNumberField(TEXT("max"), RN))   { R.Max = FMath::Max(0, int32(RN)); }
+				if (R.On.IsNone() && R.After < 0.f) { R.After = R.Every; }
+				if (R.On.IsNone() && R.After <= 0.f && R.Every <= 0.f && !RO->HasField(TEXT("after")))
+				{
+					Err = FString::Printf(TEXT("stage %d: a reaction needs \"on\", \"after\" or \"every\""), Index); return false;
+				}
+				const FObj* RC = nullptr;
+				if (RO->TryGetObjectField(TEXT("if"), RC) && !ParseCondition(*RC, D, R.If, Err)) { Err = FString::Printf(TEXT("stage %d reaction if: %s"), Index, *Err); return false; }
+				if (RO->TryGetObjectField(TEXT("unless"), RC) && !ParseCondition(*RC, D, R.Unless, Err)) { Err = FString::Printf(TEXT("stage %d reaction unless: %s"), Index, *Err); return false; }
+				if (!ParseActions(RO, TEXT("actions"), D, R.Actions, Err)) { Err = FString::Printf(TEXT("stage %d reaction: %s"), Index, *Err); return false; }
+				St.Reactions.Add(MoveTemp(R));
+			}
+		}
 		D.Stages.Add(MoveTemp(St));
 	}
 	// optional root-level fail: evaluated every tick of every stage (e.g. leave_area for a mission set in one building)
@@ -1113,6 +1141,7 @@ void UMissionSubsystem::StopMission(const FString& Reason)
 	BossBarState.Boss.Reset();
 	if (Hud.IsValid()) { Hud->ClearChoice(); }
 	Speech.bActive = false;
+	QueuedSays.Reset(); QueuedSayUntil.Reset();   // sm-voice
 	Minigame = FMinigameState();
 	HeatPoints = 0.f;
 	if (Hud.IsValid()) { Hud->SetCountdown(-1.f); Hud->SetProgress(-1.f); }
@@ -1227,6 +1256,76 @@ void UMissionSubsystem::FireEvent(FName Event)
 	MissionEvents.Add(Event);
 	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION event '%s'"), *Event.ToString());
 	OnMissionEvent.Broadcast(Event);
+	// sm-voice: event-driven stage reactions (never nested: a reaction's own events don't trigger others)
+	if (!bInReaction && State == EState::Running && Mission.IsValid() && Mission->Stages.IsValidIndex(StageIndex))
+	{
+		const TArray<FMissionReaction>& Rs = Mission->Stages[StageIndex].Reactions;
+		for (int32 i = 0; i < Rs.Num(); ++i)
+		{
+			if (!Rs[i].On.IsNone() && Rs[i].On == Event) { RunReaction(i, TEXT("event")); }
+		}
+	}
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// sm-voice: stage reactions (in-gameplay barks) + say bark/queue
+
+void UMissionSubsystem::ResetReactions()
+{
+	ReactionRuns.Reset();
+	ReactionNextAt.Reset();
+	if (!Mission.IsValid() || !Mission->Stages.IsValidIndex(StageIndex) || !GetWorld()) { return; }
+	const double Now = GetWorld()->GetTimeSeconds();
+	for (const FMissionReaction& R : Mission->Stages[StageIndex].Reactions)
+	{
+		ReactionRuns.Add(0);
+		ReactionNextAt.Add(R.On.IsNone() ? Now + FMath::Max(0.f, R.After) : -1.0);
+	}
+}
+
+void UMissionSubsystem::RunReaction(int32 Index, const TCHAR* Why)
+{
+	if (!Mission.IsValid() || !Mission->Stages.IsValidIndex(StageIndex) || !ReactionRuns.IsValidIndex(Index)) { return; }
+	const FMissionStage& St = Mission->Stages[StageIndex];
+	if (!St.Reactions.IsValidIndex(Index)) { return; }
+	const FMissionReaction& R = St.Reactions[Index];
+	if (R.Max > 0 && ReactionRuns[Index] >= R.Max) { return; }
+	if (R.If.IsValid() && !Evaluate(R.If)) { return; }
+	if (R.Unless.IsValid() && Evaluate(R.Unless)) { return; }
+	++ReactionRuns[Index];
+	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION reaction %s#%d (%s%s%s) run %d"), *St.Id.ToString(), Index, Why,
+		R.On.IsNone() ? TEXT("") : TEXT(" "), R.On.IsNone() ? TEXT("") : *R.On.ToString(), ReactionRuns[Index]);
+	const TArray<FMissionAction> Acts = R.Actions;   // copy: the actions may replace the mission (start_mission)
+	bInReaction = true;
+	RunActions(Acts);
+	bInReaction = false;
+}
+
+void UMissionSubsystem::TickReactions()
+{
+	UWorld* World = GetWorld();
+	if (!World || !Mission.IsValid() || !Mission->Stages.IsValidIndex(StageIndex)) { return; }
+	const double Now = World->GetTimeSeconds();
+	// queued says: the next one starts once the current line has been spoken
+	if (QueuedSays.Num() > 0 && Now >= SayBusyUntil && !Speech.bActive)
+	{
+		FMissionAction A = QueuedSays[0];
+		const double Until = QueuedSayUntil.IsValidIndex(0) ? QueuedSayUntil[0] : Now;
+		QueuedSays.RemoveAt(0);
+		if (QueuedSayUntil.Num() > 0) { QueuedSayUntil.RemoveAt(0); }
+		A.bQueue = false;
+		if (Now <= Until) { RunActions(TArray<FMissionAction>{ A }); }
+		else { UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION say %s dropped (waited too long in the queue): %s"), A.Sub.IsEmpty() ? TEXT("-") : *A.Sub, A.Voice.IsEmpty() ? *A.Text : *A.Voice); }
+	}
+	const int32 AtStage = StageIndex;
+	const int32 N = FMath::Min(ReactionNextAt.Num(), Mission->Stages[StageIndex].Reactions.Num());
+	for (int32 i = 0; i < N && StageIndex == AtStage && ReactionNextAt.IsValidIndex(i); ++i)
+	{
+		if (ReactionNextAt[i] < 0.0 || Now < ReactionNextAt[i]) { continue; }
+		const float Every = Mission->Stages[StageIndex].Reactions[i].Every;
+		ReactionNextAt[i] = Every > 0.f ? Now + Every : -1.0;
+		RunReaction(i, TEXT("timer"));
+	}
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -1256,6 +1355,8 @@ void UMissionSubsystem::BeginStage(int32 Index, bool bRetry)
 	const FMissionStage& St = Mission->Stages[Index];
 	StageStartTime = GetWorld()->GetTimeSeconds();
 	StageEvents.Reset();
+	ResetReactions();   // sm-voice: reactions are stage-scoped; queued says carry over into the next stage (not a retry)
+	if (bRetry) { QueuedSays.Reset(); QueuedSayUntil.Reset(); }
 	// chapter-1 primitives are stage-scoped: a new stage disarms a leftover minigame/speech beat (its own on_start re-arms)
 	Minigame = FMinigameState();
 	Speech.bActive = false;
@@ -1350,6 +1451,7 @@ void UMissionSubsystem::CompleteMission()
 	BossBarState.Boss.Reset();
 	if (Hud.IsValid()) { Hud->ClearChoice(); }
 	Speech.bActive = false;
+	QueuedSays.Reset(); QueuedSayUntil.Reset();   // sm-voice
 	Minigame = FMinigameState();
 	HeatPoints = 0.f;
 	OnMissionFinished.Broadcast(*Mission, true);
@@ -1436,6 +1538,14 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 			break;
 		case FMissionAction::EType::Say:
 		{
+			// sm-voice: bark = dropped while a line is still being spoken; queue = held until it ends (TickReactions)
+			if ((A.bBark || A.bQueue) && GetWorld() && (GetWorld()->GetTimeSeconds() < SayBusyUntil || Speech.bActive))
+			{
+				if (A.bQueue) { QueuedSays.Add(A); QueuedSayUntil.Add(GetWorld()->GetTimeSeconds() + QueuedSayMaxWait); }
+				UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION say %s %s (a line is still playing): %s"), A.Sub.IsEmpty() ? TEXT("-") : *A.Sub,
+					A.bQueue ? TEXT("queued") : TEXT("dropped"), A.Voice.IsEmpty() ? *A.Text : *A.Voice);
+				break;
+			}
 			FString Text = A.Text;
 			float Seconds = A.Seconds;
 			FString VoiceText;
@@ -1447,6 +1557,7 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 				Seconds = VoiceSeconds + 0.35f;
 			}
 			if (Hud.IsValid()) { Hud->Say(A.Sub, Text, Seconds); }
+			if (GetWorld()) { SayBusyUntil = GetWorld()->GetTimeSeconds() + Seconds; }   // sm-voice: bark/queue guard
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION say %s: %s"), A.Sub.IsEmpty() ? TEXT("-") : *A.Sub, *Text);
 			break;
 		}
@@ -2287,6 +2398,7 @@ void UMissionSubsystem::Tick(float Dt)
 		TickFollows(Dt);
 		TickWaves();
 		TickSpotters();
+		TickReactions();   // sm-voice
 		TickCountdown();
 		TickLesson();
 		TickRace();
@@ -3001,12 +3113,14 @@ void UMissionSubsystem::TickSpeech(float /*Dt*/)
 	}
 	if (Hud.IsValid()) { Hud->Say(L.Speaker, Text, Seconds); }
 	Speech.LineEndsAt = World->GetTimeSeconds() + Seconds;
+	SayBusyUntil = Speech.LineEndsAt;   // sm-voice: bark/queue guard
 }
 
 void UMissionSubsystem::SkipSpeechSequence()
 {
 	if (!Speech.bActive) { return; }
 	if (UBullyVoiceSubsystem* V = UBullyVoiceSubsystem::Get(this)) { V->Stop(); }   // sm-voice
+	SayBusyUntil = 0.0;
 	Speech.bActive = false;
 	if (Hud.IsValid()) { Hud->Say(TEXT(""), TEXT(""), 0.f); }
 	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION speech_sequence skipped -> event %s"), *Speech.DoneEvent.ToString());
@@ -3114,24 +3228,36 @@ void UMissionSubsystem::SpawnWave(const FMissionAction& A)
 
 void UMissionSubsystem::TickWaves()
 {
+	TArray<FName> Fire;   // fired after the loop: a reaction may spawn a wave (Waves would reallocate under us)
 	for (FWaveGroup& G : Waves)
 	{
-		if (G.bFired) { continue; }
 		int32 Down = 0;
-		for (const TWeakObjectPtr<ABullyCombatPawn>& M : G.Members)
+		const bool bInitHealth = G.LastHealth.Num() != G.Members.Num();
+		if (bInitHealth) { G.LastHealth.Init(-1.f, G.Members.Num()); }
+		int32 Hit = 0;
+		for (int32 i = 0; i < G.Members.Num(); ++i)
 		{
-			const ABullyCombatPawn* P = M.Get();
-			if (!P || !P->GetCombat() || P->GetCombat()->IsOut() || P->GetCombat()->GetState() == EBullyCombatState::Beaten) { ++Down; }
+			const ABullyCombatPawn* P = G.Members[i].Get();
+			const bool bDown = !P || !P->GetCombat() || P->GetCombat()->IsOut() || P->GetCombat()->GetState() == EBullyCombatState::Beaten;
+			if (bDown) { ++Down; continue; }
+			const float Hp = P->GetCombat()->Health;   // sm-voice: a landed hit that did not drop him -> wave_hit
+			if (!bInitHealth && G.LastHealth[i] >= 0.f && Hp < G.LastHealth[i] - 0.01f) { ++Hit; }
+			G.LastHealth[i] = Hp;
 		}
 		const int32 Need = G.AdvanceAt > 0 ? FMath::Min(G.AdvanceAt, G.Members.Num()) : G.Members.Num();
-		if (Need > 0 && Down >= Need)
+		if (!G.bFired && Need > 0 && Down >= Need)
 		{
 			G.bFired = true;
 			const FName Ev(*FString::Printf(TEXT("wave:%s"), *G.Group.ToString()));
 			UE_LOG(LogBullyMission, Display, TEXT("BR_MISSION wave %s: %d/%d down -> event %s"), *G.Group.ToString(), Down, G.Members.Num(), *Ev.ToString());
-			FireEvent(Ev);
+			Fire.Add(Ev);
 		}
+		if (bInitHealth) { G.LastDown = Down; continue; }
+		for (; G.LastDown < Down; ++G.LastDown) { Fire.Add(FName(*FString::Printf(TEXT("wave_down:%s"), *G.Group.ToString()))); }
+		G.LastDown = Down;
+		for (int32 h = 0; h < Hit; ++h) { Fire.Add(FName(*FString::Printf(TEXT("wave_hit:%s"), *G.Group.ToString()))); }
 	}
+	for (const FName& Ev : Fire) { FireEvent(Ev); }
 }
 
 void UMissionSubsystem::TickSpotters()

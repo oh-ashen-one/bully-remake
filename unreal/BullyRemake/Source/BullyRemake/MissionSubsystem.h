@@ -175,6 +175,17 @@
 //                    `else` fires the event at once -- a dedicated cutscene stage then just passes through.
 //   stage extra: "skip_if": <condition> -- checked when the stage begins; true skips the stage outright (no actions), e.g.
 //                    { "type": "flag", "name": "cutscene:1-1-1" } on the text beats an original cutscene replaces.
+//   sm-voice (in-gameplay barks, the original's monitor threads):
+//   stage extra: "reactions": [ { "on": "wave_down:windows", "if": <cond>, "unless": <cond>, "max": 0, "actions": [..] },
+//                               { "after": 6, "every": 10, "max": 0, "actions": [..] } ]
+//                    -- stage-scoped. "on" runs the actions each time that event fires during the stage; "after"/"every"
+//                       run them on a timer from the stage's start (every 0 = once). "if"/"unless" gate each run, "max"
+//                       caps the runs per stage. Reactions never nest (a reaction's own events don't trigger others).
+//   say extras: "bark": true  -- dropped if a say / speech line is still being spoken (the original's
+//                                "if not SoundSpeechPlaying" guard); "queue": true -- held until that line ends (dropped
+//                                if it would wait more than 8 s; queued lines carry over into the next stage).
+//   spawn_wave events: besides "wave:<group>", every newly downed member fires "wave_down:<group>" and a member that loses
+//                    health without going down fires "wave_hit:<group>" (both after "wave:<group>" in the same tick).
 //
 // Campaign spine: StartMission consults UBullyCampaignSubsystem::IsAvailable (ids outside the campaign table are
 // always available) unless the start came from -BRMission=, the Mission.Start console exec, or a smoke/shots
@@ -340,6 +351,19 @@ struct FMissionAction
 	// sm-cutscenes: cutscene -- Name = cutscene id (Cuts.img naming, e.g. "1-03"), Sub = done event (default
 	// "cutscene:<id>"), Else = the fallback beats run when the imported original is absent.
 	TArray<FMissionAction> Else;
+	// sm-voice: say "bark" = drop the line while another one is still being spoken; "queue" = hold it until that one ends
+	bool bBark = false, bQueue = false;
+};
+
+/** sm-voice: a stage-scoped reaction -- in-gameplay barks the original fires from its own monitors (a window breaking,
+ *  a hit landing, a periodic shout, the player being spotted). Event-driven ("on") or timed ("after"/"every"). */
+struct FMissionReaction
+{
+	FName On;                         // event name; empty = timed
+	float After = -1.f, Every = 0.f;  // timed: first run `after` s into the stage, then every `every` s (0 = once)
+	int32 Max = 0;                    // runs per stage (0 = unlimited)
+	FMissionCondition If, Unless;     // optional gates, evaluated when it would run
+	TArray<FMissionAction> Actions;
 };
 
 struct FMissionStage
@@ -356,6 +380,7 @@ struct FMissionStage
 	float CheckpointYaw = 0.f;
 	TArray<FMissionAction> OnStart, OnComplete;
 	FMissionCondition SkipIf;                 // sm-cutscenes: evaluated at stage begin; true = skip the stage (no actions)
+	TArray<FMissionReaction> Reactions;       // sm-voice: stage-scoped barks / reactions
 };
 
 struct FMissionTriggerDef
@@ -562,6 +587,8 @@ private:
 		TArray<TWeakObjectPtr<ABullyCombatPawn>> Members;
 		int32 AdvanceAt = 0;             // downed members needed for the event (0 = all)
 		bool bFired = false;
+		int32 LastDown = 0;              // sm-voice: per-member "wave_down:<group>" / "wave_hit:<group>" events
+		TArray<float> LastHealth;
 	};
 	TArray<FWaveGroup> Waves;
 	struct FSpotter
@@ -577,6 +604,17 @@ private:
 	mutable double LeashFarSince = -1.0;
 	mutable bool ZoneWasInside = false;
 	mutable double ZoneOutSince = -1.0;
+	// sm-voice: stage reactions + say bark/queue (reset in BeginStage)
+	TArray<int32> ReactionRuns;
+	TArray<double> ReactionNextAt;
+	bool bInReaction = false;
+	double SayBusyUntil = 0.0;          // the last say / speech line is still being spoken until then
+	TArray<FMissionAction> QueuedSays;
+	TArray<double> QueuedSayUntil;      // a queued line still waiting past this is stale (out of context): dropped
+	static constexpr double QueuedSayMaxWait = 8.0;
+	void ResetReactions();
+	void RunReaction(int32 Index, const TCHAR* Why);
+	void TickReactions();
 	void SpawnWave(const FMissionAction& A);
 	void TickWaves();
 	void TickSpotters();

@@ -1,6 +1,6 @@
 {
   "_format": "bully-remake.mission/1",
-  "_note": "1_04 'Slingshot' — Gary hands over the slingshot, the player shoots out the bus windows in the parking lot, then snipes the jock workout squad from the tree while coach Burton patrols (recon: docs/re-notes/ch1/1_04-slingshot.md). v1 simplifications (see the recon's gap table): the baked 1-04 cutscene is a title card + speech beat; the bus windows are stationary one-hit target dummies near the lot (the real window breakables aren't world props we can drive yet — their coords aren't in the trigger extract either); there is no tree-climb, so the perch trigger sits at the tree base; hit attribution: the jocks have the original's 22 hp and one weapon hit tags a jock (hits_to_beat 1 + hits_ranged_only), while punching one down takes a real beating, as in the original where only slingshot/tree hits count per hit; getting down from the tree is a zone_timer exit countdown. The spotter is real: cone + range + line of sight. Pass grants (nerds respect -> 55) live in the campaign table's on_pass for 1_04. Wording is original. Meshes are imported stand-ins; ped_model_id records the original model ids.",
+  "_note": "1_04 'Slingshot' — Gary hands over the slingshot, the player shoots out the bus windows in the parking lot, then snipes the jock workout squad from the tree while coach Burton patrols (recon: docs/re-notes/ch1/1_04-slingshot.md). v1 simplifications (see the recon's gap table): the baked 1-04 cutscene is a title card + speech beat; the bus windows are stationary one-hit target dummies near the lot (the real window breakables aren't world props we can drive yet — their coords aren't in the trigger extract either); there is no tree-climb, so the perch trigger sits at the tree base; hit attribution: the jocks have the original's 22 hp and one weapon hit tags a jock (hits_to_beat 1 + hits_ranged_only), while punching one down takes a real beating, as in the original where only slingshot/tree hits count per hit; getting down from the tree is a zone_timer exit countdown. The spotter is real: cone + range + line of sight. Pass grants (nerds respect -> 55) live in the campaign table's on_pass for 1_04. Wording is original. Meshes are imported stand-ins; ped_model_id records the original model ids. sm-voice: every line names its original recording (`voice`, picked by content and order from imported/speech -- the script event ids are not file numbers: 48/6/8/10/47/51 match their files, Gary 32 = Gary_1-04_030, Burton 34/38/39 = Burton_1-04_032/039/040); `text` is our own paraphrase, shown only when the speech import is absent. Beats follow 1_04.lua: lot pitch (48) -> range challenge (6) -> per-window good-shot / too-close barks (10/8) -> field (47) -> tree + bleachers (51, 32) -> Burton every 10 s (38) and on a hit (34) -> spotted (39) -> pass (34). The Gary_1-04_003..046 bottle / prefect / mom-cruise recordings belong to a cut design: 1_04.lua never plays them, so they are not staged here.",
   "id": "1_04",
   "title": "Slingshot",
   "retry": "stage",
@@ -65,8 +65,7 @@
         { "type": "letterbox", "on": true },
         { "type": "camera", "frame": ["gary", "player"], "at_cm": [18148, -602, 958], "fov": 45, "blend": 0.8 },
         { "type": "speech_sequence", "id": "parking", "lines": [
-          { "speaker": "GARY", "text": "See that bus? Those windows are begging for it.", "seconds": 3 },
-          { "speaker": "GARY", "text": "Three good hits. Make them count.", "seconds": 3 }
+          { "speaker": "GARY", "voice": "Gary_1-04_48", "text": "See that bus? Those windows are begging for it.", "seconds": 3 }
         ] }
       ],
       "complete": { "type": "event", "name": "speech:parking", "latched": true },
@@ -77,17 +76,27 @@
       "objective": "Shoot out the bus windows (three will do).",
       "blip": "1_04_NemesisParking",
       "on_start": [
+        { "type": "say", "speaker": "GARY", "voice": "Gary_1-04_006", "text": "Go on, show me what kind of range you've got.", "seconds": 3.5, "queue": true },
         { "type": "hint", "text": "Equip the slingshot (wheel) and fire (LMB).", "seconds": 5 },
         { "type": "spawn_wave", "group": "windows", "points": ["win1", "win2", "win3", "win4", "win5"], "mesh": "GN_Bully03", "hostile": false, "hits_to_beat": 1, "advance_at": 3 }
       ],
       "complete": { "type": "event", "name": "wave:windows", "latched": true },
       "fail": { "type": "event", "name": "smoke_fail" },
-      "on_complete": [ { "type": "say", "speaker": "GARY", "text": "Ha! Glass everywhere. Love it.", "seconds": 3 } ]
+      "_reactions_note": "1_04.lua F_UsedWrongWeapon: every window the player breaks gets a Gary bark unless he is already talking -- shot from 7 m or more off the bus anchor (175.593, 12.4561) = the 'good shot' line, closer = the 'don't walk up to them' line.",
+      "reactions": [
+        { "on": "wave_down:windows", "if": { "type": "reach_location", "location_cm": [17559.3, -1245.6, 556.0], "radius_cm": 690, "z_tolerance_cm": 1000 },
+          "actions": [ { "type": "say", "speaker": "GARY", "voice": "Gary_1-04_008", "text": "Shoot from a distance. Don't just walk up to it.", "seconds": 3, "bark": true } ] },
+        { "on": "wave_down:windows", "unless": { "type": "reach_location", "location_cm": [17559.3, -1245.6, 556.0], "radius_cm": 690, "z_tolerance_cm": 1000 },
+          "actions": [ { "type": "say", "speaker": "GARY", "voice": "Gary_1-04_010", "text": "Not bad.", "seconds": 1.5, "bark": true } ] }
+      ]
     },
     {
       "id": "to_field",
       "objective": "Follow Gary to the football field.",
-      "on_start": [ { "type": "npc_lead", "npc": "gary", "point": "1_04_Field", "gait": "sprint", "radius_cm": 800 } ],
+      "on_start": [
+        { "type": "say", "speaker": "GARY", "voice": "Gary_1-04_47", "text": "Right. Over to the football field.", "seconds": 2.5, "queue": true },
+        { "type": "npc_lead", "npc": "gary", "point": "1_04_Field", "gait": "sprint", "radius_cm": 800 }
+      ],
       "complete": { "type": "all", "conditions": [
         { "type": "event", "name": "npc_arrived:gary", "latched": true },
         { "type": "reach_location", "point": "1_04_Field", "radius_cm": 1000 }
@@ -98,10 +107,13 @@
       "id": "perch",
       "objective": "Get to the tree overlooking the field.",
       "blip": "tree_trig",
-      "complete": { "type": "trigger_enter", "trigger": "tree_trig" },
-      "on_complete": [
-        { "type": "say", "speaker": "GARY", "text": "Up there. The jocks won't know what hit them.", "seconds": 3 }
-      ]
+      "on_start": [
+        { "type": "speech_sequence", "id": "tree", "lines": [
+          { "speaker": "GARY", "voice": "Gary_1-04_51", "text": "Get up in that tree. You can mess with them from there.", "seconds": 3 },
+          { "speaker": "GARY", "voice": "Gary_1-04_030", "text": "I'll be on the bleachers, enjoying the show.", "seconds": 3 }
+        ] }
+      ],
+      "complete": { "type": "trigger_enter", "trigger": "tree_trig" }
     },
     {
       "id": "snipe",
@@ -110,8 +122,14 @@
         { "type": "hint", "text": "Stay on the perch. If the coach spots you, it's over.", "seconds": 5 },
         {"type": "spawn_wave", "group": "field", "points": ["jock1", "jock2", "jock3", "jock4", "jock5", "jock6"], "mesh": "GN_Bully03", "meshes": ["JKKirby_FB", "JKDan_FB", "JKDamon_FB", "JK_Bo_FB", "JK_Casey_FB", "JKTed_FB"], "ped_model_ids": [109, 111, 112, 231, 232, 110], "hostile": false, "hits_to_beat": 1, "health": 22, "hits_ranged_only": true},
         { "type": "spawn_npc", "npc": "burton", "point": "1_04_BurtonField", "mesh": "TE_GymTeacher", "ped_model_id": 55, "invulnerable": true, "untargetable": true },
-        { "type": "spotter", "npc": "burton", "range_cm": 1500, "cone_deg": 60, "seconds": 2 },
-        { "type": "say", "speaker": "BURTON", "text": "Move it, ladies! Those knees better touch the sky!", "seconds": 3 }
+        { "type": "spotter", "npc": "burton", "range_cm": 1500, "cone_deg": 60, "seconds": 2 }
+      ],
+      "_reactions_note": "1_04.lua F_TreeAssault: Burton shouts at the squad every 10 s, and at once when he sees a jock get hit (the last hit is followed by the pass beat instead); F_PlayerSpotted: his accusation line when the stealth spotter catches the player.",
+      "reactions": [
+        { "after": 10, "every": 10, "actions": [ { "type": "say", "speaker": "BURTON", "voice": "Burton_1-04_039", "text": "Quit your whining and run a lap!", "seconds": 3, "bark": true } ] },
+        { "on": "wave_down:field", "unless": { "type": "event", "name": "wave:field" },
+          "actions": [ { "type": "say", "speaker": "BURTON", "voice": "Burton_1-04_032", "text": "Who said you could stop?", "seconds": 2, "bark": true } ] },
+        { "on": "spotted_by:burton", "actions": [ { "type": "say", "speaker": "BURTON", "voice": "Burton_1-04_040", "text": "Hey! What are you up to?", "seconds": 2 } ] }
       ],
       "complete": { "type": "event", "name": "wave:field", "latched": true },
       "fail": { "type": "any", "conditions": [
@@ -128,8 +146,7 @@
         { "type": "letterbox", "on": true },
         { "type": "camera", "frame": ["burton", "player"], "fov": 42, "blend": 0.6 },
         { "type": "speech_sequence", "id": "outro", "lines": [
-          { "speaker": "BURTON", "text": "Who did that?! Show yourself, coward!", "seconds": 3 },
-          { "speaker": "GARY", "text": "Beautiful. They'll blame the weather.", "seconds": 3.5 }
+          { "speaker": "BURTON", "voice": "Burton_1-04_032", "text": "Who said any of you could stop?", "seconds": 3 }
         ] }
       ],
       "complete": { "type": "event", "name": "speech:outro", "latched": true },

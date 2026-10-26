@@ -41,6 +41,23 @@ Next: in each WIP worktree, build, run its smokes per the brief, finish or trim 
 the regression bar (day_one, arrival, 1_02B, 1_03, campaign and story smokes) and get Hari's playtest before `main`.
 Evidence: `~/bully-remake-evidence/story-mode/` (not committed).
 
+### sm-voice r3 (Devin, 2026-10-25)
+
+Original voices wired into arrival, day_one, 1_02B, 1_03 and 1_04, in the order the original scripts play them
+(mapping notes: `~/bully-remake-evidence/story-mode/sm-voice/beat-map-2026-10-25.md`, not committed).
+- New generic hooks (`MissionSubsystem`, schema block): stage `reactions` (on an event, or on a timer, with
+  `if`/`unless`/`max`), `say` `bark` (drop while a line plays) / `queue` (wait for it, at most 8 s), per-member
+  `wave_down:<group>` / `wave_hit:<group>` events.
+- Importer: `python3 -m tools.importers speech --extra-only --transcribe` adds the 1_02 intro narration
+  (`Jimmy_NARR1_*`) and `Gary_1-11_021` to an existing manifest. **Other worktrees need this run** or those 5 lines
+  fall back to text.
+- day_one gained the B1 narration tour (4 stages) and the B8 teacher scene (`staff_coming`, TO_Business1 stands in
+  for the unimported TE_MathTeacher). Regenerate `day_one.json` with `verify/build_day_one.py` after editing 1_01/1_02.
+- 1_04 follows 1_04.lua (lot -> windows -> field -> tree). There is no bottle/prefect beat in the SE script: those
+  Gary_1-04_003..046 recordings are unused cut content.
+- Missing recordings (beats kept text-only or not staged): 1_01 secretary wave (101), 1_02 secretary (101/123), bully
+  NIS (33/34), FIGHT_WATCH barks, Hattrick 134, Jimmy 85/90; 1_02B Gary 37/81, Karl 83, Edward 169; 1_03 Davis 23/33/42.
+
 ### sm-humandrive r2 (Devin, 2026-10-25)
 
 `origin/story-mode` merged in cleanly. Human drive: `tools/ue/run_mission_smoke.sh <id> --human --seconds-limit 1500`.

@@ -95,6 +95,7 @@ private:
 	bool FindPath(const FString& Ref, TArray<FVector>& Out) const;
 	bool FindVolume(const FString& Ref, FVolume& Out) const;
 	const FCastRow* FindCast(const FString& Model) const;
+	TArray<FVector> LaneRoute(const FVector& From, const FVector& To, const FString& Zone) const;
 	void SetupCast();
 	void AdoptWalker(AAmbientWalker* W, const FString& Zone);
 
@@ -148,7 +149,7 @@ private:
 	TMap<FString, FCastRow> CastRows;
 	TMap<FString, TSharedPtr<FJsonObject>> Triggers;   // stem -> trigger file
 	TArray<FMember> Members;
-	TArray<FVector> GroundsDoors, HallsDoors, DormDoors;
+	TArray<FVector> GroundsDoors, HallsDoors, DormDoors, GroundsLane;
 	FVolume Grounds;
 	TArray<FVolume> SchoolVolumes, TrespassVolumes;
 	FVector ClassExitPoint = FVector::ZeroVector, PrincipalSpawn = FVector::ZeroVector, PrincipalOutside = FVector::ZeroVector, SchoolFront = FVector::ZeroVector;

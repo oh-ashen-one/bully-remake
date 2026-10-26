@@ -347,11 +347,12 @@ void AAmbientWalker::SetBystander(bool bOn)
 	}
 }
 
-void AAmbientWalker::CampusGoTo(const FVector& Dest, bool bRun, bool bEnterOnArrive)
+void AAmbientWalker::CampusGoTo(const FVector& Dest, bool bRun, bool bEnterOnArrive, const TArray<FVector>& Route)
 {
 	if (bBrawling || IsInside()) { return; }
 	CampusMode = ECampusMode::Errand;
 	ErrandDest = Dest;
+	ErrandRoute = Route;
 	bErrandRun = bRun;
 	bErrandEnter = bEnterOnArrive;
 	bErrandArrived = false;
@@ -484,9 +485,10 @@ bool AAmbientWalker::TickCampus(float Dt, double Now, const FVector& Pos)
 	}
 	case ECampusMode::Errand:
 	{
-		FVector To = ErrandDest - Pos;
+		while (ErrandRoute.Num() > 0 && FVector::Dist2D(ErrandRoute[0], Pos) <= ArriveRadius + 60.f) { ErrandRoute.RemoveAt(0); ErrandStucks = 0; }
+		FVector To = (ErrandRoute.Num() > 0 ? ErrandRoute[0] : ErrandDest) - Pos;
 		To.Z = 0.f;
-		if (To.Size() <= ArriveRadius + 20.f)
+		if (ErrandRoute.Num() == 0 && To.Size() <= ArriveRadius + 20.f)
 		{
 			bErrandArrived = true;
 			if (bErrandEnter) { CampusEnter(); }

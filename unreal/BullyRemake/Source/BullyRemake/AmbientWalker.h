@@ -65,7 +65,8 @@ public:
 	// Chase = a prefect running at the player. Flee = a non-fighter running away after being hit. Hold = stand and
 	// face someone (a bark or a two-person conversation).
 	enum class ECampusMode : uint8 { Loop, Errand, Inside, Chase, Flee, Hold };
-	void CampusGoTo(const FVector& Dest, bool bRun, bool bEnterOnArrive);
+	/** Route: optional waypoints walked first (the campus approach lane round the front terrace). */
+	void CampusGoTo(const FVector& Dest, bool bRun, bool bEnterOnArrive, const TArray<FVector>& Route = TArray<FVector>());
 	void CampusEnter();
 	void CampusEmerge(const FVector& At);
 	void CampusChase(AActor* Target);
@@ -149,6 +150,7 @@ private:
 	ECampusMode CampusMode = ECampusMode::Loop;
 	TArray<FVector> HomeWaypoints;
 	FVector ErrandDest = FVector::ZeroVector;
+	TArray<FVector> ErrandRoute;
 	bool bErrandRun = false, bErrandEnter = false, bErrandArrived = false;
 	int32 ErrandStucks = 0;
 	FVector ErrandRefPos = FVector::ZeroVector;

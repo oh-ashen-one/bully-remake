@@ -371,6 +371,14 @@ void UBullyCampusSubsystem::LoadImported()
 	ReadPoints(TEXT("halls_doors"), HallsDoors);
 	ReadPoints(TEXT("dorm_doors"), DormDoors);
 	FString S;
+	if (const TArray<TSharedPtr<FJsonValue>>* Ln = nullptr; Pl.IsValid() && Pl->TryGetArrayField(TEXT("grounds_lane_cm"), Ln))
+	{
+		for (const TSharedPtr<FJsonValue>& V : *Ln)
+		{
+			const TArray<TSharedPtr<FJsonValue>>& XYZ = V->AsArray();
+			if (XYZ.Num() >= 3) { GroundsLane.Add(FVector(XYZ[0]->AsNumber(), XYZ[1]->AsNumber(), XYZ[2]->AsNumber())); }
+		}
+	}
 	if (Pl.IsValid() && Pl->TryGetStringField(TEXT("class_exit"), S)) { FindPoint(S, ClassExitPoint); }
 	if (Pl.IsValid() && Pl->TryGetStringField(TEXT("principal_spawn"), S)) { FindPoint(S, PrincipalSpawn); }
 	if (Pl.IsValid() && Pl->TryGetStringField(TEXT("principal_outside"), S)) { FindPoint(S, PrincipalOutside); }
@@ -417,7 +425,7 @@ void UBullyCampusSubsystem::LoadImported()
 	TArray<uint8> LoopB, EndB, LoopPcm, EndPcm;
 	int32 R1 = 0, C1 = 0, R2 = 0, C2 = 0;
 	if (FFileHelper::LoadFileToArray(LoopB, *RepoPath(TEXT("imported/campus/bell/loop.wav"))) && UBullyCutsceneSubsystem::ParseWavBytes(LoopB, R1, C1, LoopPcm)
-		&& FFileHelper::LoadFileToArray(EndB, *RepoPath(TEXT("imported/campus/bell/end.wav"))) && UBullyCutsceneSubsystem::ParseWavBytes(EndB, R2, C2, EndPcm) && R1 == R2 && C1 == C2)
+		&& FFileHelper::LoadFileToArray(EndB, *RepoPath(TEXT("imported/campus/bell/end.wav"))) && UBullyCutsceneSubsystem::ParseWavBytes(EndB, R2, C2, EndPcm) && C1 == C2)   // 21924 vs 22022 Hz: played at the loop's rate
 	{
 		const int32 Loops = FMath::Max(1, int32(Num(Obj(Cfg, TEXT("schedule")), TEXT("bell_loops"), 10.f)));
 		for (int32 i = 0; i < Loops; ++i) { BellPcm.Append(LoopPcm); }
@@ -428,6 +436,22 @@ void UBullyCampusSubsystem::LoadImported()
 	UE_LOG(LogBullyCampus, Display, TEXT("BR_CAMPUS places: %d grounds doors, %d hall doors, %d dorm doors, grounds volume %s, %d school volumes, %d trespass volumes, bell %s (%.1f s)"),
 		GroundsDoors.Num(), HallsDoors.Num(), DormDoors.Num(), Grounds.Name.IsEmpty() ? TEXT("none") : *Grounds.Name, SchoolVolumes.Num(), TrespassVolumes.Num(),
 		BellPcm.Num() ? TEXT("imported") : TEXT("missing (python3 -m tools.importers campus)"), BellRate > 0 ? float(BellPcm.Num()) / float(BellRate * BellChannels * 2) : 0.f);
+}
+
+TArray<FVector> UBullyCampusSubsystem::LaneRoute(const FVector& From, const FVector& To, const FString& Zone) const
+{
+	// the front lawn and the school doors are joined by the stairs on the central axis: walk the lane points that lie
+	// between the two x positions (the lane runs east -> west), in travel order
+	TArray<FVector> R;
+	if (Zone != TEXT("grounds")) { return R; }
+	for (const FVector& L : GroundsLane)
+	{
+		const float Lo = FMath::Min(From.X, To.X) + 150.f, Hi = FMath::Max(From.X, To.X) - 150.f;
+		if (L.X > Lo && L.X < Hi) { R.Add(L); }
+	}
+	const bool bWest = To.X < From.X;
+	R.Sort([bWest](const FVector& A, const FVector& B) { return bWest ? A.X > B.X : A.X < B.X; });
+	return R;
 }
 
 const UBullyCampusSubsystem::FCastRow* UBullyCampusSubsystem::FindCast(const FString& Model) const
@@ -954,7 +978,7 @@ void UBullyCampusSubsystem::TickSchedule()
 			const FVector P = W->GetActorLocation();
 			FVector Best = Doors[0];
 			for (const FVector& D : Doors) { if (FVector::DistSquared(D, P) < FVector::DistSquared(Best, P)) { Best = D; } }
-			W->CampusGoTo(Best, false, true);
+			W->CampusGoTo(Best, false, true, LaneRoute(P, Best, M.Zone));
 		}
 		else if (!bShut && !M.bScheduledOut && !bInClass && !bDocking && W->IsInside())
 		{
@@ -984,7 +1008,7 @@ void UBullyCampusSubsystem::BeginClassDocking(bool bRun)
 			const float Dz = FMath::Abs(D.Z - P.Z) > 250.f ? 1e8f : 0.f;
 			if (FVector::DistSquared(D, P) + Dz < FVector::DistSquared(Best, P) + (FMath::Abs(Best.Z - P.Z) > 250.f ? 1e8f : 0.f)) { Best = D; }
 		}
-		W->CampusGoTo(Best, bRun || FMath::FRand() < 0.2f, true);
+		W->CampusGoTo(Best, bRun || FMath::FRand() < 0.2f, true, LaneRoute(P, Best, M.Zone));
 	}
 }
 
@@ -1008,7 +1032,7 @@ void UBullyCampusSubsystem::StartClass()
 	{
 		AAmbientWalker* W = M.Walker.Get();
 		if (!W || M.bPrefect || W->IsInside() || W->IsBrawling()) { continue; }
-		if (W->GetCampusMode() == AAmbientWalker::ECampusMode::Errand) { W->CampusGoTo(W->GetErrandDest(), FMath::FRand() < 0.8f, true); }
+		if (W->GetCampusMode() == AAmbientWalker::ECampusMode::Errand) { W->CampusGoTo(W->GetErrandDest(), FMath::FRand() < 0.8f, true, LaneRoute(W->GetActorLocation(), W->GetErrandDest(), M.Zone)); }
 		else { M.bScheduledOut = true; }
 	}
 	BeginClassDocking(true);
@@ -1045,6 +1069,8 @@ void UBullyCampusSubsystem::StreamOut()
 			for (const FVector& D : Doors) { if (FVector::DistSquared(D, M.HomeStart) < FVector::DistSquared(At, M.HomeStart)) { At = D; } }
 		}
 		W->CampusEmerge(At);
+		const TArray<FVector> Route = LaneRoute(At, M.HomeStart, M.Zone);
+		if (Route.Num() > 0) { W->CampusGoTo(M.HomeStart, false, false, Route); }
 		if (--Budget <= 0) { break; }
 	}
 }

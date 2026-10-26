@@ -126,7 +126,9 @@
 
  "places": {
   "_src": "DAT tschool_doors (outdoor school doors the class dockers/spawners use, MainMap.lua SchoolGroundsSpawners kind=class), ischool_doors (classroom doors, SchoolHallways.lua SchoolSpawnTable), Population/SchoolArea (the school-grounds volume), SP_School_Hallways (the main building), PriOffice/POfficeExclude, PrincipalCutscene PRIOFF_SPAWN / PRIOFF_OUTSIDE (PriOff.lua), School_Exterior/Schoolbell.",
-  "grounds_doors": ["tschool_doors/tschool_SchoolFrontDoorL", "tschool_doors/tschool_SchoolFrontDoorR", "tschool_doors/tschool_SchoolLeftFrontDoor", "tschool_doors/tschool_SchoolRightFrontDoor"],
+  "grounds_doors": ["tschool_doors/tschool_SchoolFrontDoorL", "tschool_doors/tschool_SchoolFrontDoorR"],
+  "_grounds_lane_note": "hand-placed (ours): the central path from the gates to the front-terrace stairs; the terrace wall blocks the straight line from most of the lawn to the main door, and the side doors (LeftFront / RightFront) are terrace-only",
+  "grounds_lane_cm": [[28600, 7150, 600], [24500, 7150, 620], [22900, 7300, 700], [21700, 7330, 860]],
   "halls_doors": ["ischool_doors/ischool_Door24", "ischool_doors/ischool_Door23", "ischool_doors/ischool_Door22", "ischool_doors/ischool_Door20", "ischool_doors/ischool_Door19", "ischool_doors/ischool_Door21", "ischool_doors/ischool_Door06", "ischool_doors/ischool_Door05", "ischool_doors/ischool_Door01", "ischool_doors/ischool_Door00", "ischool_doors/ischool_Chem", "ischool_doors/ischool_Door28", "ischool_doors/ischool_Door29", "ischool_doors/ischool_Door30", "ischool_doors/ischool_Door25", "ischool_doors/ischool_Door14", "ischool_doors/ischool_Door12", "ischool_doors/ischool_Door13", "ischool_doors/ischool_Door09", "ischool_doors/ischool_Door10"],
   "dorm_doors": ["tschool_doors/tschool_BoysDormL", "tschool_doors/tschool_GirlsDormL"],
   "grounds_volume": "Population/SchoolArea",

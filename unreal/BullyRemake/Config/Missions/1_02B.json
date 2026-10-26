@@ -162,7 +162,7 @@
       "on_start": [ { "type": "hint", "text": "Say something nice to Eunice (E).", "seconds": 5 } ],
       "complete": { "type": "social", "actor_tag": "br_npc_eunice", "radius_cm": 250, "prompt": "Say something nice" },
       "on_complete": [
-        { "type": "say", "speaker": "EUNICE", "voice": "Eunice_1-02_095", "text": "Someone took my chocolates... will you get them back?", "seconds": 4 },
+        { "type": "say", "speaker": "EUNICE", "voice": "Eunice_1-02_095", "text": "Somebody swiped my candy. Could you fetch it for me?", "seconds": 4 },
         { "type": "npc_face", "npc": "eunice", "face": "player" },
         { "type": "spawn_npc", "npc": "constantine", "point": "1_02B_spawnConstantine", "mesh": "GN_Greekboy", "ped_model_id": 70, "untargetable": true },
         { "type": "money_ensure", "money": 1 }

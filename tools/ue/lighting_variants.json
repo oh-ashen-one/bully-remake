@@ -7,12 +7,29 @@
    "isc_",
    "ischool"
   ],
-  "key_lux": 14000,
+  "key_lux": 19000,
   "key_pitch_deg": -62,
   "key_yaw_deg": 215,
-  "key_temperature_k": 4300,
+  "key_temperature_k": 5000,
   "key_source_angle_deg": 5.0,
   "key_cast_shadows": false,
+  "_fills_note": "sm-visual: shadowless channel-1 fills so walls facing away from the key read (corridors were one amber shaft + black walls). Key 4300K -> 5000K (school fluorescents, not sunset). Round 2: key 14000 -> 19000 lux, fills 6500/3500 -> 9500/5500 (hallways read ~60 luma vs the original's bright fluorescent halls; dorm and office read near-dark); the lobby rect lights drop 20% to hold the lobby where it was. Characters indoors are moved to channel 1 at runtime (UBullySceneFixups), so they take this light, not the sun.",
+  "fills": [
+   {
+    "name": "opposite",
+    "lux": 9500,
+    "pitch_deg": -28,
+    "yaw_deg": 35,
+    "temperature_k": 5800
+   },
+   {
+    "name": "side",
+    "lux": 5500,
+    "pitch_deg": -35,
+    "yaw_deg": 125,
+    "temperature_k": 5400
+   }
+  ],
   "hide_night_regex": "win.*night",
   "window_glow": {
    "texture_regex": "window_0\\d_d$",
@@ -40,7 +57,7 @@
     ],
     "yaw": 90,
     "pitch": -15,
-    "lumens": 3000000,
+    "lumens": 2400000,
     "width_cm": 1200,
     "height_cm": 500,
     "temperature_k": 4400,
@@ -56,7 +73,7 @@
     ],
     "yaw": 0,
     "pitch": -30,
-    "lumens": 2000000,
+    "lumens": 1600000,
     "width_cm": 800,
     "height_cm": 500,
     "temperature_k": 4400,
@@ -72,11 +89,39 @@
     ],
     "yaw": 180,
     "pitch": -30,
-    "lumens": 2000000,
+    "lumens": 1600000,
     "width_cm": 800,
     "height_cm": 500,
     "temperature_k": 4400,
     "radius_cm": 5000
+   },
+   {
+    "name": "principal_office",
+    "type": "point",
+    "loc_cm": [
+     -63534,
+     28984,
+     800
+    ],
+    "lumens": 1200000,
+    "temperature_k": 4200,
+    "radius_cm": 1600,
+    "shadows": true,
+    "_note": "sm-visual: the principal's office (ischool, upstairs; day_one briefing) read luma ~31 -- dark wood under a key that cannot reach it"
+   },
+   {
+    "name": "dorm_hall",
+    "type": "point",
+    "loc_cm": [
+     -49800,
+     -31800,
+     3400
+    ],
+    "lumens": 900000,
+    "temperature_k": 3900,
+    "radius_cm": 1500,
+    "shadows": true,
+    "_note": "sm-visual: the boys' dorm ground-floor hall (isc_dorm; day_one end card) -- dark panelling read ~47 luma; one warm ceiling-height fill down the hall"
    }
   ],
   "backdrop_glow": {

@@ -239,6 +239,7 @@ namespace
 				if (O->TryGetNumberField(TEXT("in"), F))   { A.FadeIn   = FMath::Max(0.f, float(F)); }
 				// Optional teleport (resolved like the teleport action) happens at full black, so there is no visible jump.
 				A.bFadeTeleport = ReadLocation(*O, D, A.Location);
+				UMissionSubsystem::ParseFadePlace(*O, D.Points, A);   // sm-visual: npcs set down at full black
 			}
 			else if (Type == TEXT("reward"))
 			{
@@ -264,7 +265,8 @@ namespace
 				A.Type = FMissionAction::EType::Camera;
 				double B = 0.0; if (O->TryGetNumberField(TEXT("blend"), B)) { A.Blend = FMath::Max(0.f, float(B)); }
 				bool bRel = false; O->TryGetBoolField(TEXT("release"), bRel); A.bRelease = bRel;
-				if (!A.bRelease)
+				if (!A.bRelease && UMissionSubsystem::ParseFrameCamera(*O, A)) { /* sm-visual: framing solved at runtime from the subjects */ }
+				else if (!A.bRelease)
 				{
 					if (!ReadLocation(*O, D, A.Location)) { Err = TEXT("camera: needs a point / location_cm"); return false; }
 					// look target: "look":"player"|"<point>" or a "look_cm":[x,y,z] spot (a point name wins)
@@ -807,6 +809,8 @@ void UMissionSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		int32 V = 0;
 		if (FParse::Value(FCommandLine::Get(), TEXT("-BRShotResX="), V) && V > 0) { Shots.ResX = V; }
 		if (FParse::Value(FCommandLine::Get(), TEXT("-BRShotResY="), V) && V > 0) { Shots.ResY = V; }
+		float Dl = 0.f;   // sm-visual: -BRShotDelay=<s> overrides the per-stage settle delay
+		if (FParse::Value(FCommandLine::Get(), TEXT("-BRShotDelay="), Dl) && Dl > 0.f) { Shots.ShotDelay = Dl; }
 		IFileManager::Get().MakeDirectory(*Shots.Dir, true);
 		UE_LOG(LogBullyMission, Display, TEXT("BR_MISSIONSHOT capture armed: mission '%s' -> %s at %dx%d"), *Shots.MissionId, *Shots.Dir, Shots.ResX, Shots.ResY);
 	}
@@ -868,7 +872,19 @@ void UMissionSubsystem::TeleportPlayer(const FVector& Loc, float Yaw, bool bSetY
 {
 	APawn* Pawn = GetPlayerPawn();
 	if (!Pawn) { return; }
-	Pawn->SetActorLocation(Loc, false, nullptr, ETeleportType::TeleportPhysics);
+	// sm-visual: shots pass bookkeeping -- the next still waits for Lumen + the landing to settle, and a driver hop
+	// (no yaw) faces the way a walking player would have arrived
+	if (Shots.bEnabled && GetWorld())
+	{
+		ShotLastTeleportAt = GetWorld()->GetTimeSeconds();
+		if (!bSetYaw) { ShotsFaceTravel(Pawn->GetActorLocation(), Loc); }
+	}
+	FVector At = Loc;
+	// sm-visual: a driver hop onto a trigger centre can land inside a tree trunk / prop (the boom then collapses into the
+	// pawn); in a shots pass nudge it to the nearest free spot like a player standing there would be
+	if (Shots.bEnabled && !bSetYaw && GetWorld()) { GetWorld()->FindTeleportSpot(Pawn, At, Pawn->GetActorRotation()); }
+	SnapTeleportToFloor(Pawn, At);   // sm-visual: floor-level points no longer sink the capsule through thin floors
+	Pawn->SetActorLocation(At, false, nullptr, ETeleportType::TeleportPhysics);
 	if (ACharacter* C = Cast<ACharacter>(Pawn))
 	{
 		if (C->GetCharacterMovement()) { C->GetCharacterMovement()->StopMovementImmediately(); }
@@ -876,6 +892,7 @@ void UMissionSubsystem::TeleportPlayer(const FVector& Loc, float Yaw, bool bSetY
 	if (bSetYaw)
 	{
 		if (AController* Ctl = Pawn->GetController()) { Ctl->SetControlRotation(FRotator(0.f, Yaw, 0.f)); }
+		Pawn->SetActorRotation(FRotator(0.f, Yaw, 0.f));   // sm-visual: face the authored way too (was: control only, so Jimmy faced the camera)
 	}
 }
 
@@ -1379,6 +1396,7 @@ void UMissionSubsystem::RunActions(const TArray<FMissionAction>& Actions)
 				FadeOutDur = A.FadeOut; FadeHoldDur = A.FadeHold; FadeInDur = A.FadeIn;
 				bFadePendingTeleport = A.bFadeTeleport;
 				FadeTeleportLoc = A.Location; FadeTeleportYaw = A.Yaw;
+				FadePlacePending = A.FadePlace;   // sm-visual
 				FadePhase = EFadePhase::Out;
 				FadePhaseStart = W->GetTimeSeconds();
 				SetCameraFade(0.f);
@@ -1823,6 +1841,7 @@ void UMissionSubsystem::ApplyCamera(const FMissionAction& A)
 	if (!World || !PC) { UE_LOG(LogBullyMission, Warning, TEXT("BR_MISSION camera: no player controller")); return; }
 
 	if (A.bRelease) { ReleaseCutsceneCamera(A.Blend); return; }
+	if (A.FrameIds.Num() > 0) { ApplyFrameCamera(A); return; }   // sm-visual: runtime-solved two-shot
 
 	// aim: at the player, an explicit spot, or (default) keep the camera's current facing by looking slightly ahead
 	FVector LookAt = A.Look;
@@ -1855,6 +1874,8 @@ void UMissionSubsystem::ReleaseCutsceneCamera(float Blend)
 	}
 	if (ACameraActor* Cam = CutsceneCam.Get()) { Cam->Destroy(); }
 	CutsceneCam = nullptr;
+	FrameSubjects.Reset();   // sm-visual: stop re-aiming a released frame camera
+	PendingFrame.Reset();    // sm-visual: ...and drop one still waiting for its fade
 }
 
 void UMissionSubsystem::TickFade(float /*Dt*/)
@@ -1871,6 +1892,7 @@ void UMissionSubsystem::TickFade(float /*Dt*/)
 		if (Elapsed < FadeOutDur) { SetCameraFade(FadeSmooth01(Elapsed / Dur)); break; }
 		SetCameraFade(1.f);
 		if (bFadePendingTeleport) { TeleportPlayer(FadeTeleportLoc, FadeTeleportYaw, true); bFadePendingTeleport = false; }
+		ApplyFadePlacements();   // sm-visual: the cast lands with him
 		FadePhase = EFadePhase::Hold;
 		FadePhaseStart = World->GetTimeSeconds();
 		break;
@@ -2232,6 +2254,7 @@ void UMissionSubsystem::Tick(float Dt)
 	if (Smoke.bEnabled) { if (Human.bEnabled) { TickSmokeHuman(Dt); } else { TickSmoke(Dt); } }   // sm-humandrive: human-mode driver
 	if (Shots.bEnabled) { TickMissionShots(Dt); }
 	TickFade(Dt);
+	TickCutsceneFrame(Dt);   // sm-visual: keep a frame camera aimed at its subjects
 	if (Hud.IsValid()) { Hud->Tick(Dt); }
 
 	if (State == EState::Running && Mission.IsValid())
@@ -2346,6 +2369,9 @@ void UMissionSubsystem::FirePendingShot()
 	HR.bDumpBufferVisualizationTargets = false;
 	const bool bOk = GEngine->GameViewport && GEngine->GameViewport->Viewport
 		&& GEngine->GameViewport->Viewport->TakeHighResScreenShot();
+	// sm-visual: sidecar (camera, fade, letterbox, which characters are on screen) for every still
+	WriteShotMeta(File, ShotReason.IsEmpty() ? (World->GetTimeSeconds() < Shots.PendingAt ? FString(TEXT("flush")) : FString(TEXT("settled"))) : ShotReason);
+	ShotReason.Reset();
 	UE_LOG(LogBullyMission, Display, TEXT("BR_MISSIONSHOT %s stage %d -> %s (t=%.1f)"),
 		bOk ? TEXT("shot") : TEXT("REFUSED"), Shots.PendingStage + 1, *File, World->GetTimeSeconds());
 	++Shots.Count;
@@ -2409,7 +2435,13 @@ void UMissionSubsystem::TickMissionShots(float Dt)
 	}
 
 	// 2) Fire the pending beat shot once its settle delay has passed (re-render at the requested size).
-	if (Shots.PendingAt >= 0.0 && Now >= Shots.PendingAt) { FirePendingShot(); }
+	// sm-visual: ...and only once the frame is what a player would see (no fade, settled after a teleport, blend done)
+	if (Shots.PendingAt >= 0.0 && Now >= Shots.PendingAt)
+	{
+		if (ShotAimedStage != Shots.PendingStage) { ShotAimedStage = Shots.PendingStage; ShotsAimAtAction(); ShotsClearBoom(); }
+		FString Why;
+		if (ShotReady(Now, Why)) { ShotReason = Why; FirePendingShot(); }
+	}
 
 	// 2b) Safety: the mission completed (or is chaining) with shots still outstanding -- never burn to the script's
 	//     time limit; flush whatever is pending and quit.
@@ -2486,7 +2518,7 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		}
 		return;
 	}
-	if (Smoke.Elapsed > (Smoke.bWrongWay ? 300.0 : 150.0)) { Quit(false, TEXT("timeout")); return; }
+	if (Smoke.Elapsed > (Shots.bEnabled ? 900.0 : Smoke.bWrongWay ? 300.0 : 150.0)) { Quit(false, TEXT("timeout")); return; }   // sm-visual: a shots pass holds the driver per still
 	if (State == EState::Complete)
 	{
 		// chained hand-off (a start_mission action is pending): with the no-quit driver, keep driving the next mission
@@ -2527,6 +2559,9 @@ void UMissionSubsystem::TickSmoke(float Dt)
 		Smoke.LastDrive = Smoke.Elapsed;   // first drive 1.5 s after the stage begins
 		Smoke.InsideSince = -1.0;
 	}
+	// sm-visual: a shots pass holds the driver while this stage's still is pending, so the still shows the beat as a
+	// player sees it (speech line up, cutscene camera blended in) instead of the instant a driver hop ended the stage
+	if (Shots.bEnabled && Shots.PendingAt >= 0.0) { Smoke.LastDrive = Smoke.Elapsed; return; }
 
 	// exercise the fail -> retry path once: a stage whose fail condition holds the event "smoke_fail"
 	if (Smoke.bWantFailTest && !Smoke.bFailTested && CondHasEvent(St.Fail, FName("smoke_fail")) && Smoke.Elapsed - Smoke.LastDrive > 0.6)

@@ -18,10 +18,24 @@ Shared agent brief (goal, ownership, build/test recipes, GPU safety, public-repo
 | `sm-playloop` | DONE + merged: `-BRStory` title screen, USaveGame autosave/continue, Save & Quit, free-roam guidance, launcher. Headless only, no attended playtest. |
 | `sm-humandrive` | **r2 done (Devin, 2026-10-25), not merged.** Real-input playthrough driver (move/look/punch/aim/fire/interact only, no teleports) PASSes arrival → 1_04; see "sm-humandrive r2" below. |
 | `sm-visual` | **WIP, unverified, may not compile.** Black-frame fixes, Ch1 interior lighting, scripted-camera solver (`MissionSubsystemVisual.cpp`, `BullySceneFixups.*`, `tools/ue/shot_metrics.py`). Its upstream used to point at `origin/kimi-backend`; it now tracks `origin/sm-visual`. |
+
+| `sm-humandrive` | **WIP, unverified.** Real-input playthrough driver (move/punch/press only) for Ch1–2. Agent stopped while adding a path-probe flag. Tip commit `WIP sm-humandrive` saved by Devin. |
+| `sm-visual` | **Round 2 (Devin, 2026-10-25): built, `origin/story-mode` merged in, rendered; final-binary smokes arrival/day_one/1_02B PASS, 1_02C/1_03/1_04/campaign/story pending (a system dialog on the Studio blocked launches at 16:50).** Black-frame fixes (`BullySceneFixups`: race-track scenes hidden, indoor characters on lighting channel 1), Ch1 interior lighting (`tools/ue/lighting_variants.json`; **re-run `tools/ue/run_lighting.sh` in any checkout after merging** — the rig lives in the git-ignored map), runtime speech-camera framing (`MissionSubsystemVisual.cpp`: camera `frame` + `at_cm` original NIS spot, fade `place`). |
 | `sm-cutscenes` | **WIP, unverified.** Original cutscene audio/subtitles imported at build time; opening cutscene playback in progress (was rendering 1-1-1 frames). |
 
-Not done: none of the three WIP branches has been built or smoke-tested since the agents stopped. None of them is merged
-into `story-mode`. `story-mode` is not merged to `main`. Hari has not done a feel playtest.
+sm-visual round 2 detail. Stills: `tools/ue/run_mission_shots.sh <id>` then `tools/ue/shot_metrics.py <dir>` (mean luma < 20 =
+DARK; `shots_meta.jsonl` sidecar lists who is on screen). Ch1 opening (arrival, day_one, 1_02B, 1_02C, 1_03, 1_04): **16/64
+dark before → 0/64 after**. Interiors (luma, before → after): main halls ~60 → 75-95, principal's office 31 → 58, dorm hall
+47 → 65-69; fixed probes `tools/ue/shots_ch1_interiors.json` (via `tools/ue/run_shots.sh`) also cover the chemistry room
+and Constantine's bathroom. Frame cameras never sit in/against a character (capsule clearance, body occlusion, foreground
+wall share), prefer the speaker's face, fall back to a single on the speaker, then to no cut; a frame camera issued during
+a teleporting fade solves after the cast lands. Known gaps: `TO_Cop` is imported ~1.5 m under its root (bounds centre
+z -49 cm vs ~+100 for other peds) so every TO_Cop npc renders buried — 1_04's Burton now uses `TO_Construct01`; 1_11x2,
+2_S02 and 3_06 still use TO_Cop (fix the importer). Floating chrome/wire props in the school halls and bathroom are
+importer artifacts, not lighting. Evidence: `~/bully-remake-evidence/story-mode/sm-visual/r2/`.
+
+Not done: `sm-humandrive` and `sm-cutscenes` have not been built or smoke-tested since the agents stopped; `sm-visual`
+was finished in round 2 (above). None of them is merged into `story-mode`. `story-mode` is not merged to `main`. Hari has not done a feel playtest.
 Next: in each WIP worktree, build, run its smokes per the brief, finish or trim it, then merge into `story-mode`. Then run
 the regression bar (day_one, arrival, 1_02B, 1_03, campaign and story smokes) and get Hari's playtest before `main`.
 Evidence: `~/bully-remake-evidence/story-mode/` (not committed).

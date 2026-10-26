@@ -28,6 +28,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
+#include "UnrealClient.h"
 #include "Rendering/DrawElements.h"
 #include "Serialization/JsonReader.h"
 #include "Serialization/JsonSerializer.h"
@@ -233,7 +234,7 @@ public:
 			const UBullyMinigameSubsystem::FChemState& C = S->GetChem();
 			// lane (scrolling prompts, ClassChemSetScrollyOnly)
 			const float LaneW = FMath::Min(820.f, Size.X - 80.f), LaneH = 104.f;
-			const FVector2f LaneP(Size.X * 0.5f - LaneW * 0.5f, Size.Y - LaneH - 70.f);
+			const FVector2f LaneP(Size.X * 0.5f - LaneW * 0.5f, Size.Y - LaneH - 130.f);   // clear of the letterbox / subtitle row
 			const float RingX = LaneP.X + 110.f, MidY = LaneP.Y + LaneH * 0.5f;
 			const float PxPerSec = 300.f, Icon = 64.f;
 			if (Ph == UBullyMinigameSubsystem::EPhase::Ready || Ph == UBullyMinigameSubsystem::EPhase::Begin || Ph == UBullyMinigameSubsystem::EPhase::Play || Ph == UBullyMinigameSubsystem::EPhase::Failed)
@@ -584,6 +585,7 @@ bool UBullyMinigameSubsystem::Begin(const FStart& S)
 		}
 		bHaveLastCombo = false;
 		Lock.Dial = float(FMath::RandRange(0, 39));
+		LockBeganAt = Now();
 		Phase = EPhase::Play;
 		UE_LOG(LogBullyMinigame, Display, TEXT("BR_MINIGAME lock '%s' begins: combo %d-%d-%d dial at %.0f"), *S.Id.ToString(), Lock.Combo[0], Lock.Combo[1], Lock.Combo[2], Lock.Dial);
 		LockInput(true, true);
@@ -1222,4 +1224,22 @@ void UBullyMinigameSubsystem::Tick(float Dt)
 	else if (Kind == EKind::Lock) { TickLock(Dt, PC); }
 	TickClimb(Dt, PC);
 	TickPlayerClip(Dt);
+	TickUiShots();
+}
+
+void UBullyMinigameSubsystem::TickUiShots()
+{
+	FString Dir;
+	if (!FParse::Value(FCommandLine::Get(), TEXT("-BRMinigameUIShot="), Dir)) { return; }
+	FString Name;
+	if (Kind == EKind::Chem && Phase == EPhase::Play && Chem.Prompts.IsValidIndex(Chem.Next) && Now() > Chem.Prompts[0].DueAt - 0.4) { Name = FString::Printf(TEXT("ui_chem_run%d"), Chem.Run + 1); }
+	else if (Kind == EKind::Chem && Phase == EPhase::Grades && Now() - Chem.PhaseAt > 1.0) { Name = TEXT("ui_chem_grades"); }
+	else if (Kind == EKind::Chem && Phase == EPhase::Unlock && Now() - Chem.PhaseAt > 1.0) { Name = TEXT("ui_chem_unlock"); }
+	else if (Kind == EKind::Lock && Phase == EPhase::Play && Now() - LockBeganAt > 1.5) { Name = TEXT("ui_lock"); }
+	else if (ClimbState == EClimb::Perched) { Name = TEXT("ui_perch"); }
+	if (Name.IsEmpty() || UiShotsTaken.Contains(Name)) { return; }
+	UiShotsTaken.Add(Name);
+	const FString File = FPaths::Combine(Dir, Name + TEXT(".png"));
+	FScreenshotRequest::RequestScreenshot(File, true, false);
+	UE_LOG(LogBullyMinigame, Display, TEXT("BR_MINIGAME ui screenshot -> %s"), *File);
 }

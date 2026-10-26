@@ -202,7 +202,10 @@ private:
 	FVector ClimbFrom = FVector::ZeroVector;
 	int32 ClimbLeg = 0;
 	uint8 SavedMoveMode = 1;
-	TArray<TWeakObjectPtr<class UPrimitiveComponent>> ClearedComps;   // climbable meshes made pellet/camera-transparent
+	TArray<TWeakObjectPtr<class UPrimitiveComponent>> ClearedComps;
+	TSet<FString> UiShotsTaken;   // -BRMinigameUIShot=<dir>: screenshots WITH the overlay (HighResShot leaves Slate out)
+	double LockBeganAt = 0.0;
+	void TickUiShots();   // climbable meshes made pellet/camera-transparent
 
 	// player clip
 	double ClipEndsAt = -1.0;

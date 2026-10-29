@@ -8,12 +8,18 @@ BR_UPROJECT="$BR_REPO/unreal/BullyRemake/BullyRemake.uproject"
 UE_ROOT="${UE_ROOT:-/Users/Shared/Epic Games/UE_5.8}"
 UE_CMD="$UE_ROOT/Engine/Binaries/Mac/UnrealEditor-Cmd"
 GPU_SLOT="${GPU_SLOT:-$HOME/.cache/gpu-slot/bin/gpu_slot.sh}"
+# The shared GPU-slot coordinator lives outside this repo (dev-machine infra).
+# On machines without it, fall back to the in-repo passthrough so the wrappers
+# still run; point GPU_SLOT at a real compatible helper to opt back in.
+if [ ! -x "$GPU_SLOT" ]; then
+  GPU_SLOT="$BR_REPO/tools/ue/gpu_slot_fallback.sh"
+fi
 
 br_die() { echo "error: $*" >&2; exit 2; }
 
 br_preflight() {
   [ -x "$UE_CMD" ] || br_die "UnrealEditor-Cmd not found at $UE_CMD"
-  [ -x "$GPU_SLOT" ] || br_die "gpu slot wrapper not found at $GPU_SLOT (engine launches must go through it)"
+  [ -x "$GPU_SLOT" ] || br_die "launch wrapper not found at $GPU_SLOT (GPU_SLOT env or tools/ue/gpu_slot_fallback.sh)"
   # never launch while any Unreal process is stuck exiting (E) or zombie (Z)
   if ps -axo stat=,comm= | grep -E '^[[:space:]]*[EZ]' | grep -qi 'unreal'; then
     ps -axo pid=,stat=,comm= | grep -i unreal >&2

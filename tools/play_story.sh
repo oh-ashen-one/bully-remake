@@ -39,13 +39,13 @@ while [ $# -gt 0 ]; do
 done
 case "$RES" in [0-9]*x[0-9]*) ;; *) br_die "--res wants WxH, got $RES" ;; esac
 RX=${RES%x*}; RY=${RES#*x}
-UE_GAME="$UE_ROOT/Engine/Binaries/Mac/UnrealEditor"
+UE_APP="$UE_ROOT/Engine/Binaries/Mac/UnrealEditor.app"
 EDITOR_BUILD="$UE_ROOT/Engine/Build/BatchFiles/Mac/Build.sh"
 MODULE="$BR_REPO/unreal/BullyRemake/Binaries/Mac/libUnrealEditor-BullyRemake.dylib"
 MAX_HOLD="${BR_PLAY_MAX_HOLD:-14400}"
 
-[ -x "$UE_GAME" ] || br_die "UnrealEditor not found at $UE_GAME"
-[ -x "$GPU_SLOT" ] || br_die "gpu slot wrapper not found at $GPU_SLOT (engine launches must go through it)"
+[ -d "$UE_APP" ] || br_die "UnrealEditor.app not found at $UE_APP"
+[ -x "$GPU_SLOT" ] || br_die "launch wrapper not found at $GPU_SLOT (GPU_SLOT env or tools/ue/gpu_slot_fallback.sh)"
 [ -f "$BR_REPO/unreal/BullyRemake/Content/Imported/Maps/Bullworth.umap" ] || br_die "the Bullworth level is missing: import the game content first (python3 -m tools.importers world --preset all, then tools/ue/run_import.sh)"
 
 # build-if-needed: any source/config/uproject file newer than the built module, or no module at all
@@ -64,7 +64,10 @@ else
   echo "build: $([ "$NEED_BUILD" = 1 ] && echo 'needed but skipped (--no-build)' || echo 'up to date')"
 fi
 
-LAUNCH=("$UE_GAME" "$BR_UPROJECT" "$MAP" -game -windowed -ResX="$RX" -ResY="$RY" -BRStory -BRTownLife -nosplash -nocrashreports -notraceserver)
+# Launch through `open` on the .app bundle (LaunchServices): this gives the game a proper
+# macOS app environment. Invoking the raw Mach-O inside the bundle can die in early startup
+# (observed 2026-10-29: UBT ValidatePlatforms 'MainVersion' SDK failure, exit 1).
+LAUNCH=(/usr/bin/open -W -n "$UE_APP" --args "$BR_UPROJECT" "$MAP" -game -windowed -ResX="$RX" -ResY="$RY" -BRStory -BRTownLife -nosplash -nocrashreports -notraceserver)
 [ -n "$SLOT" ] && LAUNCH+=("-BRStorySlot=$SLOT")
 [ ${#EXTRA[@]} -gt 0 ] && LAUNCH+=("${EXTRA[@]}")
 WRAPPED=(env "GPU_SLOT_CAPTURE_MAX_HOLD=$MAX_HOLD" "$GPU_SLOT" capture --label "$LABEL" -- "${LAUNCH[@]}")

@@ -4,7 +4,7 @@
 
 An **unofficial, non-commercial fan project**, built in public, by AI, on a Mac — because we love this game.
 
-"One-to-one" is the goal we measure against, not a finished product: what's here today is the academy grounds, the Day One opening slice, and some new experiments the original never had (talk to any NPC with your actual voice, powered by an LLM, and fight anyone on campus). **This is an experiment you can try and build on, not a finished remake. There is no promise of a full-game release, complete campaign, or release date.**
+"One-to-one" is the goal we measure against, not a finished product: what's here today is a playable Chapter 1 story mode — original cutscenes with recorded voice, campus life (bells, prefects, truancy, factions), classes and minigames — plus the whole outdoor map, townspeople, drivable cars and rides, AI NPC voice chat, and melee combat against anyone. **This is an experiment you can try and build on, not a finished remake. There is no promise of a full-game release, complete campaign, or release date.**
 
 **You need your own legally obtained, installed PC copy of Bully: Scholarship Edition. Buy it — seriously, buy it, it's one of the best games ever made and Rockstar deserves the money. Do not pirate it. No original game assets are included here and none ever will be.** The importers read *your* installed copy on *your* machine and everything generated stays local.
 
@@ -19,7 +19,7 @@ Total transparency, because we think this is the interesting part:
 - **In-game AI stack** (all swappable in `Config/NPCChat.json`, bring your own API keys): an OpenAI-compatible LLM endpoint for NPC dialogue and memory summarization (we run MiniMax M2.7-highspeed; a local model works too), [Fish Audio](https://fish.audio) for per-character NPC voices, and local [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for push-to-talk speech input — your mic audio never leaves your machine.
 - **Other tools:** Unreal Engine 5.8, custom Python importers written for this repo (world, skeletal meshes, 4,374 animation clips, XACT audio), and our own reverse-engineering notes in [docs/re-notes/](docs/re-notes/).
 
-You can give this repository to a coding agent and ask it to help set up the available content on your own computer. Read the requirements and known setup blockers below first: this is currently a developer workflow, not a one-click game download.
+You can give this repository to a coding agent and ask it to help set up the available content on your own computer. Read the requirements and known setup blockers below first — and point your agent at [`AGENTS.md`](AGENTS.md), which carries the full fresh-checkout recipe. This is currently a developer workflow, not a one-click game download.
 
 ## The legal bit, in plain words
 
@@ -49,10 +49,12 @@ silently substitute another engine version or download unknown plugins/helpers.
 Explain required downloads and local changes before making them, and follow
 your normal approval requirements.
 
-The existing Unreal wrappers are Mac-specific and depend on a helper not
-included in the repo. If my platform or prerequisites do not match, identify
-the concrete blocker and propose the smallest reviewed adaptation. Do not
-disable safety checks or pretend unsupported setup is already tested.
+The existing Unreal wrappers are Mac-specific. They used to require an external
+GPU-slot helper that is not in the repo; they now fall back to an included
+passthrough (tools/ue/gpu_slot_fallback.sh) when it is absent. If my platform or
+prerequisites do not match, identify the concrete blocker and propose the
+smallest reviewed adaptation. Do not disable safety checks or pretend
+unsupported setup is already tested.
 
 Follow the checked-out extraction, C++ build, Unreal import, and launch
 instructions in dependency order. Check logs and generated assets after each
@@ -78,11 +80,17 @@ An agent can help inspect and diagnose this project; it cannot guarantee compati
 
 ## What can I try today?
 
-### `main`: campus exploration, the Day One opening slice, AI conversations, campus-wide brawling
+### `main`: Chapter 1 story mode, the whole town, vehicles, AI conversations, campus-wide brawling
 
-Status checked **2026-10-19**, against commit [`69abe5a`](https://github.com/oh-ashen-one/bully-remake/commit/69abe5a). `main` is the most up-to-date version of the project; the Day One opening work and the AI NPC branch have been merged in.
+Status checked **2026-10-29**, against commit [`23977e5`](https://github.com/oh-ashen-one/bully-remake/commit/23977e5). `main` is the most up-to-date version of the project.
 
-**New — talk to anyone (`T`):** walk up to any student and press `T`. A chat panel opens, the NPC stops and faces you, and an LLM answers in character — every ped has an authored persona in [`Config/NPCChat.json`](unreal/BullyRemake/Config/NPCChat.json). **Hold `Tab` to talk with your actual voice** (transcribed locally by whisper.cpp), and replies are spoken aloud in a per-character Fish Audio voice. When a conversation ends, one summarization call distills it into a small set of first-person memories per NPC (`Saved/NPCChat/<ped>.json`) that are fed back into every later conversation — insult someone, come back tomorrow, and they remember. Bring your own API keys (an OpenAI-compatible LLM endpoint and optionally Fish Audio); with no keys it degrades to silence, never an error.
+**Story mode (`tools/play_story.sh` or double-click `Play Bully Story Mode.command`):** boots to a title screen (New Story / Continue) with autosave per mission. The first ~20 minutes of Chapter 1 runs end-to-end: arrival → day_one → 1_02B/1_02C → Chemistry class `C_Chem_1` → 1_03 → 1_04 — with the **original cutscenes** (camera moves, actors, recorded voice lines, subtitles), campus life (class bells and schedule, truancy, prefects and a trouble meter, factions, ~2,460 ambient chatter lines), and minigames (lockpick dial, slingshot free-aim, tree climb). Development records report a headless regression pass on all seven Chapter-1 missions plus campaign and campus smokes; **hands-on feel is still being reviewed.**
+
+**The whole map:** town districts imported and enterable — townspeople walk the game's own loops, and ~65% of kerbside parking spots hold drivable cars (sedan, police, pickup). Press **G** for the teleport menu (50 spots: `town`, `vale`, `coventry`, `carnival`, interiors, and more).
+
+**Sandbox showcase (`-BRSandbox`):** spawns you in town facing a lineup of all four rides — bike, skateboard, go-kart, car — with the full 8-weapon arsenal unlocked (mouse wheel / D-pad to cycle). Town life stays on with `-BRTownLife`.
+
+**Talk to anyone (`T`):** walk up to any student and press `T`. A chat panel opens, the NPC stops and faces you, and an LLM answers in character — every ped has an authored persona in [`Config/NPCChat.json`](unreal/BullyRemake/Config/NPCChat.json). **Hold `Tab` to talk with your actual voice** (transcribed locally by whisper.cpp), and replies are spoken aloud in a per-character Fish Audio voice. When a conversation ends, one summarization call distills it into a small set of first-person memories per NPC (`Saved/NPCChat/<ped>.json`) that are fed back into every later conversation — insult someone, come back tomorrow, and they remember. Bring your own API keys (an OpenAI-compatible LLM endpoint and optionally Fish Audio); with no keys it degrades to silence, never an error.
 
 **New — fight anyone:** every student and mission bully is now a valid combat target with the full melee stack (combos, blocking, grapples, knockdowns, KO). The first real hit makes them drop whatever they were doing — their walking loop, even their mission script — and fight back with the same AI as the sparring partner. KO'd students stay down.
 
@@ -111,7 +119,7 @@ What a headless log still cannot settle: the remaining **combat "feel"** — imp
 
 ### Beyond Day One: the objective → reward loop
 
-A first step past the opening slice: an **optional side mission** (`Config/Missions/side_errand.json`, an original campus errand) and a **reward loop**. Finishing a mission can now pay out through a `reward` action into a persistent session wallet (money and respect), shown on the mission HUD. A headless smoke run (`tools/ue/run_mission_smoke.sh side_errand`) drives the errand through all five stages and confirms the payout. This is the loop groundwork; an **open town to roam between missions is not in yet** — the current import only covers the academy grounds and interiors, and bringing in the town districts needs another pass over the original game's world data.
+A first step past the opening slice: an **optional side mission** (`Config/Missions/side_errand.json`, an original campus errand) and a **reward loop**. Finishing a mission can now pay out through a `reward` action into a persistent session wallet (money and respect), shown on the mission HUD. A headless smoke run (`tools/ue/run_mission_smoke.sh side_errand`) drives the errand through all five stages and confirms the payout. This is the loop groundwork. (Update 2026-10-29: the town districts have since been imported — see "The whole map" above.)
 
 ### In-engine arrival cutscene
 
@@ -133,7 +141,7 @@ Each line is its own timer-paced stage, so the beats read in order with no playe
 5. **Required engine plugins.** The project enables `EnhancedInput`, `PythonScriptPlugin`, and `ModelContextProtocol`; the asset pipeline uses Unreal's Interchange glTF importer. Verify these are available in your engine installation. A missing plugin is a setup blocker, not a reason to download an unknown binary or silently alter the project.
 6. **Local storage for the engine, build products, converted assets, and caches.** A clone does not include the generated map or characters. First-time shader compilation and imports take time; the developer's recorded timings are not a guarantee for your computer.
 
-**Important portability gap:** [`tools/ue/_common.sh`](tools/ue/_common.sh) hard-codes Mac engine binaries and uses macOS process/window tooling. The checked-in wrappers also require an external executable GPU-slot helper, defaulting to `~/.cache/gpu-slot/bin/gpu_slot.sh`, which **is not supplied in this repository**. `GPU_SLOT` can point to an existing compatible helper; changing that variable alone does not install one. The wrappers refuse to launch without it. Report a missing helper and agree on a reviewed local setup/adaptation before proceeding; do not bypass the checks or claim a clean clone is self-contained.
+**Important portability gap:** [`tools/ue/_common.sh`](tools/ue/_common.sh) hard-codes Mac engine binaries and uses macOS process/window tooling. The wrappers also reference an external GPU-slot coordinator (`GPU_SLOT`, defaulting to `~/.cache/gpu-slot/bin/gpu_slot.sh`) that is **not supplied in this repository** — when it is absent the wrappers fall back to the included [`tools/ue/gpu_slot_fallback.sh`](tools/ue/gpu_slot_fallback.sh) passthrough, which just runs the command directly. On your own machine that means the wrappers work out of the box; coordinate concurrent engine launches yourself.
 
 **Windows and Linux setup is not verified by this README.** Unreal supporting a platform does not make these Mac-specific scripts portable. Porting their launch/toolchain handling is additional work. CrossOver is part of the documented original-game installation/reference workflow, not how the Unreal Mac build itself runs.
 
@@ -173,41 +181,42 @@ Stop on a build failure and read the error. **Build before assembling the map**:
 
 ### 3. Convert your local content, then import it into Unreal
 
-These commands describe the existing Mac workflow **after its prerequisites are satisfied**:
+The full current recipe (world + town + rides + cast + cutscenes + voice + campus + minigames) lives in [`AGENTS.md`](AGENTS.md#full-fresh-checkout-recipe-dependency-order) — it is what we keep verified. The core of it:
 
 ```sh
-python3 -m tools.importers world
+python3 -m tools.importers world --preset all
 python3 -m tools.importers ped PLAYER --anims '*' --root-motion inplace --head B_Buzz
-
+python3 -m tools.importers townlife && python3 -m tools.importers exits
 python3 -m tools.importers audio extract FeetAll FeetSCHL
-python3 -m tools.importers audio extract Ambs --names 'NewSchoolOutdoor_F|Birds01'
-python3 -m tools.importers audio footsteps
-
-for m in GN_Boy01 GN_Boy02 GN_Asiangirl GN_Greekboy NDH3_Bucky PFH1_Seth; do
-  python3 -m tools.importers ped "$m" --anims IDLE PLAYERWALK PLAYERRUN RUNFAST IDLEJUMP JOGJUMP_L JOGJUMP_R FALL FALL_LAND PLAY_LAND_HURT --root-motion inplace
-done
-
+python3 -m tools.importers cutscene build --chapter1
+python3 -m tools.importers speech --transcribe            # needs faster-whisper (optional)
+python3 -m tools.importers campus --transcribe
+python3 -m tools.importers minigame
 python3 -m tools.importers validate
 
-tools/ue/run_import.sh
+tools/ue/run_import.sh --scenes all
 tools/ue/run_import_character.sh
-tools/ue/run_import_ambient.sh
-tools/ue/run_lighting.sh --variant B_raking_amber
+tools/ue/run_import_npc.sh --cast
+tools/ue/run_import_cutscene_actors.sh
+tools/ue/run_lighting.sh
 ```
 
 Run stages in order and check each result before continuing. Intermediates go to `imported/`; Unreal assets go to `unreal/BullyRemake/Content/Imported/`. Both are git-ignored. Import logs and reports are under `unreal/BullyRemake/Saved/BullyImport/`. Inspect reported failures and missing textures instead of assuming an exit alone proves everything is playable. The importer also has synthetic tests: `python3 -m pytest tools/tests`; setting `BULLY_INSTALL` enables tests against your installation.
 
-### 4. Open the project and play the available route
+### 4. Play
 
-Open `unreal/BullyRemake/BullyRemake.uproject` with UE 5.8 after a successful build/import. Load `/Game/Imported/Maps/Bullworth` (the configured default map), then use Play in Editor. A deliberately launched interactive editor is separate from the headless/offscreen capture wrappers.
+`tools/play_story.sh` builds the module if needed and launches the game **windowed** on the title screen (New Story / Continue). `Play Bully Story Mode.command` is the same thing for Finder double-clicks. For the free-play vehicle/weapon showcase, launch the project in `-game` mode with `-BRSandbox -BRTownLife` instead of `-BRStory`.
 
 - WASD / left stick: move; mouse / right stick: look
 - Left Alt or Left Ctrl / partial stick: walk
 - Left Shift / L3 / gamepad X (Square): sprint
 - Space / gamepad A: jump
-- Esc: settings/resume in the game controller; editor play modes can intercept Esc
+- E: interact / mount a ride; H: horn
+- T: talk to an NPC (hold Tab for voice input)
+- G: teleport menu
+- Esc: settings/save & quit; progress autosaves after every mission
 
-Try the gates → courtyard → main east door → lobby → outside route first. If Jimmy is a primitive placeholder, verify the character import. If the door fails, check for missing door actors and the import log's `door links skipped` warning; after a successful module build, the existing `tools/ue/run_place_doors.sh` can re-place them. See the Unreal guide for details. Do not interpret missing content as a finished feature.
+If Jimmy is a primitive placeholder, verify the character import. If the door fails, check the import log's `door links skipped` warning; `tools/ue/run_place_doors.sh` re-places them. See the Unreal guide for details. Do not interpret missing content as a finished feature.
 
 ## Fidelity and future work
 

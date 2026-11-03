@@ -2,9 +2,9 @@
 
 Scope: Phase 0 (Jimmy run/jump, third-person camera). Sources read:
 
-- `/Users/midir/bully-remake-refs/Bully-SE-scripts/scripts/` (decompiled Lua, 551 files)
-- `/Users/midir/bully-remake-refs/bully-re/` (RE notes and C++ skeletons; no game data)
-- `/Users/midir/bully-remake-refs/bully-mact-tool/` (CAT/MACT converter; checked as a lead)
+- `$HOME/bully-remake-refs/Bully-SE-scripts/scripts/` (decompiled Lua, 551 files)
+- `$HOME/bully-remake-refs/bully-re/` (RE notes and C++ skeletons; no game data)
+- `$HOME/bully-remake-refs/bully-mact-tool/` (CAT/MACT converter; checked as a lead)
 
 Game data (`Config/Dat/*.dat`, `.act`/CAT action trees, `.agr` animations, `World.img`) is not in any of these repos. Anything that lives only there is marked **OPEN**.
 
@@ -114,7 +114,7 @@ Default follow distance, height offset, look-at offset, pitch and yaw defaults, 
 
 ## 8. Lead for the action-tree values
 
-`/Users/midir/bully-remake-refs/bully-mact-tool/` converts Bully's CAT action-tree files into readable MACT text (`README.md`: `python3 CAT_TO_MACT.py YourCatFile.cat`). `Act/Player.act` and `Act/Globals/SimpleLoco.act` are CAT files in the game data. If the game's `Act` folder is available, this tool may be the fastest way to read Jimmy's locomotion track parameters without Ghidra. It is a lead only; it was not run, and no CAT file is in the refs.
+`$HOME/bully-remake-refs/bully-mact-tool/` converts Bully's CAT action-tree files into readable MACT text (`README.md`: `python3 CAT_TO_MACT.py YourCatFile.cat`). `Act/Player.act` and `Act/Globals/SimpleLoco.act` are CAT files in the game data. If the game's `Act` folder is available, this tool may be the fastest way to read Jimmy's locomotion track parameters without Ghidra. It is a lead only; it was not run, and no CAT file is in the refs.
 
 ## Method notes
 

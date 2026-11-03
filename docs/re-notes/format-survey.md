@@ -3,9 +3,9 @@
 Status: read-only survey, 2026-10-15, branch `phase0`. Written for the Ghidra pass and for the importer design.
 
 Sources:
-- `bully-re` (engine reimplementation, the primary format authority): `/Users/midir/bully-remake-refs/bully-re`. Cited as `bully-re:<path>:<line>`.
-- `Bully-SE-scripts` (decompiled Lua): `/Users/midir/bully-remake-refs/Bully-SE-scripts`.
-- `bully-mact-tool` (CAT/MACT conversion): `/Users/midir/bully-remake-refs/bully-mact-tool`.
+- `bully-re` (engine reimplementation, the primary format authority): `$HOME/bully-remake-refs/bully-re`. Cited as `bully-re:<path>:<line>`.
+- `Bully-SE-scripts` (decompiled Lua): `$HOME/bully-remake-refs/Bully-SE-scripts`.
+- `bully-mact-tool` (CAT/MACT conversion): `$HOME/bully-remake-refs/bully-mact-tool`.
 - The installed game, read only. Paths below are relative to the install root `Bully Scholarship Edition/`. Nothing was copied out. Hexdumps are header bytes only.
 
 Confidence tags: **VERIFIED** = checked against the game bytes or against code and counts. **INFERRED** = matched by name or size only. **OPEN** = needs Ghidra or a further test.
